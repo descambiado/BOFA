@@ -1,0 +1,8 @@
+
+# Directorio para scripts de reconocimiento
+# Aquí se almacenarán herramientas como:
+# - web_discover.py
+# - port_slayer.sh
+# - dns_zone_walk.py
+# - cdn_finder.py
+# - iot_device_finder.py

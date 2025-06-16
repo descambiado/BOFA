@@ -1,0 +1,7 @@
+
+# Directorio para scripts de ingeniería social
+# Aquí se almacenarán herramientas como:
+# - email_phishing_kit.py
+# - fake_login_page_gen.py
+# - pdf_trap_builder.py
+# - usb_payload_autoloader.py

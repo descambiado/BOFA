@@ -1,0 +1,30 @@
+
+name: log_guardian
+category: blue
+author: "@descambiado"
+description: "Sistema avanzado de monitoreo de logs y detección de amenazas"
+version: "1.0"
+last_updated: "2025-06-16"
+tags: ["log monitoring", "blue team", "threat detection", "siem", "security"]
+usage: "python3 log_guardian.py --monitor --config config.json"
+dependencies:
+  - python3
+  - json
+  - re
+  - threading
+requirements: "python>=3.6"
+educational_purpose: true
+legal_notice: "Para uso en sistemas propios o con autorización. Respeta la privacidad."
+features:
+  - "Monitoreo en tiempo real de múltiples logs"
+  - "Detección de intentos de login fallidos"
+  - "Alertas de uso de sudo y acceso root"
+  - "Detección de escaneos de puertos"
+  - "Sistema de alertas configurable"
+  - "Rate limiting de alertas"
+  - "Estadísticas y reporting"
+supported_logs:
+  - "/var/log/auth.log"
+  - "/var/log/syslog"
+  - "/var/log/secure"
+  - "/var/log/messages"

@@ -1,0 +1,7 @@
+
+# Directorio para scripts de OSINT
+# Aquí se almacenarán herramientas como:
+# - social_profile_mapper.py
+# - github_secrets_miner.py
+# - email_breach_checker.py
+# - shodan_dorker.py
