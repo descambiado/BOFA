@@ -1,0 +1,15 @@
+
+name: web_discover
+category: recon
+author: "@descambiado"
+description: "Herramienta de descubrimiento de subdominios y servicios web"
+version: "1.0"
+last_updated: "2025-06-16"
+tags: ["subdomain", "web discovery", "reconnaissance", "http", "https"]
+usage: "python3 web_discover.py -d example.com -t 10 --threads 50"
+dependencies:
+  - requests
+  - socket
+requirements: "requests>=2.25.0"
+educational_purpose: true
+legal_notice: "Solo para uso educativo y profesional autorizado"

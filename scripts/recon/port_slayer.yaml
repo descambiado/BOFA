@@ -1,0 +1,19 @@
+
+name: port_slayer
+category: recon
+author: "@descambiado"
+description: "Escáner avanzado de puertos TCP/UDP con múltiples modos"
+version: "1.0"
+last_updated: "2025-06-16"
+tags: ["port scan", "nmap", "reconnaissance", "tcp", "udp", "stealth"]
+usage: "./port_slayer.sh -f 192.168.1.1"
+dependencies:
+  - nmap
+  - bash
+requirements: "nmap>=7.0"
+educational_purpose: true
+legal_notice: "Solo para uso educativo y profesional autorizado"
+modes:
+  - fast: "Escaneo rápido de puertos comunes"
+  - stealth: "Escaneo sigiloso SYN"
+  - full: "Escaneo completo de todos los puertos"

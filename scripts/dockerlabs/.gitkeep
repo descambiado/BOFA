@@ -1,0 +1,6 @@
+
+# Directorio para scripts de Docker Labs
+# Aquí se almacenarán herramientas como:
+# - vuln_web_generator.py
+# - ctf_lab_builder.py
+# - red_vs_blue_simulator.py

@@ -1,0 +1,54 @@
+
+version: '3.8'
+
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - bofa-network
+
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=development
+    volumes:
+      - ./scripts:/app/scripts
+    restart: unless-stopped
+    networks:
+      - bofa-network
+
+  web:
+    build: ./web
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - bofa-network
+
+  cli:
+    build: ./cli
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./scripts:/app/scripts
+      - ./cli:/app/cli
+    environment:
+      - API_URL=http://api:8000
+    networks:
+      - bofa-network
+
+networks:
+  bofa-network:
+    driver: bridge

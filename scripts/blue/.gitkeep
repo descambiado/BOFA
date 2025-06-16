@@ -1,0 +1,7 @@
+
+# Directorio para scripts de Blue Team
+# Aquí se almacenarán herramientas como:
+# - log_guardian.py
+# - siem_simulator.py
+# - network_sniffer_ai.py
+# - file_integrity_monitor.sh

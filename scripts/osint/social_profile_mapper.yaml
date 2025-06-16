@@ -1,0 +1,23 @@
+
+name: social_profile_mapper
+category: osint
+author: "@descambiado"
+description: "Herramienta OSINT para descubrimiento de perfiles sociales públicos"
+version: "1.0"
+last_updated: "2025-06-16"
+tags: ["osint", "social media", "profile discovery", "reconnaissance"]
+usage: "python3 social_profile_mapper.py -u 'username' --variations"
+dependencies:
+  - requests
+requirements: "requests>=2.25.0"
+educational_purpose: true
+legal_notice: "Solo accede a información pública. Uso ético requerido."
+platforms:
+  - github
+  - twitter
+  - instagram
+  - linkedin
+  - youtube
+  - tiktok
+  - reddit
+  - pinterest
