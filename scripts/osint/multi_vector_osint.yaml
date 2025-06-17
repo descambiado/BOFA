@@ -1,0 +1,40 @@
+
+name: multi_vector_osint
+category: osint
+author: "@descambiado"
+description: "Revolutionary multi-vector OSINT tool for comprehensive target profiling"
+version: "1.0"
+last_updated: "2025-06-17"
+tags: ["osint", "profiling", "social media", "email intelligence", "correlation", "investigation"]
+usage: "python3 multi_vector_osint.py -e target@example.com -n John -s Doe -f html"
+dependencies:
+  - requests
+requirements: "requests>=2.25.0"
+educational_purpose: true
+legal_notice: "For authorized research and education only - public information only"
+innovation: "First tool to combine multiple OSINT vectors with advanced correlation analysis"
+intelligence_sources:
+  - "Social media platforms"
+  - "Email provider analysis"
+  - "Username pattern analysis"
+  - "Domain intelligence"
+  - "Metadata correlation"
+features:
+  - "Username variation generation"
+  - "Multi-platform social media search"
+  - "Email intelligence analysis"
+  - "Cross-reference correlation"
+  - "Relationship mapping"
+  - "Interactive HTML reports"
+  - "Pattern recognition"
+platforms_supported:
+  - "GitHub, Twitter, Instagram"
+  - "LinkedIn, Facebook, Reddit"
+  - "YouTube, TikTok, Pinterest"
+  - "Medium, DeviantArt, Flickr"
+  - "SoundCloud, Twitch, Steam"
+output_formats:
+  - "JSON (machine readable)"
+  - "HTML (interactive report)"
+privacy_focused: true
+rate_limiting: true

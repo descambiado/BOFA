@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 BOFA CLI - Best Of All Command Line Interface
@@ -235,14 +234,141 @@ class BOFAcli:
                 }
             ],
             "malware": [],
-            "dockerlabs": [],
-            "estudio": []
+            "dockerlabs": [
+                {
+                    "name": "lab_manager.py",
+                    "file": "lab_manager.py",
+                    "display_name": "🐳 lab_manager.py - Gestor de laboratorios",
+                    "description": "Gestión de laboratorios Docker vulnerables"
+                }
+            ],
+            "estudio": [
+                {
+                    "name": "sql_injection_trainer.py",
+                    "file": "../../study/sql_injection/learn_sql_injection.py",
+                    "display_name": "📚 SQL Injection - Fundamentos",
+                    "description": "Entrenamiento interactivo de inyección SQL"
+                },
+                {
+                    "name": "xss_trainer.py", 
+                    "file": "../../study/xss/xss_trainer.py",
+                    "display_name": "📚 XSS - Cross-Site Scripting",
+                    "description": "Entrenamiento de vulnerabilidades XSS"
+                }
+            ]
         }
         
         return scripts_map.get(module, [])
 
-    # ... keep existing code (show_config_menu, run methods and main execution)
+    def show_labs_menu(self):
+        """Muestra el menú de laboratorios Docker"""
+        self.clear_screen()
+        self.print_banner()
         
+        print(f"{Fore.CYAN}═══════════════════════════════════════════════════════════════════")
+        print(f"                        LABORATORIOS DOCKER")
+        print(f"═══════════════════════════════════════════════════════════════════{Style.RESET_ALL}")
+        
+        labs = [
+            ("web-sqli", "🌐 SQL Injection Lab", "Aplicación web vulnerable para SQLi"),
+            ("internal-network", "🕸️  Internal Network Lab", "Red interna con múltiples máquinas"),
+            ("siem-detection", "🛡️  SIEM Detection Lab", "Laboratorio Blue Team con Wazuh"),
+            ("malware-lab", "🦠 Malware Analysis Lab", "Entorno aislado para análisis de malware"),
+            ("red-vs-blue", "⚔️  Red vs Blue Exercise", "Ejercicio competitivo de equipos")
+        ]
+        
+        for i, (lab_id, name, desc) in enumerate(labs, 1):
+            status = self.get_lab_status(lab_id)
+            status_color = Fore.GREEN if status == "running" else Fore.RED
+            print(f"{Fore.GREEN}[{i}]{Fore.WHITE} {name}")
+            print(f"    {desc}")
+            print(f"    Estado: {status_color}{status}{Style.RESET_ALL}")
+            print()
+        
+        print(f"{Fore.YELLOW}[L]{Fore.WHITE} 📋 Listar laboratorios activos")
+        print(f"{Fore.YELLOW}[S]{Fore.WHITE} 🛑 Detener todos los laboratorios")
+        print(f"{Fore.RED}[0]{Fore.WHITE} ← Volver al menú principal")
+        
+        choice = input(f"\n{Fore.YELLOW}Selecciona una opción: {Style.RESET_ALL}")
+        
+        if choice == "0":
+            return
+        elif choice.upper() == "L":
+            self.list_active_labs()
+        elif choice.upper() == "S":
+            self.stop_all_labs()
+        elif choice.isdigit() and 1 <= int(choice) <= len(labs):
+            lab_id, name, desc = labs[int(choice)-1]
+            self.manage_lab(lab_id, name)
+        else:
+            print(f"{Fore.RED}❌ Opción inválida.{Style.RESET_ALL}")
+            time.sleep(1)
+            
+    def get_lab_status(self, lab_id):
+        """Obtiene el estado de un laboratorio"""
+        try:
+            # En un entorno real, esto consultaría el estado de Docker
+            import subprocess
+            result = subprocess.run(['docker-compose', '-f', f'labs/{lab_id}/docker-compose.yml', 'ps'], 
+                                  capture_output=True, text=True, cwd=os.path.dirname(self.scripts_path))
+            return "running" if "Up" in result.stdout else "stopped"
+        except:
+            return "stopped"
+    
+    def manage_lab(self, lab_id, lab_name):
+        """Gestiona un laboratorio específico"""
+        self.clear_screen()
+        self.print_banner()
+        
+        print(f"{Fore.CYAN}═══════════════════════════════════════════════════════════════════")
+        print(f"                    LABORATORIO: {lab_name.upper()}")
+        print(f"═══════════════════════════════════════════════════════════════════{Style.RESET_ALL}")
+        
+        status = self.get_lab_status(lab_id)
+        status_color = Fore.GREEN if status == "running" else Fore.RED
+        print(f"{Fore.YELLOW}Estado actual: {status_color}{status}{Style.RESET_ALL}\n")
+        
+        print(f"{Fore.GREEN}[1]{Fore.WHITE} 🚀 Iniciar laboratorio")
+        print(f"{Fore.RED}[2]{Fore.WHITE} 🛑 Detener laboratorio") 
+        print(f"{Fore.YELLOW}[3]{Fore.WHITE} 🔄 Reiniciar laboratorio")
+        print(f"{Fore.BLUE}[4]{Fore.WHITE} 📋 Ver logs")
+        print(f"{Fore.CYAN}[5]{Fore.WHITE} 📖 Ver documentación")
+        print(f"{Fore.RED}[0]{Fore.WHITE} ← Volver")
+        
+        choice = input(f"\n{Fore.YELLOW}Selecciona una acción: {Style.RESET_ALL}")
+        
+        if choice == "0":
+            return
+        elif choice == "1":
+            self.start_lab(lab_id, lab_name)
+        elif choice == "2":
+            self.stop_lab(lab_id, lab_name)
+        elif choice == "3":
+            self.restart_lab(lab_id, lab_name)
+        elif choice == "4":
+            self.view_lab_logs(lab_id, lab_name)
+        elif choice == "5":
+            self.view_lab_docs(lab_id, lab_name)
+    
+    def start_lab(self, lab_id, lab_name):
+        """Inicia un laboratorio"""
+        print(f"{Fore.CYAN}🚀 Iniciando laboratorio {lab_name}...{Style.RESET_ALL}")
+        try:
+            import subprocess
+            lab_path = os.path.join(os.path.dirname(self.scripts_path), "labs", lab_id)
+            result = subprocess.run(['docker-compose', 'up', '-d'], 
+                                  cwd=lab_path, capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"{Fore.GREEN}✅ Laboratorio iniciado correctamente{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}🌐 Accede en: http://localhost{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.RED}❌ Error al iniciar el laboratorio{Style.RESET_ALL}")
+                print(result.stderr)
+        except Exception as e:
+            print(f"{Fore.RED}❌ Error: {str(e)}{Style.RESET_ALL}")
+        
+        input(f"\n{Fore.CYAN}Presiona Enter para continuar...{Style.RESET_ALL}")
+
     def show_config_menu(self):
         self.clear_screen()
         self.print_banner()

@@ -1,0 +1,34 @@
+
+name: defense_break_replicator
+category: blue
+author: "@descambiado"
+description: "Revolutionary malware behavior simulator for training defense systems"
+version: "1.0"
+last_updated: "2025-06-17"
+tags: ["malware simulation", "defense training", "siem testing", "edr testing", "blue team"]
+usage: "python3 defense_break_replicator.py -d 300 -t all -v"
+dependencies:
+  - psutil
+requirements: "psutil>=5.8.0"
+educational_purpose: true
+legal_notice: "For authorized security testing and training only"
+innovation: "First comprehensive malware behavior simulator designed specifically for defense training"
+simulation_types:
+  - "File system manipulation"
+  - "Network communication patterns"
+  - "Process injection simulation"
+  - "System reconnaissance"
+  - "Cryptocurrency mining behavior"
+  - "Honeytoken generation"
+defense_systems_tested:
+  - "SIEM solutions"
+  - "EDR platforms"
+  - "Antivirus engines"
+  - "Network monitoring tools"
+  - "Behavioral analysis systems"
+safety_features:
+  - "No actual malware execution"
+  - "Safe file operations only"
+  - "Local network connections only"
+  - "Complete cleanup on exit"
+  - "Simulation mode indicators"

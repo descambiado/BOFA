@@ -1,0 +1,31 @@
+
+name: wifi_shadow_mapper
+category: recon
+author: "@descambiado"
+description: "Revolutionary passive discovery tool for phantom SSIDs and hidden networks"
+version: "1.0"
+last_updated: "2025-06-17"
+tags: ["wifi", "hidden networks", "phantom ssid", "passive", "802.11", "surveillance"]
+usage: "./wifi_shadow_mapper.sh -i wlan0 -t 120 -v"
+dependencies:
+  - iwconfig
+  - iw
+  - tshark
+  - airmon-ng
+requirements: "wireless-tools iw tshark aircrack-ng"
+educational_purpose: true
+legal_notice: "For authorized network security testing only"
+innovation: "First tool to use beacon frame noise analysis for phantom SSID detection"
+features:
+  - "Passive hidden network discovery"
+  - "Beacon frame analysis"
+  - "Channel hopping capabilities"
+  - "Vendor identification"
+  - "Threat level assessment"
+  - "Pattern recognition"
+advanced_techniques:
+  - "Probe request correlation"
+  - "Timing analysis"
+  - "Coordinated network detection"
+  - "Signal strength profiling"
+root_required: true

@@ -1,0 +1,22 @@
+
+id: web-sqli
+name: "SQL Injection Lab"
+description: "Vulnerable web application for practicing SQL injection attacks"
+category: "web"
+difficulty: "beginner"
+estimated_time: "45 minutos"
+objectives:
+  - "Identificar puntos de inyección SQL"
+  - "Explotar vulnerabilidades UNION-based"
+  - "Extraer información de la base de datos"
+  - "Practicar técnicas de bypass"
+ports:
+  - "80:80"
+  - "3306:3306"
+services:
+  - "Apache Web Server"
+  - "MySQL Database"
+  - "PHP Application"
+author: "@descambiado"
+tags: ["sql", "injection", "web", "database"]
+points: 150

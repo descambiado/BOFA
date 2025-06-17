@@ -1,0 +1,12 @@
+
+id: sql_injection
+title: "SQL Injection Fundamentals"
+description: "Aprende a identificar y explotar vulnerabilidades de inyección SQL"
+category: "web"
+difficulty: "beginner"
+estimated_time: "30 minutos"
+prerequisites: []
+tags: ["sql", "injection", "web", "owasp"]
+author: "@descambiado"
+script: "learn_sql_injection.py"
+points: 100
