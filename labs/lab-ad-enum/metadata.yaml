@@ -1,0 +1,38 @@
+
+name: "Active Directory Enumeration Lab"
+description: "Complete AD environment for domain enumeration and attack simulation"
+category: "red"
+difficulty: "advanced"
+estimated_time: "90 minutes"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-17"
+tags: ["active directory", "domain enumeration", "bloodhound", "ldap", "kerberos"]
+ports:
+  - "389"   # LDAP
+  - "636"   # LDAPS
+  - "88"    # Kerberos
+  - "53"    # DNS
+  - "445"   # SMB
+  - "3389"  # RDP
+services:
+  - "Windows Server 2019"
+  - "Active Directory Domain Services"
+  - "DNS Server"
+  - "File Server"
+learning_objectives:
+  - "AD enumeration techniques"
+  - "BloodHound data collection"
+  - "Kerberoasting attacks"
+  - "ASREPRoasting techniques"
+  - "ACL abuse identification"
+vulnerabilities:
+  - "Weak service account passwords"
+  - "Misconfigured ACLs"
+  - "Kerberos delegation issues"
+  - "Outdated systems"
+tools_included:
+  - "BloodHound"
+  - "PowerView"
+  - "Impacket"
+  - "Rubeus"

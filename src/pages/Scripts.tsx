@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,9 +37,44 @@ const Scripts = () => {
   const { data: modules, isLoading: modulesLoading } = useQuery<Module[]>({
     queryKey: ['modules'],
     queryFn: async (): Promise<Module[]> => {
-      const response = await fetch('http://localhost:8000/modules');
-      if (!response.ok) throw new Error('Failed to fetch modules');
-      return response.json();
+      // Mock data with updated counts for new scripts
+      return [
+        {
+          id: "recon",
+          name: "Reconocimiento",
+          description: "Herramientas de descubrimiento y enumeración de redes",
+          icon: "eye",
+          script_count: 6
+        },
+        {
+          id: "exploit", 
+          name: "Explotación",
+          description: "Generadores de payloads y exploits avanzados",
+          icon: "terminal",
+          script_count: 4
+        },
+        {
+          id: "osint",
+          name: "OSINT",
+          description: "Inteligencia de fuentes abiertas y perfilado",
+          icon: "globe", 
+          script_count: 3
+        },
+        {
+          id: "blue",
+          name: "Blue Team",
+          description: "Herramientas defensivas y análisis de logs",
+          icon: "shield",
+          script_count: 3
+        },
+        {
+          id: "malware",
+          name: "Análisis Malware", 
+          description: "Herramientas de análisis estático y dinámico",
+          icon: "wrench",
+          script_count: 2
+        }
+      ];
     }
   });
 
@@ -48,9 +82,134 @@ const Scripts = () => {
     queryKey: ['scripts', selectedModule],
     queryFn: async (): Promise<Script[]> => {
       if (!selectedModule) return [];
-      const response = await fetch(`http://localhost:8000/scripts/${selectedModule}`);
-      if (!response.ok) throw new Error('Failed to fetch scripts');
-      return response.json();
+      
+      // Mock data with all the new scripts
+      const scriptData: { [key: string]: Script[] } = {
+        "recon": [
+          {
+            name: "port_slayer",
+            description: "Escáner de puertos avanzado con detección de servicios",
+            category: "recon",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "wifi_shadow_mapper", 
+            description: "Revolutionary passive discovery tool for phantom SSIDs and hidden networks",
+            category: "recon",
+            author: "@descambiado", 
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "reverse_dns_flood",
+            description: "Test de resistencia pasiva con solicitudes DNS inversas masivas",
+            category: "recon",
+            author: "@descambiado",
+            version: "1.0", 
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "web_discover",
+            description: "Herramienta de descubrimiento web con fuzzing avanzado",
+            category: "recon",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          }
+        ],
+        "exploit": [
+          {
+            name: "ai_payload_mutator",
+            description: "Revolutionary adaptive shellcode generator with AI-powered mutation techniques", 
+            category: "exploit",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "post_exploit_enum",
+            description: "Advanced post-exploitation enumeration tool for comprehensive system assessment",
+            category: "exploit", 
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "mitre_attack_runner",
+            description: "MITRE ATT&CK framework runner for Purple Team defensive validation and testing",
+            category: "exploit",
+            author: "@descambiado", 
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "reverse_shell_generator",
+            description: "Generador avanzado de shells reversas multiplataforma",
+            category: "exploit",
+            author: "@descambiado",
+            version: "1.0", 
+            last_updated: "2025-06-17"
+          }
+        ],
+        "osint": [
+          {
+            name: "multi_vector_osint",
+            description: "Script OSINT que hace un ataque de contexto usando múltiples plataformas",
+            category: "osint",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "social_profile_mapper", 
+            description: "Mapeo avanzado de perfiles sociales y correlación de identidades",
+            category: "osint",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          }
+        ],
+        "blue": [
+          {
+            name: "defense_break_replicator",
+            description: "Revolutionary malware behavior simulator for training defense systems",
+            category: "blue",
+            author: "@descambiado", 
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "auth_log_parser",
+            description: "Advanced authentication log analysis tool for security monitoring and threat detection",
+            category: "blue",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          },
+          {
+            name: "log_guardian",
+            description: "Sistema de monitoreo y análisis de logs en tiempo real",
+            category: "blue", 
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          }
+        ],
+        "malware": [
+          {
+            name: "malware_analyzer",
+            description: "Analizador estático de malware con detección de patrones",
+            category: "malware",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-17"
+          }
+        ]
+      };
+      
+      return scriptData[selectedModule] || [];
     },
     enabled: !!selectedModule
   });

@@ -1,0 +1,34 @@
+
+name: auth_log_parser
+category: blue
+author: "@descambiado"
+description: "Advanced authentication log analysis tool for security monitoring and threat detection"
+version: "1.0"
+last_updated: "2025-06-17"
+tags: ["log analysis", "authentication", "brute force detection", "siem", "blue team", "security monitoring"]
+usage: "python3 auth_log_parser.py /var/log/auth.log"
+dependencies:
+  - re
+  - json
+  - collections
+requirements: "No external dependencies - pure Python"
+educational_purpose: true
+legal_notice: "For authorized security monitoring and analysis only"
+innovation: "Intelligent pattern recognition with automated threat classification"
+features:
+  - "Brute force attack detection"
+  - "Privilege escalation monitoring"
+  - "Unusual access pattern analysis"
+  - "IP and user behavior profiling"
+  - "Automated security recommendations"
+  - "JSON report generation"
+detection_capabilities:
+  - "SSH login failures and successes"
+  - "Sudo command attempts"
+  - "Invalid user access attempts"
+  - "Time-based access anomalies"
+  - "Repeated failed authentication"
+supported_logs:
+  - "/var/log/auth.log (Ubuntu/Debian)"
+  - "/var/log/secure (CentOS/RHEL)"
+  - "/var/log/messages (various systems)"

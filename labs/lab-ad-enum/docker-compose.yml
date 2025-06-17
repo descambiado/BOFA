@@ -1,0 +1,91 @@
+
+version: '3.8'
+
+services:
+  domain-controller:
+    image: "descambiado/ad-lab-dc:latest"
+    container_name: "ad-lab-dc"
+    hostname: "DC01"
+    ports:
+      - "389:389"    # LDAP
+      - "636:636"    # LDAPS
+      - "88:88"      # Kerberos
+      - "53:53"      # DNS
+      - "445:445"    # SMB
+      - "3389:3389"  # RDP
+    environment:
+      - DOMAIN_NAME=LAB.LOCAL
+      - DOMAIN_ADMIN_PASSWORD=P@ssw0rd123!
+      - SAFE_MODE_PASSWORD=P@ssw0rd123!
+    volumes:
+      - ad_data:/var/lib/samba
+      - ./scripts:/opt/scripts
+    networks:
+      ad_lab:
+        ipv4_address: 192.168.100.10
+    restart: unless-stopped
+
+  client-workstation:
+    image: "descambiado/ad-lab-client:latest"
+    container_name: "ad-lab-client"
+    hostname: "CLIENT01"
+    ports:
+      - "3390:3389"  # RDP (different port)
+      - "5985:5985"  # WinRM
+    environment:
+      - DOMAIN_NAME=LAB.LOCAL
+      - DOMAIN_CONTROLLER=192.168.100.10
+    depends_on:
+      - domain-controller
+    networks:
+      ad_lab:
+        ipv4_address: 192.168.100.20
+    restart: unless-stopped
+
+  file-server:
+    image: "descambiado/ad-lab-fileserver:latest"
+    container_name: "ad-lab-fileserver"
+    hostname: "FS01"
+    ports:
+      - "446:445"    # SMB (different port)
+    environment:
+      - DOMAIN_NAME=LAB.LOCAL
+      - DOMAIN_CONTROLLER=192.168.100.10
+    depends_on:
+      - domain-controller
+    volumes:
+      - file_shares:/shares
+    networks:
+      ad_lab:
+        ipv4_address: 192.168.100.30
+    restart: unless-stopped
+
+  kali-attacker:
+    image: "kalilinux/kali-rolling:latest"
+    container_name: "ad-lab-kali"
+    hostname: "KALI-ATTACKER"
+    ports:
+      - "2222:22"    # SSH
+      - "8080:8080"  # HTTP server
+    environment:
+      - DOMAIN_TARGET=LAB.LOCAL
+      - DC_IP=192.168.100.10
+    volumes:
+      - ./tools:/opt/tools
+      - ./wordlists:/opt/wordlists
+    networks:
+      ad_lab:
+        ipv4_address: 192.168.100.100
+    command: ["bash", "-c", "service ssh start && tail -f /dev/null"]
+    restart: unless-stopped
+
+networks:
+  ad_lab:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24
+
+volumes:
+  ad_data:
+  file_shares:

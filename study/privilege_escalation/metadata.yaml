@@ -1,0 +1,18 @@
+
+id: privilege_escalation
+title: "Privilege Escalation Techniques"
+description: "Advanced privilege escalation methods for Linux and Windows systems"
+category: "exploit"
+difficulty: "advanced"
+estimated_time: "60 minutos"
+prerequisites: ["sql_injection", "xss"]
+tags: ["privilege escalation", "linux", "windows", "post-exploitation", "advanced"]
+author: "@descambiado"
+script: "privesc_trainer.py"
+points: 200
+learning_objectives:
+  - "Identify privilege escalation vectors"
+  - "Exploit SUID/SGID binaries"
+  - "Abuse sudo misconfigurations"
+  - "Leverage kernel exploits"
+  - "Windows privilege escalation techniques"
