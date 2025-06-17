@@ -1,0 +1,25 @@
+
+id: internal-network
+name: "Internal Network Lab"
+description: "Multi-machine network for lateral movement and privilege escalation"
+category: "red"
+difficulty: "intermediate"
+estimated_time: "90 minutos"
+objectives:
+  - "Reconocimiento de red interna"
+  - "Lateral movement entre máquinas"
+  - "Privilege escalation"
+  - "Persistencia en el entorno"
+ports:
+  - "22:2201"
+  - "80:8001"
+  - "445:4451"
+  - "139:1391"
+services:
+  - "SSH Server"
+  - "SMB/NetBIOS"
+  - "HTTP Server"
+  - "FTP Server"
+author: "@descambiado"
+tags: ["network", "lateral", "privilege", "red-team"]
+points: 200

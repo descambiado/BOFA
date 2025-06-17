@@ -1,0 +1,33 @@
+
+name: reverse_dns_flood
+category: recon
+author: "@descambiado"
+description: "Revolutionary passive defense testing tool using controlled reverse DNS queries"
+version: "1.0"
+last_updated: "2025-06-17"
+tags: ["reverse dns", "defense testing", "firewall detection", "waf testing", "passive testing"]
+usage: "python3 reverse_dns_flood.py --safe-mode -c 500 --threads 20 --delay 0.05"
+dependencies:
+  - ipaddress
+  - statistics
+requirements: "Python 3.7+ (built-in modules only)"
+educational_purpose: true
+legal_notice: "For authorized testing of your own infrastructure only"
+innovation: "First tool to use reverse DNS patterns for passive security measure detection"
+testing_capabilities:
+  - "Rate limiting detection"
+  - "Load balancer identification"
+  - "WAF response analysis"
+  - "DNS caching detection"
+  - "Firewall behavior patterns"
+safety_features:
+  - "Safe mode with non-routable IPs"
+  - "Configurable rate limiting"
+  - "Non-destructive testing"
+  - "Controlled thread management"
+analysis_features:
+  - "Statistical response analysis"
+  - "Pattern recognition"
+  - "Security measure detection"
+  - "Comprehensive reporting"
+  - "Time-based correlation"

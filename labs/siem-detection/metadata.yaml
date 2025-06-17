@@ -1,0 +1,23 @@
+
+id: siem-detection
+name: "SIEM Detection Lab"
+description: "Blue team lab with Wazuh SIEM for log analysis and threat detection"
+category: "blue"
+difficulty: "advanced"
+estimated_time: "120 minutos"
+objectives:
+  - "Configurar reglas de detección"
+  - "Analizar logs maliciosos"
+  - "Crear alertas personalizadas"
+  - "Investigar incidentes"
+ports:
+  - "443:443"
+  - "1514:1514"
+  - "1515:1515"
+services:
+  - "Wazuh Manager"
+  - "Elasticsearch"
+  - "Kibana Dashboard"
+author: "@descambiado"
+tags: ["siem", "logs", "detection", "blue-team"]
+points: 250

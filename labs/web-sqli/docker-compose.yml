@@ -1,0 +1,35 @@
+
+version: '3.8'
+
+services:
+  web:
+    image: vulnerables/web-dvwa
+    ports:
+      - "80:80"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=p@ssw0rd
+    depends_on:
+      - db
+    networks:
+      - sqli-network
+
+  db:
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=toor
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=p@ssw0rd
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sqli-network
+
+networks:
+  sqli-network:
+    driver: bridge

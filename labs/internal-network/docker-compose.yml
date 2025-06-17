@@ -1,0 +1,49 @@
+
+version: '3.8'
+
+services:
+  web-server:
+    image: vulnerables/web-dvwa
+    hostname: web-srv
+    ports:
+      - "8001:80"
+    networks:
+      internal-net:
+        ipv4_address: 172.20.0.10
+
+  file-server:
+    image: dperson/samba
+    hostname: file-srv
+    ports:
+      - "4451:445"
+      - "1391:139"
+    environment:
+      - "USER=user;password"
+      - "SHARE=shared;/shared;yes;no;no;user"
+    volumes:
+      - ./shared:/shared
+    networks:
+      internal-net:
+        ipv4_address: 172.20.0.11
+
+  ssh-server:
+    image: linuxserver/openssh-server
+    hostname: ssh-srv
+    ports:
+      - "2201:2222"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - PASSWORD_ACCESS=true
+      - USER_PASSWORD=password123
+      - USER_NAME=admin
+    networks:
+      internal-net:
+        ipv4_address: 172.20.0.12
+
+networks:
+  internal-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

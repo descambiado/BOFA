@@ -1,0 +1,12 @@
+
+id: xss
+title: "Cross-Site Scripting (XSS)"
+description: "Aprende a identificar y explotar vulnerabilidades XSS"
+category: "web"
+difficulty: "beginner"
+estimated_time: "25 minutos"
+prerequisites: ["sql_injection"]
+tags: ["xss", "javascript", "web", "owasp"]
+author: "@descambiado"
+script: "xss_trainer.py"
+points: 80

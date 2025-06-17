@@ -1,45 +1,54 @@
 
-import { Shield, Terminal, Globe, Lock, Eye, Wrench } from "lucide-react";
+import { Shield, Terminal, Globe, Lock, Eye, Wrench, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
+  const navigate = useNavigate();
+
   const modules = [
     {
       icon: <Eye className="w-8 h-8" />,
       title: "Reconocimiento",
       description: "Herramientas de descubrimiento y enumeración",
-      color: "bg-blue-500"
+      color: "bg-blue-500",
+      route: "/scripts"
     },
     {
       icon: <Terminal className="w-8 h-8" />,
       title: "Explotación",
       description: "Generadores de payloads y exploits",
-      color: "bg-red-500"
+      color: "bg-red-500",
+      route: "/scripts"
     },
     {
       icon: <Globe className="w-8 h-8" />,
       title: "OSINT",
       description: "Inteligencia de fuentes abiertas",
-      color: "bg-green-500"
+      color: "bg-green-500",
+      route: "/scripts"
     },
     {
       icon: <Shield className="w-8 h-8" />,
       title: "Blue Team",
       description: "Herramientas defensivas y monitoreo",
-      color: "bg-purple-500"
+      color: "bg-purple-500",
+      route: "/scripts"
     },
     {
       icon: <Lock className="w-8 h-8" />,
       title: "Análisis Malware",
       description: "Herramientas de análisis estático",
-      color: "bg-orange-500"
+      color: "bg-orange-500",
+      route: "/scripts"
     },
     {
       icon: <Wrench className="w-8 h-8" />,
       title: "Docker Labs",
       description: "Entornos de práctica y simulación",
-      color: "bg-cyan-500"
+      color: "bg-cyan-500",
+      route: "/labs"
     }
   ];
 
@@ -56,9 +65,34 @@ const Index = () => {
                 <p className="text-sm text-gray-400">Best Of All Cybersecurity Suite</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-400">Desarrollado por</p>
-              <p className="text-cyan-400 font-semibold">@descambiado</p>
+            <div className="flex items-center space-x-4">
+              <Button 
+                onClick={() => navigate('/scripts')}
+                className="bg-cyan-600 hover:bg-cyan-700"
+              >
+                <Terminal className="w-5 h-5 mr-2" />
+                Ejecutar Scripts
+              </Button>
+              <Button 
+                onClick={() => navigate('/study')}
+                variant="outline"
+                className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black"
+              >
+                <BookOpen className="w-5 h-5 mr-2" />
+                Modo Estudio
+              </Button>
+              <Button 
+                onClick={() => navigate('/labs')}
+                variant="outline"
+                className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black"
+              >
+                <Wrench className="w-5 h-5 mr-2" />
+                Laboratorios
+              </Button>
+              <div className="text-right">
+                <p className="text-sm text-gray-400">Desarrollado por</p>
+                <p className="text-cyan-400 font-semibold">@descambiado</p>
+              </div>
             </div>
           </div>
         </div>
@@ -73,16 +107,32 @@ const Index = () => {
             </h2>
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">
               BOFA es una plataforma integral que combina herramientas de pentesting, OSINT, 
-              análisis de malware, y defensa cibernética en un solo ecosistema modular.
+              análisis de malware, defensa cibernética y laboratorios Docker en un solo ecosistema modular.
             </p>
             <div className="flex flex-wrap justify-center gap-4 mb-12">
-              <Button size="lg" className="bg-cyan-600 hover:bg-cyan-700">
+              <Button 
+                size="lg" 
+                className="bg-cyan-600 hover:bg-cyan-700"
+                onClick={() => navigate('/scripts')}
+              >
                 <Terminal className="w-5 h-5 mr-2" />
-                Acceder al CLI
+                Ejecutar Scripts
               </Button>
-              <Button variant="outline" size="lg" className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black">
-                <Globe className="w-5 h-5 mr-2" />
-                Ver Documentación
+              <Button 
+                size="lg" 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => navigate('/study')}
+              >
+                <BookOpen className="w-5 h-5 mr-2" />
+                Modo Estudio
+              </Button>
+              <Button 
+                size="lg" 
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={() => navigate('/labs')}
+              >
+                <Wrench className="w-5 h-5 mr-2" />
+                Laboratorios Docker
               </Button>
             </div>
           </div>
@@ -108,7 +158,11 @@ const Index = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button variant="outline" className="w-full border-gray-600 text-gray-300 hover:bg-gray-700">
+                  <Button 
+                    variant="outline" 
+                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+                    onClick={() => navigate(module.route)}
+                  >
                     Explorar Módulo
                   </Button>
                 </CardContent>
@@ -141,11 +195,11 @@ const Index = () => {
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
-                  <span>Entornos Docker para práctica segura</span>
+                  <span>Laboratorios Docker para práctica real</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
-                  <span>Modo educativo con guías y tutoriales</span>
+                  <span>Modo educativo con guías y tutoriales interactivos</span>
                 </li>
                 <li className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
