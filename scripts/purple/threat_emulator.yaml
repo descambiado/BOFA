@@ -1,0 +1,39 @@
+
+name: "Threat Emulator"
+description: "Simula comportamiento de amenazas reales de forma ética para entrenamiento"
+category: "purple"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-19"
+required_privileges: "user"
+impact_level: "LOW"
+educational_value: 5
+countermeasures: ["Behavioral Analysis", "SIEM Monitoring", "Endpoint Detection"]
+
+parameters:
+  - name: threat
+    type: choice
+    choices: ["apt", "ransomware", "insider", "all"]
+    default: "apt"
+    description: "Tipo de amenaza a simular"
+  - name: output
+    type: string
+    required: false
+    description: "Archivo de salida para logs"
+
+dependencies: []
+
+usage_examples:
+  - "python3 threat_emulator.py -t apt"
+  - "python3 threat_emulator.py -t ransomware -o /tmp/simulation.log"
+  - "python3 threat_emulator.py -t all"
+
+learning_objectives:
+  - "Comprender comportamientos de amenazas avanzadas"
+  - "Identificar patrones de ataque complejos"
+  - "Mejorar capacidades de detección y respuesta"
+
+warnings:
+  - "Solo para simulación educativa"
+  - "No ejecuta acciones maliciosas reales"
+  - "Usar en entornos aislados únicamente"

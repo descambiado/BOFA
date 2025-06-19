@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Terminal, Play, Eye, Shield, Globe, Wrench, Users, Search, Brain, Clock, Smartphone } from "lucide-react";
 import { ScriptExecutor } from "@/components/ScriptExecutor";
+import { ScriptAlert } from "@/components/ScriptAlert";
 
 interface Module {
   id: string;
@@ -21,6 +22,8 @@ interface Script {
   author: string;
   version: string;
   last_updated: string;
+  impact_level?: string;
+  educational_value?: number;
 }
 
 const moduleIcons = {
@@ -57,56 +60,49 @@ const Scripts = () => {
           name: "Red Team",
           description: "Arsenal ofensivo avanzado y técnicas de penetración",
           icon: "terminal",
-          script_count: 12
+          script_count: 15
         },
         {
           id: "blue",
           name: "Blue Team",
           description: "Herramientas defensivas, monitoreo y análisis forense",
           icon: "shield",
-          script_count: 8
+          script_count: 10
         },
         {
           id: "purple",
           name: "Purple Team",
           description: "Ejercicios coordinados de ataque y defensa con MITRE ATT&CK",
           icon: "users",
-          script_count: 4
-        },
-        {
-          id: "osint",
-          name: "OSINT",
-          description: "Inteligencia de fuentes abiertas y perfilado avanzado",
-          icon: "globe", 
-          script_count: 2
+          script_count: 6
         },
         {
           id: "forensics",
           name: "Análisis Forense",
           description: "Herramientas de investigación digital y análisis de evidencia",
           icon: "search",
-          script_count: 5
+          script_count: 8
         },
         {
           id: "mobile",
           name: "Mobile Stinger",
           description: "Herramientas móviles para Android y testing wireless",
           icon: "smartphone",
-          script_count: 3
+          script_count: 5
         },
         {
           id: "insight",
           name: "BOFA Insight",
           description: "Sistema de recomendaciones inteligentes y análisis de uso",
           icon: "brain",
-          script_count: 2
+          script_count: 3
         },
         {
           id: "timewarp",
           name: "TimeWarp",
           description: "Reproducción y análisis de sesiones de seguridad",
           icon: "clock", 
-          script_count: 1
+          script_count: 2
         }
       ];
     }
@@ -118,286 +114,90 @@ const Scripts = () => {
       if (!selectedModule) return [];
       
       const scriptData: { [key: string]: Script[] } = {
-        "recon": [
-          {
-            name: "port_slayer",
-            description: "Escáner de puertos avanzado con detección de servicios",
-            category: "recon",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-17"
-          },
-          {
-            name: "wifi_shadow_mapper", 
-            description: "Herramienta de descubrimiento pasivo para SSIDs fantasma y redes ocultas",
-            category: "recon",
-            author: "@descambiado", 
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "reverse_dns_flood",
-            description: "Test de resistencia pasiva con solicitudes DNS inversas masivas",
-            category: "recon",
-            author: "@descambiado",
-            version: "1.0", 
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "web_discover",
-            description: "Herramienta de descubrimiento web con fuzzing avanzado",
-            category: "recon",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-17"
-          }
-        ],
         "red": [
           {
             name: "ad_enum_visualizer",
-            description: "Enumeración de Active Directory con visualización tipo BloodHound",
+            description: "Genera visualizaciones tipo BloodHound de entornos Active Directory",
             category: "red",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
+            last_updated: "2025-06-18",
+            impact_level: "LOW",
+            educational_value: 5
           },
           {
             name: "bypass_uac_tool",
-            description: "Simulador educativo de técnicas de bypass UAC en Windows",
+            description: "Simula técnicas de bypass UAC para entrenamiento defensivo",
             category: "red",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
+            last_updated: "2025-06-18",
+            impact_level: "LOW",
+            educational_value: 5
           },
           {
             name: "reverse_shell_polyglot",
-            description: "Generador de reverse shells en múltiples lenguajes y protocolos",
+            description: "Genera reverse shells en múltiples lenguajes y formatos",
             category: "red",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
+            last_updated: "2025-06-18",
+            impact_level: "MEDIUM",
+            educational_value: 5
           },
           {
             name: "c2_simulator",
-            description: "Simulador de infraestructura Command & Control para entrenamiento",
+            description: "Simula infraestructura Command & Control para entrenamiento",
             category: "red",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
+            last_updated: "2025-06-18",
+            impact_level: "MEDIUM",
+            educational_value: 5
           },
           {
-            name: "ai_payload_mutator",
-            description: "Generador adaptativo de shellcode con técnicas de mutación AI", 
+            name: "ghost_scanner",
+            description: "Escaneo sigiloso de red sin ARP con TTL y MAC randomization",
             category: "red",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "post_exploit_enum",
-            description: "Herramienta de enumeración post-explotación para evaluación completa",
-            category: "red", 
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "kerberoast_scanner",
-            description: "Simulador de ataques Kerberoasting para evaluación de cuentas de servicio AD",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "av_evasion_engine",
-            description: "Motor avanzado de evasión antivirus para ofuscación de payload",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "dns_txt_exfil",
-            description: "Herramienta de exfiltración DNS TXT para simulación de extracción encubierta",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "reverse_shell_generator",
-            description: "Generador avanzado de shells reversas multiplataforma",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0", 
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-19",
+            impact_level: "MEDIUM",
+            educational_value: 5
           }
         ],
         "blue": [
           {
             name: "ioc_matcher",
-            description: "Análisis de Indicadores de Compromiso en archivos y logs del sistema",
+            description: "Análisis de Indicadores de Compromiso en archivos y logs",
             category: "blue",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
+            last_updated: "2025-06-18",
+            impact_level: "LOW",
+            educational_value: 5
           },
           {
-            name: "defense_break_replicator",
-            description: "Simulador de comportamiento de malware para entrenar sistemas defensivos",
-            category: "blue",
-            author: "@descambiado", 
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "auth_log_parser",
-            description: "Herramienta de análisis de logs de autenticación para monitoreo de seguridad",
+            name: "log_timeline_builder",
+            description: "Genera línea de tiempo visual con eventos clave desde logs del sistema",
             category: "blue",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "siem_alert_simulator",
-            description: "Simulador avanzado de alertas SIEM para entrenamiento de equipos azules",
-            category: "blue",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "log_baseliner",
-            description: "Herramienta de análisis conductual y detección de anomalías en logs",
-            category: "blue",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "log_guardian",
-            description: "Sistema de monitoreo y análisis de logs en tiempo real",
-            category: "blue", 
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-19",
+            impact_level: "LOW",
+            educational_value: 5
           }
         ],
         "purple": [
           {
-            name: "purple_attack_orchestrator",
-            description: "Orquestador avanzado de equipos purple para ejercicios coordinados",
+            name: "threat_emulator",
+            description: "Simula comportamiento de amenazas reales de forma ética para entrenamiento",
             category: "purple",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "mitre_attack_runner",
-            description: "Ejecutor del framework MITRE ATT&CK para validación defensiva Purple Team",
-            category: "purple",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          }
-        ],
-        "osint": [
-          {
-            name: "multi_vector_osint",
-            description: "Script OSINT que realiza ataques de contexto usando múltiples plataformas",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "social_profile_mapper", 
-            description: "Mapeo avanzado de perfiles sociales y correlación de identidades",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-17"
-          }
-        ],
-        "forensics": [
-          {
-            name: "mft_parser",
-            description: "Analizador de Master File Table (MFT) para investigación forense Windows",
-            category: "forensics",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "browser_history_extractor",
-            description: "Extractor de historial de navegadores para análisis forense",
-            category: "forensics",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "volatility_launcher",
-            description: "Wrapper automatizado de Volatility para análisis de memoria RAM",
-            category: "forensics",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          }
-        ],
-        "mobile": [
-          {
-            name: "android_network_mapper",
-            description: "Mapeador de redes Android compatible con Termux",
-            category: "mobile",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "wifi_dos_tool",
-            description: "Herramienta educativa de testing WiFi para Android",
-            category: "mobile",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "mobile_payload_dropper",
-            description: "Generador de payloads móviles con códigos QR",
-            category: "mobile",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          }
-        ],
-        "insight": [
-          {
-            name: "skill_analyzer",
-            description: "Analizador de habilidades y recomendador de prácticas personalizadas",
-            category: "insight",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          },
-          {
-            name: "coverage_mapper",
-            description: "Mapeador de cobertura Red/Blue/Purple con visualización radial",
-            category: "insight",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
-          }
-        ],
-        "timewarp": [
-          {
-            name: "session_recorder",
-            description: "Grabador y reproductor de sesiones de seguridad para entrenamiento",
-            category: "timewarp",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18"
+            last_updated: "2025-06-19",
+            impact_level: "LOW",
+            educational_value: 5
           }
         ]
       };
@@ -421,7 +221,7 @@ const Scripts = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6">
       <div className="container mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2">BOFA Extended Systems v2.0</h1>
+          <h1 className="text-3xl font-bold text-cyan-400 mb-2">BOFA Extended Systems v2.1.0</h1>
           <p className="text-gray-300">Ecosistema completo de ciberseguridad - Red, Blue, Purple Team + Forensics + Mobile + AI</p>
         </div>
 
@@ -483,14 +283,18 @@ const Scripts = () => {
                   <Card key={script.name} className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all">
                     <CardHeader>
                       <div className="flex justify-between items-start">
-                        <div>
+                        <div className="flex-1">
                           <CardTitle className="text-cyan-400">{script.name}</CardTitle>
                           <CardDescription className="text-gray-300 mt-2">{script.description}</CardDescription>
+                          
+                          <div className="mt-4">
+                            <ScriptAlert script={script} />
+                          </div>
                         </div>
                         <Button 
                           size="sm"
                           onClick={() => setSelectedScript(script)}
-                          className="bg-cyan-600 hover:bg-cyan-700"
+                          className="bg-cyan-600 hover:bg-cyan-700 ml-4"
                         >
                           <Play className="w-4 h-4 mr-2" />
                           Ejecutar

@@ -1,0 +1,40 @@
+
+name: "CTF Flag Planner"
+description: "Permite crear escenarios CTF con banderas y puntuación para labs personalizados"
+category: "study"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-19"
+required_privileges: "user"
+impact_level: "LOW"
+educational_value: 5
+countermeasures: ["Education", "Skill Development", "Team Building"]
+
+parameters:
+  - name: create
+    type: boolean
+    default: false
+    description: "Crear CTF con desafíos predefinidos"
+  - name: export
+    type: string
+    required: false
+    description: "Directorio de exportación del CTF"
+  - name: flag
+    type: string
+    required: false
+    description: "Bandera a enviar"
+  - name: team
+    type: string
+    required: false
+    description: "Nombre del equipo"
+
+dependencies: []
+
+usage_examples:
+  - "python3 ctf_flag_planner.py --create --export /tmp/bofa_ctf"
+  - "python3 ctf_flag_planner.py --flag 'BOFA{example}' --team 'RedTeam'"
+
+learning_objectives:
+  - "Crear competencias CTF educativas"
+  - "Gamificar el aprendizaje de ciberseguridad"
+  - "Fomentar trabajo en equipo y competencia sana"
