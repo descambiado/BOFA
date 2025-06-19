@@ -1,0 +1,68 @@
+
+version: '3.8'
+
+services:
+  # Endpoint con EDR simulado
+  windows-endpoint:
+    image: mcr.microsoft.com/windows/servercore:ltsc2019
+    container_name: edr-target
+    ports:
+      - "3389:3389"  # RDP
+      - "5985:5985"  # WinRM
+    environment:
+      - ACCEPT_EULA=Y
+    volumes:
+      - ./scripts:/scripts
+      - ./edr-simulator:/edr
+    networks:
+      - edr-lab
+    # Simular EDR con PowerShell scripts
+    command: >
+      powershell -Command "
+      Start-Service WinRM;
+      Set-ExecutionPolicy Bypass -Force;
+      C:/edr/start-edr.ps1;
+      while ($true) { Start-Sleep 300 }
+      "
+
+  # SIEM simulado para logs
+  siem-collector:
+    image: elasticsearch:7.14.0
+    container_name: edr-siem
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - ./siem-data:/usr/share/elasticsearch/data
+    networks:
+      - edr-lab
+
+  # Dashboard para monitoreo
+  kibana:
+    image: kibana:7.14.0
+    container_name: edr-dashboard
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://siem-collector:9200
+    depends_on:
+      - siem-collector
+    networks:
+      - edr-lab
+
+  # Atacante con herramientas de evasión
+  attacker-box:
+    image: kalilinux/kali-rolling:latest
+    container_name: edr-attacker
+    volumes:
+      - ./payloads:/payloads
+      - ./evasion-tools:/tools
+    networks:
+      - edr-lab
+    command: tail -f /dev/null
+
+networks:
+  edr-lab:
+    driver: bridge

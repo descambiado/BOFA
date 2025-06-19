@@ -1,0 +1,76 @@
+
+name: "EDR Evasion Laboratory"
+description: "Laboratorio de técnicas de evasión de EDR y detección"
+category: "edr-evasion"
+difficulty: "advanced"
+estimated_time: "90 minutes"
+author: "@descambiado"
+version: "1.0"
+
+learning_objectives:
+  - "Comprender funcionamiento de EDR/AV"
+  - "Implementar técnicas de evasión"
+  - "Desarrollar reglas de detección"
+  - "Analizar comportamiento de malware"
+
+techniques_covered:
+  - name: "Process Hollowing"
+    description: "Inyección de código en procesos legítimos"
+    
+  - name: "DLL Sideloading"
+    description: "Carga de DLLs maliciosas aprovechando búsqueda"
+    
+  - name: "Living off the Land"
+    description: "Uso de herramientas legítimas del sistema"
+    
+  - name: "Obfuscation"
+    description: "Ofuscación de payloads y scripts"
+
+services:
+  - name: "windows-endpoint"
+    port: 3389
+    description: "Endpoint Windows con EDR simulado"
+    
+  - name: "siem-collector"
+    port: 9200
+    description: "Elasticsearch para logs de seguridad"
+    
+  - name: "kibana"
+    port: 5601
+    description: "Dashboard de análisis de eventos"
+    
+  - name: "attacker-box"
+    description: "Máquina atacante con herramientas"
+
+scenarios:
+  - name: "Bypass básico"
+    description: "Evadir detección con técnicas simples"
+    difficulty: "beginner"
+    
+  - name: "Evasión avanzada"
+    description: "Técnicas complejas de ofuscación"
+    difficulty: "intermediate"
+    
+  - name: "Desarrollo de detección"
+    description: "Crear reglas para detectar evasión"
+    difficulty: "advanced"
+
+flags:
+  - name: "evasion_success"
+    location: "C:\\flags\\evasion.txt"
+    hint: "Ejecuta payload sin ser detectado"
+    
+  - name: "detection_rule"
+    location: "Kibana dashboard"
+    hint: "Crea regla que detecte la técnica usada"
+
+setup_instructions:
+  - "docker-compose up -d"
+  - "Esperar que todos los servicios inicien (5-10 minutos)"
+  - "Acceder a Kibana en http://localhost:5601"
+  - "Conectar a attacker-box: docker exec -it edr-attacker /bin/bash"
+
+safety_notes:
+  - "Entorno completamente aislado"
+  - "No usar técnicas en sistemas reales"
+  - "Solo para fines educativos"

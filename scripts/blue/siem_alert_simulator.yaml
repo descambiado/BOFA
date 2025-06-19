@@ -1,0 +1,42 @@
+
+name: siem_alert_simulator
+category: blue
+author: "@descambiado"
+description: "Advanced SIEM alert simulator for blue team training and defense validation"
+version: "1.0"
+last_updated: "2025-06-18"
+tags: ["siem", "blue team", "alert simulation", "incident response", "security training"]
+usage: "python3 siem_alert_simulator.py [-c count] [-t types] [-f false_positives] [--real-time]"
+dependencies:
+  - json
+  - random
+  - ipaddress
+requirements: "No external dependencies - educational simulation"
+educational_purpose: true
+legal_notice: "For authorized blue team training and SIEM tuning only"
+innovation: "Comprehensive alert simulation with MITRE ATT&CK mapping and false positive generation"
+features:
+  - "Multi-category alert generation"
+  - "MITRE ATT&CK technique mapping"
+  - "False positive simulation"
+  - "Real-time alert streaming"
+  - "Statistical analysis"
+  - "JSON export capabilities"
+alert_categories:
+  - "Authentication attacks (Brute Force)"
+  - "Malware detection events"
+  - "Lateral movement activities"
+  - "Data exfiltration attempts"
+  - "Privilege escalation events"
+training_scenarios:
+  - "Alert triage and prioritization"
+  - "False positive identification"
+  - "Incident correlation"
+  - "Response time optimization"
+  - "SIEM rule tuning"
+mitre_coverage:
+  - "T1110: Brute Force"
+  - "T1204: User Execution"
+  - "T1021: Remote Services"
+  - "T1041: Exfiltration Over C2 Channel"
+  - "T1068: Exploitation for Privilege Escalation"

@@ -1,0 +1,46 @@
+
+name: "C2 Simulator"
+description: "Simula infraestructura Command & Control para entrenamiento"
+category: "red"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-18"
+required_privileges: "user"
+impact_level: "MEDIUM"
+educational_value: 5
+countermeasures: ["Network Monitoring", "Behavioral Analysis", "C2 Detection Rules"]
+
+parameters:
+  - name: mode
+    type: choice
+    choices: ["server", "client"]
+    required: true
+    description: "Modo de operación (servidor o cliente)"
+  - name: host
+    type: string
+    default: "127.0.0.1"
+    description: "IP del servidor C2"
+  - name: port
+    type: integer
+    default: 8080
+    description: "Puerto del servidor C2"
+  - name: output
+    type: string
+    required: false
+    description: "Directorio de salida para logs"
+
+dependencies: []
+
+usage_examples:
+  - "python3 c2_simulator.py server -p 8080"
+  - "python3 c2_simulator.py client -H 192.168.1.100 -p 8080"
+
+learning_objectives:
+  - "Comprender arquitectura de C2"
+  - "Identificar patrones de comunicación C2"
+  - "Desarrollar reglas de detección"
+
+warnings:
+  - "Solo para simulación y entrenamiento"
+  - "No usar en redes de producción"
+  - "Implementar en entornos aislados únicamente"

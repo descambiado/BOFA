@@ -1,0 +1,50 @@
+
+name: "IOC Matcher"
+description: "Análisis de Indicadores de Compromiso en archivos y logs"
+category: "blue"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-18"
+required_privileges: "user"
+impact_level: "LOW"
+educational_value: 5
+countermeasures: ["Threat Intelligence", "IOC Detection", "Hash Analysis"]
+
+parameters:
+  - name: file
+    type: string
+    required: false
+    description: "Archivo para calcular y comparar hashes"
+  - name: log
+    type: string
+    required: false
+    description: "Archivo de log para analizar"
+  - name: text
+    type: string
+    required: false
+    description: "Texto para analizar directamente"
+  - name: iocs
+    type: string
+    required: false
+    description: "Archivo JSON con IOCs personalizados"
+  - name: feed
+    type: string
+    required: false
+    description: "URL de threat feed"
+  - name: output
+    type: string
+    required: false
+    description: "Directorio de salida"
+
+dependencies:
+  - requests
+
+usage_examples:
+  - "python3 ioc_matcher.py -f suspicious_file.exe"
+  - "python3 ioc_matcher.py -l /var/log/apache2/access.log"
+  - "python3 ioc_matcher.py -t 'Connection to 1.2.3.4:8080'"
+
+learning_objectives:
+  - "Comprender uso de Threat Intelligence"
+  - "Identificar IOCs en logs y archivos"
+  - "Implementar detección automatizada"

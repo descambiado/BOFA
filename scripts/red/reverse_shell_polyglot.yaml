@@ -1,0 +1,45 @@
+
+name: "Reverse Shell Polyglot Generator"
+description: "Genera reverse shells en múltiples lenguajes y formatos"
+category: "red"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-18"
+required_privileges: "user"
+impact_level: "MEDIUM"
+educational_value: 5
+countermeasures: ["Network Monitoring", "Process Monitoring", "Command Line Monitoring"]
+
+parameters:
+  - name: lhost
+    type: string
+    required: true
+    description: "IP address del listener"
+  - name: lport
+    type: integer
+    required: true
+    description: "Puerto del listener"
+  - name: output
+    type: string
+    required: false
+    description: "Directorio de salida"
+  - name: encoded
+    type: boolean
+    default: false
+    description: "Incluir variantes codificadas"
+
+dependencies: []
+
+usage_examples:
+  - "python3 reverse_shell_polyglot.py -l 192.168.1.100 -p 4444"
+  - "python3 reverse_shell_polyglot.py -l 10.0.0.1 -p 8080 --encoded"
+
+learning_objectives:
+  - "Comprender diferentes tipos de reverse shells"
+  - "Conocer técnicas de ofuscación de payloads"
+  - "Identificar patrones de detección"
+
+warnings:
+  - "Solo para testing autorizado y entornos controlados"
+  - "Configurar listeners apropiados antes de usar"
+  - "Considerar detección AV/EDR en implementaciones"

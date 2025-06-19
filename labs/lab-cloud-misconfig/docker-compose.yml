@@ -1,0 +1,47 @@
+
+version: '3.8'
+
+services:
+  # Servidor web vulnerable con bucket mal configurado
+  webapp:
+    image: nginx:alpine
+    container_name: cloud-misconfig-web
+    ports:
+      - "8081:80"
+    volumes:
+      - ./webapp:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - cloud-lab
+
+  # Simulador de S3 bucket con MinIO
+  minio:
+    image: minio/minio:latest
+    container_name: cloud-misconfig-storage
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ACCESS_KEY: AKIAIOSFODNN7EXAMPLE
+      MINIO_SECRET_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./minio-data:/data
+      - ./bucket-policy.json:/data/.minio.sys/buckets/company-secrets/policy.json
+    networks:
+      - cloud-lab
+
+  # Servidor de metadatos simulado (como AWS EC2)
+  metadata-server:
+    image: nginx:alpine
+    container_name: metadata-server
+    ports:
+      - "8080:80"
+    volumes:
+      - ./metadata:/usr/share/nginx/html
+    networks:
+      - cloud-lab
+
+networks:
+  cloud-lab:
+    driver: bridge

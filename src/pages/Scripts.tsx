@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Terminal, Play, Eye, Shield, Globe, Wrench } from "lucide-react";
+import { Terminal, Play, Eye, Shield, Globe, Wrench, Users, Search, Brain, Clock, Smartphone } from "lucide-react";
 import { ScriptExecutor } from "@/components/ScriptExecutor";
 
 interface Module {
@@ -27,7 +28,13 @@ const moduleIcons = {
   exploit: <Terminal className="w-6 h-6" />,
   osint: <Globe className="w-6 h-6" />,
   blue: <Shield className="w-6 h-6" />,
+  purple: <Users className="w-6 h-6" />,
   malware: <Wrench className="w-6 h-6" />,
+  red: <Terminal className="w-6 h-6" />,
+  forensics: <Search className="w-6 h-6" />,
+  insight: <Brain className="w-6 h-6" />,
+  timewarp: <Clock className="w-6 h-6" />,
+  mobile: <Smartphone className="w-6 h-6" />
 };
 
 const Scripts = () => {
@@ -37,42 +44,69 @@ const Scripts = () => {
   const { data: modules, isLoading: modulesLoading } = useQuery<Module[]>({
     queryKey: ['modules'],
     queryFn: async (): Promise<Module[]> => {
-      // Mock data with updated counts for new scripts
       return [
         {
           id: "recon",
           name: "Reconocimiento",
           description: "Herramientas de descubrimiento y enumeración de redes",
           icon: "eye",
-          script_count: 6
+          script_count: 4
         },
         {
-          id: "exploit", 
-          name: "Explotación",
-          description: "Generadores de payloads y exploits avanzados",
+          id: "red", 
+          name: "Red Team",
+          description: "Arsenal ofensivo avanzado y técnicas de penetración",
           icon: "terminal",
+          script_count: 12
+        },
+        {
+          id: "blue",
+          name: "Blue Team",
+          description: "Herramientas defensivas, monitoreo y análisis forense",
+          icon: "shield",
+          script_count: 8
+        },
+        {
+          id: "purple",
+          name: "Purple Team",
+          description: "Ejercicios coordinados de ataque y defensa con MITRE ATT&CK",
+          icon: "users",
           script_count: 4
         },
         {
           id: "osint",
           name: "OSINT",
-          description: "Inteligencia de fuentes abiertas y perfilado",
+          description: "Inteligencia de fuentes abiertas y perfilado avanzado",
           icon: "globe", 
-          script_count: 3
-        },
-        {
-          id: "blue",
-          name: "Blue Team",
-          description: "Herramientas defensivas y análisis de logs",
-          icon: "shield",
-          script_count: 3
-        },
-        {
-          id: "malware",
-          name: "Análisis Malware", 
-          description: "Herramientas de análisis estático y dinámico",
-          icon: "wrench",
           script_count: 2
+        },
+        {
+          id: "forensics",
+          name: "Análisis Forense",
+          description: "Herramientas de investigación digital y análisis de evidencia",
+          icon: "search",
+          script_count: 5
+        },
+        {
+          id: "mobile",
+          name: "Mobile Stinger",
+          description: "Herramientas móviles para Android y testing wireless",
+          icon: "smartphone",
+          script_count: 3
+        },
+        {
+          id: "insight",
+          name: "BOFA Insight",
+          description: "Sistema de recomendaciones inteligentes y análisis de uso",
+          icon: "brain",
+          script_count: 2
+        },
+        {
+          id: "timewarp",
+          name: "TimeWarp",
+          description: "Reproducción y análisis de sesiones de seguridad",
+          icon: "clock", 
+          script_count: 1
         }
       ];
     }
@@ -83,7 +117,6 @@ const Scripts = () => {
     queryFn: async (): Promise<Script[]> => {
       if (!selectedModule) return [];
       
-      // Mock data with all the new scripts
       const scriptData: { [key: string]: Script[] } = {
         "recon": [
           {
@@ -96,11 +129,11 @@ const Scripts = () => {
           },
           {
             name: "wifi_shadow_mapper", 
-            description: "Revolutionary passive discovery tool for phantom SSIDs and hidden networks",
+            description: "Herramienta de descubrimiento pasivo para SSIDs fantasma y redes ocultas",
             category: "recon",
             author: "@descambiado", 
             version: "1.0",
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-18"
           },
           {
             name: "reverse_dns_flood",
@@ -108,7 +141,7 @@ const Scripts = () => {
             category: "recon",
             author: "@descambiado",
             version: "1.0", 
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-18"
           },
           {
             name: "web_discover",
@@ -119,74 +152,128 @@ const Scripts = () => {
             last_updated: "2025-06-17"
           }
         ],
-        "exploit": [
+        "red": [
           {
-            name: "ai_payload_mutator",
-            description: "Revolutionary adaptive shellcode generator with AI-powered mutation techniques", 
-            category: "exploit",
+            name: "ad_enum_visualizer",
+            description: "Enumeración de Active Directory con visualización tipo BloodHound",
+            category: "red",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "bypass_uac_tool",
+            description: "Simulador educativo de técnicas de bypass UAC en Windows",
+            category: "red",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "reverse_shell_polyglot",
+            description: "Generador de reverse shells en múltiples lenguajes y protocolos",
+            category: "red",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "c2_simulator",
+            description: "Simulador de infraestructura Command & Control para entrenamiento",
+            category: "red",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "ai_payload_mutator",
+            description: "Generador adaptativo de shellcode con técnicas de mutación AI", 
+            category: "red",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
           },
           {
             name: "post_exploit_enum",
-            description: "Advanced post-exploitation enumeration tool for comprehensive system assessment",
-            category: "exploit", 
+            description: "Herramienta de enumeración post-explotación para evaluación completa",
+            category: "red", 
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-18"
           },
           {
-            name: "mitre_attack_runner",
-            description: "MITRE ATT&CK framework runner for Purple Team defensive validation and testing",
-            category: "exploit",
-            author: "@descambiado", 
+            name: "kerberoast_scanner",
+            description: "Simulador de ataques Kerberoasting para evaluación de cuentas de servicio AD",
+            category: "red",
+            author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "av_evasion_engine",
+            description: "Motor avanzado de evasión antivirus para ofuscación de payload",
+            category: "red",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "dns_txt_exfil",
+            description: "Herramienta de exfiltración DNS TXT para simulación de extracción encubierta",
+            category: "red",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
           },
           {
             name: "reverse_shell_generator",
             description: "Generador avanzado de shells reversas multiplataforma",
-            category: "exploit",
+            category: "red",
             author: "@descambiado",
             version: "1.0", 
             last_updated: "2025-06-17"
           }
         ],
-        "osint": [
-          {
-            name: "multi_vector_osint",
-            description: "Script OSINT que hace un ataque de contexto usando múltiples plataformas",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-17"
-          },
-          {
-            name: "social_profile_mapper", 
-            description: "Mapeo avanzado de perfiles sociales y correlación de identidades",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-17"
-          }
-        ],
         "blue": [
           {
+            name: "ioc_matcher",
+            description: "Análisis de Indicadores de Compromiso en archivos y logs del sistema",
+            category: "blue",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
             name: "defense_break_replicator",
-            description: "Revolutionary malware behavior simulator for training defense systems",
+            description: "Simulador de comportamiento de malware para entrenar sistemas defensivos",
             category: "blue",
             author: "@descambiado", 
             version: "1.0",
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-18"
           },
           {
             name: "auth_log_parser",
-            description: "Advanced authentication log analysis tool for security monitoring and threat detection",
+            description: "Herramienta de análisis de logs de autenticación para monitoreo de seguridad",
             category: "blue",
             author: "@descambiado",
             version: "1.0",
-            last_updated: "2025-06-17"
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "siem_alert_simulator",
+            description: "Simulador avanzado de alertas SIEM para entrenamiento de equipos azules",
+            category: "blue",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "log_baseliner",
+            description: "Herramienta de análisis conductual y detección de anomalías en logs",
+            category: "blue",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
           },
           {
             name: "log_guardian",
@@ -197,14 +284,120 @@ const Scripts = () => {
             last_updated: "2025-06-17"
           }
         ],
-        "malware": [
+        "purple": [
           {
-            name: "malware_analyzer",
-            description: "Analizador estático de malware con detección de patrones",
-            category: "malware",
+            name: "purple_attack_orchestrator",
+            description: "Orquestador avanzado de equipos purple para ejercicios coordinados",
+            category: "purple",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "mitre_attack_runner",
+            description: "Ejecutor del framework MITRE ATT&CK para validación defensiva Purple Team",
+            category: "purple",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          }
+        ],
+        "osint": [
+          {
+            name: "multi_vector_osint",
+            description: "Script OSINT que realiza ataques de contexto usando múltiples plataformas",
+            category: "osint",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "social_profile_mapper", 
+            description: "Mapeo avanzado de perfiles sociales y correlación de identidades",
+            category: "osint",
             author: "@descambiado",
             version: "1.0",
             last_updated: "2025-06-17"
+          }
+        ],
+        "forensics": [
+          {
+            name: "mft_parser",
+            description: "Analizador de Master File Table (MFT) para investigación forense Windows",
+            category: "forensics",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "browser_history_extractor",
+            description: "Extractor de historial de navegadores para análisis forense",
+            category: "forensics",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "volatility_launcher",
+            description: "Wrapper automatizado de Volatility para análisis de memoria RAM",
+            category: "forensics",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          }
+        ],
+        "mobile": [
+          {
+            name: "android_network_mapper",
+            description: "Mapeador de redes Android compatible con Termux",
+            category: "mobile",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "wifi_dos_tool",
+            description: "Herramienta educativa de testing WiFi para Android",
+            category: "mobile",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "mobile_payload_dropper",
+            description: "Generador de payloads móviles con códigos QR",
+            category: "mobile",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          }
+        ],
+        "insight": [
+          {
+            name: "skill_analyzer",
+            description: "Analizador de habilidades y recomendador de prácticas personalizadas",
+            category: "insight",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          },
+          {
+            name: "coverage_mapper",
+            description: "Mapeador de cobertura Red/Blue/Purple con visualización radial",
+            category: "insight",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
+          }
+        ],
+        "timewarp": [
+          {
+            name: "session_recorder",
+            description: "Grabador y reproductor de sesiones de seguridad para entrenamiento",
+            category: "timewarp",
+            author: "@descambiado",
+            version: "1.0",
+            last_updated: "2025-06-18"
           }
         ]
       };
@@ -228,8 +421,8 @@ const Scripts = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6">
       <div className="container mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2">Scripts de Ciberseguridad</h1>
-          <p className="text-gray-300">Ejecuta herramientas profesionales desde el navegador</p>
+          <h1 className="text-3xl font-bold text-cyan-400 mb-2">BOFA Extended Systems v2.0</h1>
+          <p className="text-gray-300">Ecosistema completo de ciberseguridad - Red, Blue, Purple Team + Forensics + Mobile + AI</p>
         </div>
 
         {!selectedModule ? (
@@ -243,7 +436,7 @@ const Scripts = () => {
               modules?.map((module) => (
                 <Card 
                   key={module.id} 
-                  className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all cursor-pointer"
+                  className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all cursor-pointer transform hover:scale-105"
                   onClick={() => setSelectedModule(module.id)}
                 >
                   <CardHeader>
@@ -253,14 +446,14 @@ const Scripts = () => {
                       </div>
                       <div>
                         <CardTitle className="text-cyan-400">{module.name}</CardTitle>
-                        <CardDescription className="text-gray-300">{module.script_count} scripts disponibles</CardDescription>
+                        <CardDescription className="text-gray-300">{module.script_count} herramientas disponibles</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <p className="text-gray-300 mb-4">{module.description}</p>
                     <Button variant="outline" className="w-full border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black">
-                      Ver Scripts
+                      Explorar Módulo
                     </Button>
                   </CardContent>
                 </Card>
@@ -283,7 +476,7 @@ const Scripts = () => {
               {scriptsLoading ? (
                 <div className="text-center py-12">
                   <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto"></div>
-                  <p className="text-gray-400 mt-4">Cargando scripts...</p>
+                  <p className="text-gray-400 mt-4">Cargando herramientas...</p>
                 </div>
               ) : (
                 scripts?.map((script) => (
