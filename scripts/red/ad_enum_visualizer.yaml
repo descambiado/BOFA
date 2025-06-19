@@ -1,0 +1,34 @@
+
+name: "AD Enumeration Visualizer"
+description: "Genera visualizaciones tipo BloodHound de entornos Active Directory"
+category: "red"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-18"
+required_privileges: "user"
+impact_level: "LOW"
+educational_value: 5
+countermeasures: ["Network Monitoring", "LDAP Logging", "Anomaly Detection"]
+
+parameters:
+  - name: domain
+    type: string
+    required: true
+    description: "Dominio Active Directory a enumerar"
+  - name: output
+    type: string
+    required: false
+    description: "Directorio de salida para reportes"
+
+dependencies:
+  - networkx
+  - matplotlib
+
+usage_examples:
+  - "python3 ad_enum_visualizer.py -d EMPRESA.LOCAL"
+  - "python3 ad_enum_visualizer.py -d TESTLAB.COM -o /tmp/ad_results"
+
+learning_objectives:
+  - "Comprender estructura de Active Directory"
+  - "Identificar relaciones críticas usuario-grupo"
+  - "Visualizar superficies de ataque potenciales"

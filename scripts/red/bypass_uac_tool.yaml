@@ -1,0 +1,38 @@
+
+name: "UAC Bypass Simulator"
+description: "Simula técnicas de bypass UAC para entrenamiento defensivo"
+category: "red"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-18"
+required_privileges: "user"
+impact_level: "LOW"
+educational_value: 5
+countermeasures: ["Registry Monitoring", "Process Monitoring", "Application Control"]
+
+parameters:
+  - name: technique
+    type: choice
+    choices: ["fodhelper", "sdclt", "eventvwr", "all"]
+    default: "all"
+    description: "Técnica de bypass a simular"
+  - name: output
+    type: string
+    required: false
+    description: "Directorio de salida para reportes"
+
+dependencies: []
+
+usage_examples:
+  - "python3 bypass_uac_tool.py -t fodhelper"
+  - "python3 bypass_uac_tool.py -t all -o /tmp/uac_results"
+
+learning_objectives:
+  - "Comprender técnicas de bypass UAC"
+  - "Identificar vectores de detección"
+  - "Implementar mitigaciones efectivas"
+
+warnings:
+  - "Solo para fines educativos y simulación"
+  - "No ejecuta bypass real - solo documenta técnicas"
+  - "Usar en entornos controlados únicamente"

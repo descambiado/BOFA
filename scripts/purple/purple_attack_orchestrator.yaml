@@ -1,0 +1,47 @@
+
+name: purple_attack_orchestrator
+category: purple
+author: "@descambiado"
+description: "Advanced purple team orchestrator for coordinated red vs blue training exercises"
+version: "1.0"
+last_updated: "2025-06-18"
+tags: ["purple team", "red team", "blue team", "attack simulation", "defense validation"]
+usage: "python3 purple_attack_orchestrator.py [-s scenario] [-i] [--speed multiplier]"
+dependencies:
+  - json
+  - subprocess
+  - threading
+requirements: "No external dependencies - educational simulation"
+educational_purpose: true
+legal_notice: "For authorized purple team training and security validation only"
+innovation: "Comprehensive attack simulation with real-time blue team response validation"
+features:
+  - "Multi-phase attack scenarios"
+  - "Real-time detection simulation"
+  - "MITRE ATT&CK technique mapping"
+  - "Performance metrics calculation"
+  - "Detection gap analysis"
+  - "Comprehensive reporting"
+attack_scenarios:
+  - "Credential harvesting campaigns"
+  - "Advanced persistent threat simulation"
+  - "Malicious insider threats"
+  - "Ransomware attack chains"
+purple_team_benefits:
+  - "Validates detection capabilities"
+  - "Improves response times"
+  - "Identifies security gaps"
+  - "Enhances team collaboration"
+  - "Provides measurable improvements"
+metrics_tracked:
+  - "Detection rate percentage"
+  - "Average detection delay"
+  - "Alert confidence levels"
+  - "MITRE ATT&CK coverage"
+  - "Response effectiveness"
+mitre_techniques:
+  - "T1078: Valid Accounts"
+  - "T1003: OS Credential Dumping"
+  - "T1021: Remote Services"
+  - "T1053: Scheduled Task/Job"
+  - "T1566: Phishing"

@@ -1,0 +1,62 @@
+
+name: "Cloud Misconfiguration Lab"
+description: "Laboratorio de configuraciones erróneas en cloud computing"
+category: "cloud-security"
+difficulty: "intermediate"
+estimated_time: "45 minutes"
+author: "@descambiado"
+version: "1.0"
+
+learning_objectives:
+  - "Identificar buckets S3 mal configurados"
+  - "Explotar metadata services de instancias"
+  - "Enumerar recursos cloud expuestos"
+  - "Implementar mitigaciones apropiadas"
+
+vulnerabilities:
+  - name: "Public S3 Bucket"
+    cve: "N/A"
+    description: "Bucket con permisos de lectura pública"
+    impact: "Exposición de datos sensibles"
+    
+  - name: "Metadata Service Exposure"
+    cve: "N/A" 
+    description: "Servicio de metadatos accesible sin autenticación"
+    impact: "Obtención de credenciales temporales"
+
+services:
+  - name: "webapp"
+    port: 8081
+    description: "Aplicación web vulnerable"
+    
+  - name: "minio"
+    port: 9000
+    description: "Simulador S3 con bucket público"
+    
+  - name: "metadata-server"
+    port: 8080
+    description: "Servidor de metadatos simulado"
+
+flags:
+  - name: "bucket_flag"
+    location: "MinIO bucket company-secrets"
+    hint: "Busca archivos en el bucket público"
+    
+  - name: "metadata_flag"
+    location: "Metadata service response"
+    hint: "Las credenciales temporales contienen información valiosa"
+
+tools_needed:
+  - "aws-cli o s3cmd"
+  - "curl"
+  - "Browser web"
+
+setup_instructions:
+  - "docker-compose up -d"
+  - "Esperar 30 segundos para que los servicios inicien"
+  - "Acceder a http://localhost:8081 para la webapp"
+  - "MinIO disponible en http://localhost:9000"
+
+cleanup_instructions:
+  - "docker-compose down -v"
+  - "docker system prune -f"

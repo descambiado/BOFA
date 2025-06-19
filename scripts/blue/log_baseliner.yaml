@@ -1,0 +1,44 @@
+
+name: log_baseliner
+category: blue
+author: "@descambiado"
+description: "Advanced behavioral analysis and anomaly detection tool for security log analysis"
+version: "1.0"
+last_updated: "2025-06-18"
+tags: ["log analysis", "anomaly detection", "behavioral analysis", "baseline", "blue team"]
+usage: "python3 log_baseliner.py [-f logfile] [-b baseline] [-a analyze] [--demo]"
+dependencies:
+  - json
+  - re
+  - statistics
+  - collections
+requirements: "No external dependencies - educational simulation"
+educational_purpose: true
+legal_notice: "For authorized security monitoring and log analysis only"
+innovation: "Machine learning-style behavioral baselining with statistical anomaly detection"
+features:
+  - "Behavioral baseline creation"
+  - "Multi-dimensional anomaly detection"
+  - "Statistical analysis of user patterns"
+  - "Time-based behavior analysis"
+  - "IP and command pattern detection"
+  - "Risk scoring system"
+detection_capabilities:
+  - "Unusual login times"
+  - "New source IP addresses"
+  - "Brute force attack patterns"
+  - "Suspicious command execution"
+  - "New user activity monitoring"
+  - "Command pattern deviations"
+analysis_methods:
+  - "Statistical deviation detection"
+  - "Frequency analysis" 
+  - "Pattern recognition"
+  - "Behavioral profiling"
+  - "Time series analysis"
+use_cases:
+  - "SOC analyst training"
+  - "SIEM rule development"
+  - "Insider threat detection"
+  - "Compliance monitoring"
+  - "Security baseline establishment"
