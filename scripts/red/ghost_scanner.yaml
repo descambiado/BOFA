@@ -1,0 +1,41 @@
+
+name: "Ghost Scanner"
+description: "Escaneo sigiloso de red sin ARP con TTL y MAC randomization"
+category: "red"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-19"
+required_privileges: "user"
+impact_level: "MEDIUM"
+educational_value: 5
+countermeasures: ["Network Monitoring", "IDS Rules", "Traffic Analysis"]
+
+parameters:
+  - name: target
+    type: string
+    required: true
+    description: "Rango de red a escanear (ej: 192.168.1.0)"
+  - name: output
+    type: string
+    required: false
+    description: "Archivo de salida del reporte"
+  - name: delay
+    type: float
+    default: 0.5
+    description: "Delay entre escaneos para sigilo"
+
+dependencies: []
+
+usage_examples:
+  - "python3 ghost_scanner.py -t 192.168.1.0"
+  - "python3 ghost_scanner.py -t 10.0.0.0 --delay 1.0 -o scan_results.txt"
+
+learning_objectives:
+  - "Comprender técnicas de escaneo sigiloso"
+  - "Evadir sistemas de detección de intrusiones"
+  - "Implementar reconnaissance avanzado"
+
+warnings:
+  - "Solo para redes autorizadas"
+  - "Puede ser detectado por sistemas avanzados"
+  - "Usar con responsabilidad ética"

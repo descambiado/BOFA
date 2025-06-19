@@ -1,0 +1,38 @@
+
+name: "Log Timeline Builder"
+description: "Genera línea de tiempo visual con eventos clave desde logs del sistema"
+category: "blue"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-19"
+required_privileges: "user"
+impact_level: "LOW"
+educational_value: 5
+countermeasures: ["Log Analysis", "Timeline Forensics", "Event Correlation"]
+
+parameters:
+  - name: file
+    type: string
+    required: true
+    description: "Archivo de log a analizar"
+  - name: output
+    type: string
+    required: false
+    description: "Archivo JSON de salida"
+  - name: format
+    type: choice
+    choices: ["console", "json"]
+    default: "console"
+    description: "Formato de salida"
+
+dependencies: []
+
+usage_examples:
+  - "python3 log_timeline_builder.py -f /var/log/auth.log"
+  - "python3 log_timeline_builder.py -f access.log -o timeline.json"
+  - "python3 log_timeline_builder.py -f system.log --format json"
+
+learning_objectives:
+  - "Comprender análisis de líneas de tiempo forenses"
+  - "Identificar eventos críticos en logs"
+  - "Correlacionar actividades sospechosas"

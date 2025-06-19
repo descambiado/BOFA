@@ -1,0 +1,38 @@
+
+name: "Packet Story Builder"
+description: "Construye narrativas forenses a partir de tráfico de red capturado"
+category: "forensics"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-06-19"
+required_privileges: "user"
+impact_level: "LOW"
+educational_value: 5
+countermeasures: ["Network Forensics", "Incident Response", "Threat Hunting"]
+
+parameters:
+  - name: file
+    type: string
+    required: true
+    description: "Archivo PCAP a analizar"
+  - name: output
+    type: string
+    required: false
+    description: "Archivo de reporte de salida"
+  - name: format
+    type: choice
+    choices: ["narrative", "iocs", "recommendations", "all"]
+    default: "all"
+    description: "Tipo de análisis a generar"
+
+dependencies: []
+
+usage_examples:
+  - "python3 packet_storybuilder.py -f capture.pcap"
+  - "python3 packet_storybuilder.py -f traffic.pcap --format narrative -o report.md"
+  - "python3 packet_storybuilder.py -f suspicious.pcap --format iocs"
+
+learning_objectives:
+  - "Comprender análisis forense de tráfico de red"
+  - "Desarrollar narrativas de incidentes de seguridad"
+  - "Identificar patrones de ataque en comunicaciones"
