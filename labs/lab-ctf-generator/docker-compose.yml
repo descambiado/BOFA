@@ -1,0 +1,57 @@
+
+version: '3.8'
+
+services:
+  ctf-web:
+    build: ./web-challenges
+    container_name: ctf-web-challenges
+    ports:
+      - "8082:80"
+      - "8443:443"
+    volumes:
+      - ./challenges:/var/www/html/challenges
+      - ./flags:/var/www/html/flags
+    networks:
+      - ctf-net
+    restart: unless-stopped
+
+  ctf-ssh:
+    build: ./ssh-challenges
+    container_name: ctf-ssh-server
+    ports:
+      - "2223:22"
+    volumes:
+      - ./ssh-keys:/etc/ssh
+      - ./user-challenges:/home/ctfuser
+    networks:
+      - ctf-net
+    restart: unless-stopped
+
+  ctf-generator:
+    build: ./generator
+    container_name: ctf-generator
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./generated:/app/output
+      - ./templates:/app/templates
+    networks:
+      - ctf-net
+    environment:
+      - FLASK_ENV=development
+    restart: unless-stopped
+
+  flag-validator:
+    image: redis:alpine
+    container_name: ctf-flag-store
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/data
+    networks:
+      - ctf-net
+    restart: unless-stopped
+
+networks:
+  ctf-net:
+    driver: bridge

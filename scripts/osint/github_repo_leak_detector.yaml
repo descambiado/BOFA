@@ -1,0 +1,60 @@
+
+name: "GitHub Repository Leak Detector"
+description: "Detecta secretos (API keys, tokens) en repositorios públicos de GitHub"
+version: "1.0"
+author: "@descambiado"
+category: "osint"
+created: "2025-06-19"
+last_updated: "2025-06-19"
+tags: ["github", "secrets", "leak-detection", "osint", "security"]
+risk_level: "MEDIUM"
+impact_level: "MEDIUM"
+educational_value: 5
+usage_type: "osint"
+
+parameters:
+  queries:
+    type: "array"
+    description: "Términos de búsqueda para repositorios"
+    required: true
+    example: ["api key", "password", "config"]
+  token:
+    type: "string"
+    description: "Token de GitHub API (opcional, aumenta rate limit)"
+    required: false
+  max_repos:
+    type: "integer"
+    description: "Máximo repositorios por búsqueda"
+    required: false
+    default: 5
+    max: 20
+  output:
+    type: "string"
+    description: "Archivo de salida JSON"
+    required: false
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+requirements:
+  - "requests>=2.25.0"
+  - "python>=3.8"
+
+environment:
+  - "Conexión a internet requerida"
+  - "Solo repositorios públicos"
+  - "Respetar rate limits de GitHub API"
+
+example_usage: |
+  python github_repo_leak_detector.py "api key" "password" --max-repos 10 --output leaks.json -v
+
+mitre_attack:
+  tactic: "Collection"
+  technique: "T1213 - Data from Information Repositories"
+
+educational_notes: |
+  Esta herramienta demuestra cómo detectar credenciales filtradas en repositorios públicos.
+  Utiliza patrones regex para identificar diferentes tipos de secretos. La versión actual
+  incluye datos simulados para demostrar el proceso sin realizar búsquedas reales en GitHub.

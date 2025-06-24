@@ -1,0 +1,51 @@
+
+name: "Public Email Validator & Breach Checker"
+description: "Verifica emails con HaveIBeenPwned y valida dominios públicamente"
+version: "1.0"
+author: "@descambiado"
+category: "osint"
+created: "2025-06-19"
+last_updated: "2025-06-19"
+tags: ["email", "osint", "breach-check", "validation", "hibp"]
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+usage_type: "osint"
+
+parameters:
+  emails:
+    type: "array"
+    description: "Lista de emails a verificar"
+    required: true
+    example: ["test@example.com", "user@domain.org"]
+  output:
+    type: "string"
+    description: "Archivo de salida JSON"
+    required: false
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+requirements:
+  - "requests>=2.25.0"
+  - "dnspython>=2.1.0"
+  - "python>=3.8"
+
+environment:
+  - "Conexión a internet requerida"
+  - "Solo emails propios o con autorización"
+  - "Respetar rate limits de APIs públicas"
+
+example_usage: |
+  python public_email_validator.py test@example.com user@domain.org --output results.json -v
+
+mitre_attack:
+  tactic: "Reconnaissance"
+  technique: "T1589 - Gather Victim Identity Information"
+
+educational_notes: |
+  Esta herramienta demuestra técnicas OSINT para validar emails y verificar breaches.
+  Usa servicios públicos como HaveIBeenPwned y resolución DNS. La versión actual
+  incluye datos simulados para demostrar el proceso sin hacer consultas reales.

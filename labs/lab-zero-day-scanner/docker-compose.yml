@@ -1,0 +1,45 @@
+
+version: '3.8'
+
+services:
+  vulnerable-app:
+    image: vulnerables/web-dvwa
+    container_name: zero-day-app
+    ports:
+      - "8080:80"
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=password
+    volumes:
+      - ./app-config:/var/www/html/config
+    networks:
+      - zero-day-net
+    restart: unless-stopped
+
+  log4shell-app:
+    image: christophetd/log4shell-vulnerable-app
+    container_name: log4shell-vulnerable
+    ports:
+      - "8090:8080"
+    networks:
+      - zero-day-net
+    restart: unless-stopped
+
+  scanner-tools:
+    image: kalilinux/kali-rolling
+    container_name: zero-day-scanner
+    ports:
+      - "2222:22"
+    volumes:
+      - ./scanner-scripts:/opt/scanner
+    networks:
+      - zero-day-net
+    tty: true
+    stdin_open: true
+    command: /bin/bash -c "apt-get update && apt-get install -y openssh-server nmap nuclei && service ssh start && tail -f /dev/null"
+
+networks:
+  zero-day-net:
+    driver: bridge

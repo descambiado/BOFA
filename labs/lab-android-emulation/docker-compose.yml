@@ -1,0 +1,52 @@
+
+version: '3.8'
+
+services:
+  android-simulator:
+    image: budtmo/docker-android:emulator_11.0
+    container_name: android-emulator
+    ports:
+      - "6080:6080"
+      - "5554:5554"
+      - "5555:5555"
+    environment:
+      - EMULATOR_DEVICE=Samsung Galaxy S10
+      - WEB_VNC=true
+      - APPIUM=true
+    volumes:
+      - ./apks:/root/apks
+      - ./android-tools:/opt/tools
+    devices:
+      - /dev/kvm:/dev/kvm
+    networks:
+      - android-net
+    restart: unless-stopped
+
+  vulnerable-app-server:
+    image: nginx:alpine
+    container_name: vulnerable-app-server
+    ports:
+      - "8081:80"
+    volumes:
+      - ./vulnerable-apks:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - android-net
+    restart: unless-stopped
+
+  traffic-analyzer:
+    image: kalilinux/kali-rolling
+    container_name: traffic-analyzer
+    ports:
+      - "3333:22"
+    volumes:
+      - ./traffic-tools:/opt/traffic
+    networks:
+      - android-net
+    tty: true
+    stdin_open: true
+    command: /bin/bash -c "apt-get update && apt-get install -y openssh-server wireshark-common tcpdump mitmproxy && service ssh start && tail -f /dev/null"
+
+networks:
+  android-net:
+    driver: bridge

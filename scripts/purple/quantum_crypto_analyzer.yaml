@@ -1,0 +1,122 @@
+
+name: "quantum_crypto_analyzer"
+display_name: "Quantum-Safe Crypto Analyzer"
+description: "Evalúa la resistencia criptográfica ante computación cuántica y genera planes de migración"
+category: "purple"
+subcategory: "cryptography"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["quantum", "cryptography", "post-quantum", "migration", "security-audit"]
+
+requirements:
+  - "python3"
+  - "cryptography"
+  - "ssl"
+
+parameters:
+  analysis_type:
+    type: "select"
+    description: "Tipo de análisis a realizar"
+    required: true
+    options: ["code", "network", "certificate", "comprehensive"]
+    default: "comprehensive"
+  
+  target_file:
+    type: "file"
+    description: "Archivo de código fuente a analizar"
+    required: false
+    default: ""
+  
+  target_host:
+    type: "string"
+    description: "Host para análisis de red (ej: google.com)"
+    required: false
+    default: ""
+  
+  target_port:
+    type: "integer"
+    description: "Puerto para análisis SSL/TLS"
+    required: false
+    default: 443
+    min: 1
+    max: 65535
+  
+  language:
+    type: "select"
+    description: "Lenguaje del código fuente"
+    required: false
+    options: ["python", "java", "javascript", "c", "cpp"]
+    default: "python"
+  
+  output_format:
+    type: "select"
+    description: "Formato del reporte"
+    required: false
+    options: ["json", "html", "pdf"]
+    default: "json"
+
+features:
+  - "🔮 Análisis de vulnerabilidades cuánticas"
+  - "📊 Score de seguridad post-cuántica"
+  - "🗺️ Planes de migración automatizados"
+  - "🔍 Auditoría de código criptográfico"
+  - "🌐 Escaneo de protocolos de red"
+  - "📜 Análisis de certificados SSL/TLS"
+  - "⏱️ Estimación de esfuerzo de migración"
+  - "📋 Recomendaciones específicas por algoritmo"
+
+execution:
+  timeout: 600
+  memory_limit: "256MB"
+  cpu_limit: "1"
+
+algorithms:
+  quantum_vulnerable:
+    - "RSA (< 4096 bits)"
+    - "ECDSA"
+    - "DSA"
+    - "Diffie-Hellman"
+    - "MD5"
+    - "SHA-1"
+    - "3DES"
+  
+  quantum_safe:
+    - "Kyber (KEM)"
+    - "Dilithium (Signatures)"
+    - "Falcon (Signatures)"
+    - "SPHINCS+ (Signatures)"
+    - "AES-256"
+    - "ChaCha20-Poly1305"
+    - "SHA-3"
+
+output:
+  format: "structured"
+  fields:
+    - "vulnerability_count"
+    - "quantum_safe_score"
+    - "migration_plan"
+    - "recommendations"
+    - "compliance_status"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "gauge"
+      title: "Quantum Safety Score"
+      field: "quantum_safe_score"
+      min: 0
+      max: 100
+    - type: "chart"
+      title: "Vulnerabilidades por Algoritmo"
+      field: "vulnerabilities"
+      chart_type: "bar"
+    - type: "timeline"
+      title: "Plan de Migración"
+      field: "migration_plan"
+    - type: "list"
+      title: "Recomendaciones Críticas"
+      field: "recommendations"

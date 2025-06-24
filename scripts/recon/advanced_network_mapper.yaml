@@ -1,0 +1,109 @@
+
+name: "advanced_network_mapper"
+display_name: "Advanced Network Mapper"
+description: "Herramienta avanzada de mapeo de red con técnicas sigilosas y detección de servicios"
+category: "recon"
+subcategory: "network_mapping"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "MEDIUM"
+impact_level: "LOW"
+educational_value: 5
+tags: ["network-mapping", "port-scanning", "service-detection", "reconnaissance", "fingerprinting"]
+
+requirements:
+  - "python3"
+  - "socket"
+  - "threading"
+  - "concurrent.futures"
+
+parameters:
+  target_network:
+    type: "string"
+    description: "Red objetivo (ej: 192.168.1.0/24)"
+    required: true
+    default: "127.0.0.1"
+  
+  scan_type:
+    type: "select"
+    description: "Tipo de escaneo"
+    required: false
+    options: ["standard", "stealth", "aggressive", "quick"]
+    default: "standard"
+  
+  port_range:
+    type: "select"
+    description: "Rango de puertos"
+    required: false
+    options: ["common", "top1000", "all", "custom"]
+    default: "common"
+  
+  max_threads:
+    type: "integer"
+    description: "Máximo hilos concurrentes"
+    required: false
+    default: 50
+    min: 1
+    max: 200
+  
+  timeout:
+    type: "float"
+    description: "Timeout por conexión (segundos)"
+    required: false
+    default: 2.0
+    min: 0.5
+    max: 10.0
+
+features:
+  - "🗺️ Mapeo comprehensivo de red"
+  - "🔍 Ping sweep inteligente"
+  - "🔓 Escaneo de puertos multi-técnica"
+  - "🏷️ Detección de servicios y versiones"
+  - "💻 OS fingerprinting básico"
+  - "🚨 Escaneo de vulnerabilidades"
+  - "⚡ Escaneo multi-hilo optimizado"
+  - "🥷 Técnicas de escaneo sigiloso"
+
+execution:
+  timeout: 300
+  memory_limit: "256MB"
+  cpu_limit: "2"
+
+output:
+  format: "structured"
+  fields:
+    - "scan_info"
+    - "discovered_hosts"
+    - "open_ports"
+    - "services_detected"
+    - "os_fingerprinting"
+    - "vulnerabilities"
+    - "recommendations"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Hosts Descubiertos"
+      field: "scan_info.hosts_discovered"
+    - type: "metric"
+      title: "Puertos Abiertos"
+      field: "scan_info.total_open_ports"
+    - type: "chart"
+      title: "Servicios por Puerto"
+      field: "services_detected"
+      chart_type: "bar"
+    - type: "list"
+      title: "Vulnerabilidades"
+      field: "vulnerabilities"
+
+techniques:
+  - "TCP Connect Scan"
+  - "Stealth SYN Scan"
+  - "UDP Scan"
+  - "Service Version Detection"
+  - "OS Fingerprinting"
+  - "Banner Grabbing"
+
+legal_notice: "Solo usar en redes propias o con autorización explícita"

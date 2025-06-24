@@ -1,162 +1,160 @@
 
-# 📦 BOFA - CHANGELOG
+# 📦 BOFA – CHANGELOG
 
-## v2.2.0 – Consolidación Total + Auto-carga + UX Optimizado (2025-06-19)
+## v2.3.0 – Sistema de Reportes Profesionales + CVEs Recientes (2025-06-19)
 
-### 🚀 Nuevas Características Principales
-- **Carga Automática de Scripts**: Lectura dinámica desde archivos YAML, eliminando datos estáticos
-- **Logging Persistente**: Registro completo de ejecuciones en `logs/executions.log` formato JSON
-- **Nuevo Endpoint**: `/history` para acceder al historial de ejecuciones
-- **Página de Historial**: Interfaz web navegable con detalles completos de ejecuciones
-- **Sistema de Alertas Avanzado**: Advertencias éticas para herramientas ofensivas
-- **Documentación Automática**: README.md y CHANGELOG.md generados
+### 🆕 Nuevas Características
+- **Sistema de Reportes Profesionales**
+  - Generación automática de reportes en PDF, Markdown y JSON
+  - Exportación desde Web, CLI y API
+  - Contenido completo: metadatos, parámetros, resultados, errores, timing
+  - Estructura organizada en `/reports/` con subcarpetas por formato
+  
+- **Nuevos Scripts de Vulnerabilidades 2024-2025**
+  - `cve_2024_springauth_bypass.py` - Simulador de bypass Spring Security
+  - `cve_2025_kernel_overlay.py` - Simulador overlayfs kernel Linux
+  - `http2_rapid_reset_dos.py` - Simulador DoS HTTP/2 Rapid Reset
+  
+- **Herramientas OSINT Avanzadas**
+  - `telegram_user_scraper.py` - Extractor de usuarios de grupos públicos
+  - `public_email_validator.py` - Verificador con HaveIBeenPwned
+  - `github_repo_leak_detector.py` - Detector de secretos en repos públicos
 
-### 📊 Backend API Mejorado
-- Carga dinámica de módulos desde `/scripts/**/*.yaml`
-- Validación de rutas de scripts multiplataforma (.py, .sh, .ps1)
-- Logging estructurado con timestamp, parámetros, salida y errores
-- Nuevos endpoints: `/history`, `/history/{execution_id}`
-- Estadísticas extendidas con conteo de ejecuciones
+### 🚀 Mejoras de API
+- Nuevos endpoints `/reports/latest`, `/reports/pdf`, `/reports/markdown`, `/reports/json`
+- Sistema de logging persistente mejorado
+- Carga dinámica de scripts desde YAML optimizada
+- Endpoint `/reports/list` para listar reportes disponibles
 
-### 💻 Frontend Enriquecido
-- Nueva página `/history` con historial navegable
-- Consola de ejecución mejorada con timestamp y colores
-- Sistema de badges dinámicos: Educational, High Risk, Defensive
-- Alertas contextuales antes de ejecutar scripts ofensivos
-- Tooltips informativos y mejoras UX
+### 🎨 Mejoras de Interfaz
+- Componente `ReportExporter` integrado en ScriptExecutor
+- Modal de selección de formato de exportación
+- Vista previa de contenido de reportes
+- Descarga directa desde navegador
+- Iconografía mejorada para tipos de archivo
 
-### 🔧 Scripts y Herramientas Nuevas
-- **threat_emulator.py**: Simulación de comportamientos APT, ransomware, insider
-- **log_timeline_builder.py**: Generador de líneas de tiempo forenses
-- **ghost_scanner.py**: Escaneo sigiloso con TTL y MAC randomization
-- **ctf_flag_planner.py**: Constructor de escenarios CTF personalizados
-- **packet_storybuilder.py**: Narrativas forenses desde tráfico .pcap
+### 🏗️ Infraestructura
+- Estructura de directorios `/reports/` automatizada
+- Documentación completa en `/reports/README.md`
+- Soporte para múltiples formatos de exportación
+- Manejo de errores mejorado en generación de reportes
 
-### 📁 Estructura y Organización
-- Directorio `/logs` para persistencia de ejecuciones
-- Metadata YAML completa: impact_level, educational_value, required_privileges
-- Scripts organizados por categorías con documentación consistente
+### 📚 Laboratorios Nuevos
+- `lab-zero-day-scanner` - Emulador de CVEs recientes (Log4Shell, Spring4Shell)
+- `lab-android-emulation` - Entorno Android 11 para testing móvil
+- `lab-ctf-generator` - Generador automático de retos CTF
 
-## v2.1.0 – Plataforma Web + Alertas + Nuevos Scripts (2025-06-18)
-
-### 🌐 Interfaz Web Completa
-- Panel de scripts con ejecución en tiempo real
-- Sistema de alertas para herramientas ofensivas
-- Consola de ejecución con scroll automático y exportación
-- Navegación por módulos: Red, Blue, Purple, Forensics, Study
-
-### 🔴 Red Team - Arsenal Expandido
-- **ad_enum_visualizer.py**: Enumeración AD con visualización BloodHound
-- **bypass_uac_tool.py**: Simulador de técnicas UAC bypass
-- **reverse_shell_polyglot.py**: Reverse shells multi-protocolo
-- **c2_simulator.py**: Simulador Command & Control
-
-### 🔵 Blue Team - Defensas Activas
-- **ioc_matcher.py**: Análisis de Indicadores de Compromiso
-- **suricata_rule_generator.py**: Generador de reglas IDS automático
-- **event_tracer_windows.py**: Monitoreo de eventos críticos Windows
-
-### 🟣 Purple Team - Validación Coordinada
-- **attack_response_logger.py**: Análisis de respuestas a técnicas MITRE
-- **compliance_tester.py**: Validador de medidas de seguridad básicas
-
-### 🧪 Laboratorios Docker
-- **lab-cloud-misconfig**: Errores de configuración AWS con secretos expuestos
-- **lab-edr-evasion**: Técnicas de evasión de EDR en entorno controlado
-
-### 🎓 Lecciones Educativas
-- **Post Exploitation Tactics**: Escalada y persistencia Linux/Windows
-- **Chain Attacks**: Encadenamiento XSS → LFI → RCE
-- **Cloud Enumeration**: Reconocimiento AWS y Azure
-
-## v2.0.0 – Sistema Completo: Red, Blue, Purple, Labs (2025-06-17)
-
-### 🏗️ Arquitectura Multi-Componente
-- **API FastAPI**: Backend robusto con endpoints RESTful
-- **Frontend React**: Interfaz moderna con Tailwind CSS
-- **CLI Python**: Herramienta de línea de comandos completa
-- **Docker Integration**: Laboratorios containerizados
-
-### 📦 Módulos Implementados
-- Red Team: Herramientas ofensivas con disclaimers educativos
-- Blue Team: Defensas automatizadas y monitoreo
-- Purple Team: Ejercicios colaborativos Red vs Blue
-- OSINT: Inteligencia de fuentes abiertas
-- Forensics: Análisis de evidencia digital
-
-### 🧪 Laboratorios de Práctica
-- **web-sqli**: Vulnerabilidades SQL Injection
-- **lab-ad-enum**: Enumeración Active Directory
-- **internal-network**: Red interna vulnerable
-- **siem-detection**: Laboratorio de detección SIEM
-
-### 🎓 Sistema Educativo
-- Lecciones interactivas con validación automática
-- Progreso tracked por usuario
-- Contenido teórico + ejercicios prácticos
-
-## v1.0.0 – Estructura Base, CLI, Web, API, Docker (2025-06-16)
-
-### 🚀 Lanzamiento Inicial
-- Estructura modular completa
-- Sistema de scripts con metadata YAML
-- Interfaz web básica funcional
-- API REST para integración
-
-### 🔧 Herramientas Fundacionales
-- **port_slayer.sh**: Escaneo de puertos avanzado
-- **web_discover.py**: Descubrimiento de servicios web
-- **social_profile_mapper.py**: Mapeo de perfiles OSINT
-- **log_guardian.py**: Monitor de logs del sistema
-
-### 📊 Características Base
-- Ejecutor de scripts multiplataforma
-- Validación de parámetros
-- Logging básico de operaciones
-- Containerización Docker completa
-
-### 🔐 Seguridad y Ética
-- Disclaimers educativos en herramientas ofensivas
-- Validación de rutas de ejecución
-- Timeouts de seguridad configurables
-- Documentación de contramedidas
+### 🔧 Correcciones
+- Validación mejorada de parámetros de entrada
+- Manejo de caracteres especiales en nombres de archivo
+- Optimización de memoria en generación de reportes grandes
+- Compatibilidad mejorada entre formatos de exportación
 
 ---
 
-## 📈 Estadísticas de Desarrollo
+## v2.2.0 – Consolidación total + Auto-carga + UX optimizado (2025-06-19)
 
-### Líneas de Código por Versión
-- **v1.0.0**: ~2,000 LOC
-- **v2.0.0**: ~8,500 LOC  
-- **v2.1.0**: ~12,000 LOC
-- **v2.2.0**: ~15,500 LOC
+### 🆕 Nuevas Características
+- Carga automática de scripts desde archivos YAML
+- Sistema de logging persistente de ejecuciones
+- Nuevo endpoint `/history` para historial de ejecuciones
+- Interfaz web enriquecida con historial y mejoras visuales
+- Documentación automática generada
 
-### Scripts por Categoría (v2.2.0)
-- Red Team: 15+ herramientas
-- Blue Team: 12+ herramientas  
-- Purple Team: 8+ herramientas
-- Forensics: 6+ herramientas
-- OSINT: 5+ herramientas
-- Study: 10+ lecciones
-- Labs: 8+ laboratorios
+### 🚀 Mejoras de API
+- Reemplazo de MODULES_DATA estático por carga dinámica
+- Lectura automática de metadata desde `/scripts/**/*.yaml`
+- Reconstrucción automática de estructura de módulos
+- Compatibilidad completa entre Web, CLI y API
 
-### Próximas Versiones Planificadas
+### 🎨 Mejoras de Interfaz
+- Nueva página de Historial de Ejecuciones
+- Tooltips informativos en scripts
+- Estados de ejecución en tiempo real
+- Carga visual mejorada desde metadata YAML
+- Navegación optimizada entre secciones
 
-#### v2.3.0 - Intelligence & Analytics (Q3 2025)
-- BOFA Insight System: Recomendaciones basadas en uso
-- BOFA TimeWarp: Reproducción de sesiones paso a paso
-- Dashboard de métricas en tiempo real
-- Integración Elastic Stack
-
-#### v3.0.0 - Enterprise & Scale (Q4 2025)
-- Multi-tenant support
-- RBAC (Role-Based Access Control)
-- API GraphQL
-- Kubernetes deployment
-- Machine Learning detection modules
+### 🏗️ Infraestructura
+- Sistema de logs persistente en `/logs/executions.log`
+- Estructura JSON para almacenar ejecuciones
+- Endpoints RESTful para consulta de historial
+- Validación robusta de rutas y parámetros
 
 ---
 
-**Desarrollado con ❤️ por @descambiado (David Hernández Jiménez)**
+## v2.1.0 – Plataforma web + Alertas + Nuevos scripts (2025-06-18)
 
-Para más información: https://github.com/descambiado/bofa
+### 🆕 Nuevas Características
+- Interfaz web completa con React + TypeScript
+- Sistema de alertas y badges de riesgo
+- Módulos Blue Team, Purple Team y Forensics
+- Consola de ejecución en tiempo real
+- Gestión visual de parámetros de script
+
+### 🚀 Nuevos Scripts
+- `ioc_matcher.py` - Análisis de Indicadores de Compromiso
+- `threat_emulator.py` - Simulador de comportamiento de amenazas
+- `log_timeline_builder.py` - Generador de líneas de tiempo desde logs
+- `ad_enum_visualizer.py` - Visualizador estilo BloodHound para AD
+- `ghost_scanner.py` - Escáner sigiloso con randomización
+
+### 🎨 Interfaz Web
+- Dashboard principal con métricas del sistema
+- Ejecutor de scripts con parámetros dinámicos
+- Consola con logs coloreados y timestamps
+- Alertas contextuales por nivel de riesgo
+- Modo responsive para móviles y tablets
+
+---
+
+## v2.0.0 – Sistema completo: Red, Blue, Purple, Labs (2025-06-17)
+
+### 🆕 Características Principales
+- Arquitectura modular completa (CLI + Web + API)
+- Laboratorios Docker para práctica segura
+- Scripts organizados por metodología (Red/Blue/Purple Team)
+- Sistema de metadatos YAML para cada herramienta
+- Modo estudio con lecciones interactivas
+
+### 🛠️ Módulos Implementados
+- **Red Team**: Arsenal ofensivo y técnicas de penetración
+- **Blue Team**: Herramientas defensivas y análisis forense
+- **Purple Team**: Ejercicios coordinados de ataque y defensa
+- **Labs**: Entornos vulnerables controlados
+- **Study**: Lecciones educativas paso a paso
+
+### 🚀 Infraestructura
+- API FastAPI con documentación automática
+- Frontend React con Vite y Tailwind CSS
+- CLI Python multiplataforma
+- Docker Compose para despliegue completo
+- Nginx con SSL para acceso seguro
+
+---
+
+## v1.0.0 – Estructura base, CLI, Web, API, Docker (2025-06-15)
+
+### 🎯 Funcionalidades Base
+- CLI funcional para ejecutar scripts localmente
+- API REST básica para integración
+- Interfaz web inicial
+- Sistema de contenedores Docker
+- Scripts base para reconocimiento y análisis
+
+### 🔧 Herramientas Iniciales
+- Port scanner básico
+- Analizador de logs de autenticación
+- Detector de servicios web
+- Validador de configuraciones
+
+### 🏗️ Arquitectura
+- Estructura de proyecto organizada
+- Sistema de configuración
+- Documentación base
+- Instaladores para Linux y Windows
+
+---
+
+**Desarrollado por**: @descambiado (David Hernández Jiménez)  
+**Licencia**: MIT  
+**Repositorio**: BOFA Professional Security Suite

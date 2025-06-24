@@ -1,0 +1,71 @@
+
+name: "zero_trust_validator"
+display_name: "Zero Trust Network Validator"
+description: "Valida implementaciones reales de arquitecturas Zero Trust en redes corporativas"
+category: "blue"
+subcategory: "network_security"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["zero-trust", "network-security", "micro-segmentation", "identity", "least-privilege"]
+
+requirements:
+  - "python3"
+  - "nmap"
+  - "requests"
+  - "ldap3"
+
+parameters:
+  network_range:
+    type: "string"
+    description: "Rango de red a validar (CIDR)"
+    required: true
+    default: "192.168.1.0/24"
+  
+  validation_scope:
+    type: "multiselect"
+    description: "Aspectos de Zero Trust a validar"
+    required: false
+    options: ["identity_verification", "device_compliance", "micro_segmentation", "least_privilege", "encryption", "monitoring"]
+    default: ["identity_verification", "micro_segmentation", "least_privilege"]
+  
+  compliance_framework:
+    type: "select"
+    description: "Framework de compliance"
+    required: false
+    options: ["nist", "iso27001", "cisa", "custom"]
+    default: "nist"
+  
+  depth_level:
+    type: "select"
+    description: "Profundidad de validación"
+    required: false
+    options: ["basic", "standard", "comprehensive"]
+    default: "standard"
+
+features:
+  - "🔐 Identity and Access Management validation"
+  - "📱 Device compliance verification"
+  - "🚧 Micro-segmentation assessment"
+  - "⚡ Least privilege principle audit"
+  - "🔒 Encryption in transit/rest validation"
+  - "📊 Continuous monitoring evaluation"
+  - "🎯 Policy effectiveness scoring"
+  - "📋 Compliance gap analysis"
+
+execution:
+  timeout: 1200
+  memory_limit: "512MB"
+  cpu_limit: "2"
+
+output:
+  format: "structured"
+  fields:
+    - "zero_trust_score"
+    - "compliance_gaps"
+    - "security_violations"
+    - "recommendations"
+    - "policy_effectiveness"

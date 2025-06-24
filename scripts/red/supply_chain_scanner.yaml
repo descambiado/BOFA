@@ -1,0 +1,123 @@
+
+name: "supply_chain_scanner"
+display_name: "Supply Chain Security Scanner"
+description: "Mapea y analiza cadenas de suministro de software completas para detectar vulnerabilidades y riesgos"
+category: "red"
+subcategory: "supply_chain"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["supply-chain", "dependencies", "vulnerabilities", "sbom", "software-composition"]
+
+requirements:
+  - "python3"
+  - "requests"
+  - "json"
+
+parameters:
+  project_path:
+    type: "directory"
+    description: "Ruta del proyecto a escanear"
+    required: true
+    default: "./"
+  
+  scan_depth:
+    type: "select"
+    description: "Profundidad del escaneo"
+    required: false
+    options: ["shallow", "deep", "comprehensive"]
+    default: "deep"
+  
+  include_dev_deps:
+    type: "boolean"
+    description: "Incluir dependencias de desarrollo"
+    required: false
+    default: true
+  
+  vulnerability_check:
+    type: "boolean"
+    description: "Verificar vulnerabilidades conocidas"
+    required: false
+    default: true
+  
+  integrity_check:
+    type: "boolean"
+    description: "Verificar integridad de paquetes"
+    required: false
+    default: true
+  
+  generate_sbom:
+    type: "boolean"
+    description: "Generar Software Bill of Materials"
+    required: false
+    default: true
+  
+  output_format:
+    type: "select"
+    description: "Formato de salida"
+    required: false
+    options: ["json", "xml", "csv", "spdx"]
+    default: "json"
+
+features:
+  - "🔗 Mapeo completo de cadena de suministro"
+  - "📦 Soporte para múltiples gestores de paquetes"
+  - "🚨 Detección de vulnerabilidades conocidas"
+  - "🔍 Análisis de integridad de paquetes"
+  - "📋 Generación automática de SBOM"
+  - "⚠️ Identificación de riesgos de transferencia"
+  - "🌐 Verificación de URLs y dominios sospechosos"
+  - "📊 Análisis de profundidad de dependencias"
+
+supported_managers:
+  - "NPM (package.json)"
+  - "PIP (requirements.txt)"
+  - "Maven (pom.xml)"
+  - "Gradle (build.gradle)"
+  - "Composer (composer.json)"
+  - "Cargo (Cargo.toml)"
+
+risk_categories:
+  - "Vulnerabilidades conocidas (CVE)"
+  - "Mantenedores únicos"
+  - "Transferencias de propiedad"
+  - "URLs sospechosas"
+  - "Dependencias obsoletas"
+  - "Licencias incompatibles"
+
+execution:
+  timeout: 900
+  memory_limit: "512MB"
+  cpu_limit: "2"
+
+output:
+  format: "structured"
+  fields:
+    - "dependencies_count"
+    - "vulnerabilities"
+    - "supply_chain_risks"
+    - "sbom"
+    - "integrity_status"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Dependencias Totales"
+      field: "dependencies_count"
+    - type: "chart"
+      title: "Vulnerabilidades por Severidad"
+      field: "vulnerabilities"
+      chart_type: "donut"
+    - type: "list"
+      title: "Riesgos Críticos"
+      field: "supply_chain_risks"
+    - type: "tree"
+      title: "Árbol de Dependencias"
+      field: "dependency_tree"
+    - type: "table"
+      title: "SBOM Components"
+      field: "sbom.components"

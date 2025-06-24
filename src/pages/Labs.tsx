@@ -1,11 +1,23 @@
 
-import React, { useState } from 'react';
-import { Shield, Terminal, Globe, Lock, Eye, Wrench, PlayCircle, Square, RefreshCw, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { StatusBadge } from "@/components/UI/StatusBadge";
+import { ActionButton } from "@/components/UI/ActionButton";
+import { useLabs } from "@/services/api";
+import { 
+  Beaker, 
+  Play, 
+  Square, 
+  Settings,
+  Monitor,
+  Smartphone,
+  Cloud,
+  Shield,
+  Zap,
+  Users
+} from "lucide-react";
 
 interface Lab {
   id: string;
@@ -13,327 +25,265 @@ interface Lab {
   description: string;
   category: string;
   difficulty: string;
-  ports: string[];
-  services: string[];
-  status: 'stopped' | 'starting' | 'running' | 'stopping';
-  icon: React.ReactNode;
+  status: 'stopped' | 'running' | 'starting' | 'error';
+  port?: number;
+  url?: string;
+  estimatedTime: string;
+  technologies: string[];
 }
 
 const Labs = () => {
-  const { toast } = useToast();
   const [labs, setLabs] = useState<Lab[]>([
     {
-      id: 'web-sqli',
-      name: 'SQL Injection Lab',
-      description: 'Vulnerable web application for practicing SQL injection attacks',
-      category: 'web',
-      difficulty: 'beginner',
-      ports: ['80', '3306'],
-      services: ['Apache', 'MySQL', 'PHP'],
-      status: 'stopped',
-      icon: <Globe className="w-6 h-6" />
+      id: "internal-network",
+      name: "Red Interna Corporativa",
+      description: "Simula una red corporativa completa con AD, servidores web y bases de datos",
+      category: "network",
+      difficulty: "intermediate",
+      status: "stopped",
+      port: 8080,
+      estimatedTime: "45-60 min",
+      technologies: ["Active Directory", "Windows Server", "Apache", "MySQL"]
     },
     {
-      id: 'internal-network',
-      name: 'Internal Network Lab',
-      description: 'Multi-machine network for lateral movement and privilege escalation',
-      category: 'red',
-      difficulty: 'intermediate',
-      ports: ['22', '80', '445', '139'],
-      services: ['SSH', 'SMB', 'HTTP', 'FTP'],
-      status: 'stopped',
-      icon: <Terminal className="w-6 h-6" />
+      id: "android-emulation",
+      name: "Android Security Lab",
+      description: "Emulador Android con aplicaciones vulnerables para análisis móvil",
+      category: "mobile",
+      difficulty: "advanced",
+      status: "running",
+      port: 5554,
+      url: "http://localhost:5554",
+      estimatedTime: "30-45 min",
+      technologies: ["Android", "APK Analysis", "Frida", "ADB"]
     },
     {
-      id: 'siem-detection',
-      name: 'SIEM Detection Lab',
-      description: 'Blue team lab with Wazuh SIEM for log analysis and threat detection',
-      category: 'blue',
-      difficulty: 'advanced',
-      ports: ['443', '1514', '1515'],
-      services: ['Wazuh', 'Elasticsearch', 'Kibana'],
-      status: 'stopped',
-      icon: <Shield className="w-6 h-6" />
+      id: "cloud-misconfig",
+      name: "Cloud Misconfiguration",
+      description: "Infraestructura cloud con configuraciones erróneas comunes",
+      category: "cloud",
+      difficulty: "beginner",
+      status: "stopped",
+      estimatedTime: "20-30 min",
+      technologies: ["AWS", "S3", "IAM", "CloudTrail"]
     },
     {
-      id: 'malware-lab',
-      name: 'Malware Analysis Lab',
-      description: 'Isolated environment for safe malware analysis and reverse engineering',
-      category: 'malware',
-      difficulty: 'advanced',
-      ports: ['8080', '8443'],
-      services: ['REMnux', 'FLARE VM', 'Cuckoo'],
-      status: 'stopped',
-      icon: <Lock className="w-6 h-6" />
-    },
-    {
-      id: 'red-vs-blue',
-      name: 'Red vs Blue Exercise',
-      description: 'Competitive environment for red team vs blue team exercises',
-      category: 'exercise',
-      difficulty: 'expert',
-      ports: ['80', '443', '22', '3389'],
-      services: ['Windows AD', 'Linux', 'Web Apps', 'SIEM'],
-      status: 'stopped',
-      icon: <Eye className="w-6 h-6" />
+      id: "ctf-generator",
+      name: "CTF Challenge Generator",
+      description: "Generador automático de retos CTF personalizables",
+      category: "ctf",
+      difficulty: "intermediate",
+      status: "stopped",
+      estimatedTime: "Variable",
+      technologies: ["Python", "Docker", "Web Challenges", "Crypto"]
     }
   ]);
 
-  const categories = [
-    { id: 'all', name: 'Todos', icon: <Wrench className="w-4 h-4" /> },
-    { id: 'web', name: 'Web', icon: <Globe className="w-4 h-4" /> },
-    { id: 'red', name: 'Red Team', icon: <Terminal className="w-4 h-4" /> },
-    { id: 'blue', name: 'Blue Team', icon: <Shield className="w-4 h-4" /> },
-    { id: 'malware', name: 'Malware', icon: <Lock className="w-4 h-4" /> },
-    { id: 'exercise', name: 'Ejercicios', icon: <Eye className="w-4 h-4" /> }
-  ];
-
-  const [selectedCategory, setSelectedCategory] = useState('all');
-
-  const filteredLabs = selectedCategory === 'all' 
-    ? labs 
-    : labs.filter(lab => lab.category === selectedCategory);
-
-  const handleLabAction = async (labId: string, action: 'start' | 'stop' | 'reset' | 'access') => {
-    const lab = labs.find(l => l.id === labId);
-    if (!lab) return;
-
-    if (action === 'access' && lab.status !== 'running') {
-      toast({
-        title: "Error",
-        description: "El laboratorio debe estar ejecutándose para acceder",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLabs(prev => prev.map(l => 
-      l.id === labId 
-        ? { ...l, status: action === 'start' ? 'starting' : action === 'stop' ? 'stopping' : l.status }
-        : l
-    ));
-
-    try {
-      const response = await fetch(`http://localhost:8000/api/labs/${labId}/${action}`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        const newStatus = action === 'start' ? 'running' : 'stopped';
-        setLabs(prev => prev.map(l => 
-          l.id === labId ? { ...l, status: newStatus } : l
-        ));
-
-        if (action === 'access') {
-          window.open(`http://localhost:${lab.ports[0]}`, '_blank');
-        }
-
-        toast({
-          title: "Éxito",
-          description: `Laboratorio ${lab.name} ${
-            action === 'start' ? 'iniciado' : 
-            action === 'stop' ? 'detenido' : 
-            action === 'reset' ? 'reiniciado' : 
-            'accedido'
-          } correctamente`
-        });
-      } else {
-        throw new Error('Error en la operación');
-      }
-    } catch (error) {
-      setLabs(prev => prev.map(l => 
-        l.id === labId ? { ...l, status: 'stopped' } : l
-      ));
-      
-      toast({
-        title: "Error",
-        description: `No se pudo ${action} el laboratorio ${lab.name}`,
-        variant: "destructive"
-      });
-    }
+  const getCategoryIcon = (category: string) => {
+    const icons = {
+      network: Monitor,
+      mobile: Smartphone,
+      cloud: Cloud,
+      ctf: Zap,
+      web: Shield,
+      purple: Users
+    };
+    return icons[category as keyof typeof icons] || Beaker;
   };
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'bg-green-500';
-      case 'intermediate': return 'bg-yellow-500';
-      case 'advanced': return 'bg-orange-500';
-      case 'expert': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
+    const colors = {
+      beginner: "bg-green-500",
+      intermediate: "bg-yellow-500",
+      advanced: "bg-red-500"
+    };
+    return colors[difficulty as keyof typeof colors] || "bg-gray-500";
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'running': return 'bg-green-500';
-      case 'starting': case 'stopping': return 'bg-yellow-500';
-      case 'stopped': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+  const handleLabAction = (labId: string, action: 'start' | 'stop' | 'restart') => {
+    setLabs(prev => prev.map(lab => {
+      if (lab.id === labId) {
+        if (action === 'start') {
+          return { ...lab, status: 'starting' as const };
+        } else if (action === 'stop') {
+          return { ...lab, status: 'stopped' as const };
+        }
+      }
+      return lab;
+    }));
+
+    // Simulate lab startup/shutdown
+    if (action === 'start') {
+      setTimeout(() => {
+        setLabs(prev => prev.map(lab => 
+          lab.id === labId ? { ...lab, status: 'running' as const, url: `http://localhost:${lab.port}` } : lab
+        ));
+      }, 3000);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-      {/* Header */}
-      <header className="border-b border-gray-700 bg-black/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Wrench className="w-10 h-10 text-cyan-400" />
-              <div>
-                <h1 className="text-2xl font-bold text-cyan-400">Laboratorios Docker</h1>
-                <p className="text-sm text-gray-400">Entornos vulnerables para práctica</p>
-              </div>
+    <div className="container mx-auto px-6 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-cyan-400 mb-2">🧪 Laboratorios de Práctica</h1>
+        <p className="text-gray-300">
+          Entornos controlados para practicar técnicas de ciberseguridad de forma segura
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-cyan-400">{labs.length}</div>
+            <div className="text-sm text-gray-400">Labs Disponibles</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-400">
+              {labs.filter(l => l.status === 'running').length}
             </div>
-            <Button 
-              onClick={() => window.history.back()}
-              variant="outline" 
-              className="border-cyan-400 text-cyan-400"
-            >
-              ← Volver
-            </Button>
-          </div>
-        </div>
-      </header>
+            <div className="text-sm text-gray-400">Activos</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-yellow-400">
+              {labs.filter(l => l.difficulty === 'intermediate').length}
+            </div>
+            <div className="text-sm text-gray-400">Intermedios</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-red-400">
+              {labs.filter(l => l.difficulty === 'advanced').length}
+            </div>
+            <div className="text-sm text-gray-400">Avanzados</div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        {/* Category Tabs */}
-        <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-8">
-          <TabsList className="grid grid-cols-6 w-full bg-gray-800">
-            {categories.map((category) => (
-              <TabsTrigger 
-                key={category.id} 
-                value={category.id}
-                className="flex items-center space-x-2 data-[state=active]:bg-cyan-600"
-              >
-                {category.icon}
-                <span className="hidden sm:inline">{category.name}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-
-        {/* Labs Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLabs.map((lab) => (
-            <Card key={lab.id} className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all duration-300">
+      {/* Labs Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {labs.map((lab) => {
+          const CategoryIcon = getCategoryIcon(lab.category);
+          
+          return (
+            <Card key={lab.id} className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-cyan-600 rounded-lg">
-                      {lab.icon}
-                    </div>
+                    <CategoryIcon className="w-8 h-8 text-cyan-400" />
                     <div>
                       <CardTitle className="text-cyan-400">{lab.name}</CardTitle>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Badge 
-                          className={`${getDifficultyColor(lab.difficulty)} text-white text-xs`}
-                        >
-                          {lab.difficulty}
-                        </Badge>
-                        <Badge 
-                          className={`${getStatusColor(lab.status)} text-white text-xs`}
-                        >
-                          {lab.status}
-                        </Badge>
-                      </div>
+                      <CardDescription className="text-gray-300 mt-1">
+                        {lab.description}
+                      </CardDescription>
                     </div>
                   </div>
+                  <StatusBadge status={lab.status} />
                 </div>
-                <CardDescription className="text-gray-300 mt-2">
-                  {lab.description}
-                </CardDescription>
               </CardHeader>
               
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Services */}
-                  <div>
-                    <p className="text-sm text-gray-400 mb-2">Servicios:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {lab.services.map((service, index) => (
-                        <Badge key={index} variant="outline" className="text-xs border-gray-600">
-                          {service}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Badge className={`${getDifficultyColor(lab.difficulty)} text-white`}>
+                    {lab.difficulty}
+                  </Badge>
+                  <span className="text-sm text-gray-400">⏱️ {lab.estimatedTime}</span>
+                </div>
 
-                  {/* Ports */}
-                  <div>
-                    <p className="text-sm text-gray-400 mb-2">Puertos:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {lab.ports.map((port, index) => (
-                        <Badge key={index} variant="outline" className="text-xs border-gray-600">
-                          {port}
-                        </Badge>
-                      ))}
-                    </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-400">Tecnologías:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {lab.technologies.map((tech) => (
+                      <Badge key={tech} variant="outline" className="text-xs border-gray-600 text-gray-300">
+                        {tech}
+                      </Badge>
+                    ))}
                   </div>
+                </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2 pt-4">
-                    {lab.status === 'stopped' ? (
-                      <Button 
-                        size="sm" 
-                        className="bg-green-600 hover:bg-green-700"
-                        onClick={() => handleLabAction(lab.id, 'start')}
-                      >
-                        <PlayCircle className="w-4 h-4 mr-1" />
-                        Iniciar
-                      </Button>
-                    ) : lab.status === 'running' ? (
-                      <>
-                        <Button 
-                          size="sm" 
-                          className="bg-blue-600 hover:bg-blue-700"
-                          onClick={() => handleLabAction(lab.id, 'access')}
-                        >
-                          <ExternalLink className="w-4 h-4 mr-1" />
-                          Acceder
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="border-red-600 text-red-400 hover:bg-red-600"
-                          onClick={() => handleLabAction(lab.id, 'stop')}
-                        >
-                          <Square className="w-4 h-4 mr-1" />
-                          Detener
-                        </Button>
-                      </>
-                    ) : (
-                      <Button size="sm" disabled>
-                        <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                        {lab.status === 'starting' ? 'Iniciando...' : 'Deteniendo...'}
-                      </Button>
-                    )}
-                    
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="border-yellow-600 text-yellow-400 hover:bg-yellow-600"
-                      onClick={() => handleLabAction(lab.id, 'reset')}
+                {lab.status === 'running' && lab.url && (
+                  <div className="bg-gray-900 p-3 rounded-lg">
+                    <div className="text-sm text-gray-400 mb-1">URL de Acceso:</div>
+                    <a 
+                      href={lab.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:text-cyan-300 font-mono text-sm"
                     >
-                      <RefreshCw className="w-4 h-4 mr-1" />
-                      Reset
-                    </Button>
+                      {lab.url}
+                    </a>
                   </div>
+                )}
+
+                <div className="flex items-center space-x-3">
+                  {lab.status === 'stopped' && (
+                    <ActionButton
+                      icon={<Play className="w-4 h-4" />}
+                      title="Iniciar Lab"
+                      description="Iniciar laboratorio"
+                      onClick={() => handleLabAction(lab.id, 'start')}
+                      className="bg-green-600 hover:bg-green-700 flex-1"
+                    />
+                  )}
+                  
+                  {lab.status === 'starting' && (
+                    <Button disabled className="flex-1">
+                      <div className="animate-spin w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full mr-2"></div>
+                      Iniciando...
+                    </Button>
+                  )}
+                  
+                  {lab.status === 'running' && (
+                    <>
+                      <ActionButton
+                        icon={<Square className="w-4 h-4" />}
+                        title="Detener"
+                        description="Detener laboratorio"
+                        onClick={() => handleLabAction(lab.id, 'stop')}
+                        className="bg-red-600 hover:bg-red-700 flex-1"
+                      />
+                      <ActionButton
+                        icon={<Settings className="w-4 h-4" />}
+                        title="Configurar"
+                        description="Configurar laboratorio"
+                        onClick={() => {}}
+                      />
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-
-        {filteredLabs.length === 0 && (
-          <div className="text-center py-12">
-            <Wrench className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl text-gray-400 mb-2">No hay laboratorios disponibles</h3>
-            <p className="text-gray-500">Los laboratorios para esta categoría están en desarrollo</p>
-          </div>
-        )}
+          );
+        })}
       </div>
+
+      {/* Quick Start Guide */}
+      <Card className="bg-gray-800/50 border-gray-700 mt-8">
+        <CardHeader>
+          <CardTitle className="text-cyan-400">🚀 Guía Rápida</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <h4 className="text-green-400 font-semibold mb-2">1. Selecciona un Lab</h4>
+              <p className="text-gray-400">Elige según tu nivel y área de interés</p>
+            </div>
+            <div>
+              <h4 className="text-yellow-400 font-semibold mb-2">2. Inicia el Entorno</h4>
+              <p className="text-gray-400">Los contenedores se configuran automáticamente</p>
+            </div>
+            <div>
+              <h4 className="text-cyan-400 font-semibold mb-2">3. Practica Seguro</h4>
+              <p className="text-gray-400">Experimenta sin riesgo en entornos aislados</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

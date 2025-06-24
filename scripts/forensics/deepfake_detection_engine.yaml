@@ -1,0 +1,80 @@
+
+name: "deepfake_detection_engine"
+display_name: "Deepfake Detection Engine"
+description: "Detecta contenido multimedia generado por IA usando análisis forense avanzado"
+category: "forensics"
+subcategory: "multimedia_analysis"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "MEDIUM"
+educational_value: 5
+tags: ["deepfake", "ai-detection", "multimedia-forensics", "synthetic-media", "video-analysis"]
+
+requirements:
+  - "python3"
+  - "opencv-python"
+  - "numpy"
+  - "tensorflow"
+  - "pillow"
+
+parameters:
+  media_file:
+    type: "file"
+    description: "Archivo multimedia a analizar"
+    required: true
+    accepted_types: [".mp4", ".avi", ".mov", ".jpg", ".png", ".jpeg"]
+    default: ""
+  
+  analysis_depth:
+    type: "select"
+    description: "Profundidad del análisis"
+    required: false
+    options: ["quick", "standard", "deep", "comprehensive"]
+    default: "standard"
+  
+  detection_models:
+    type: "multiselect"
+    description: "Modelos de detección a usar"
+    required: false
+    options: ["facial_inconsistency", "temporal_analysis", "artifact_detection", "metadata_analysis", "frequency_analysis"]
+    default: ["facial_inconsistency", "temporal_analysis", "artifact_detection"]
+  
+  confidence_threshold:
+    type: "float"
+    description: "Umbral de confianza (0.0-1.0)"
+    required: false
+    default: 0.7
+    min: 0.0
+    max: 1.0
+  
+  export_evidence:
+    type: "boolean"
+    description: "Exportar evidencia forense"
+    required: false
+    default: true
+
+features:
+  - "🎭 Detección de inconsistencias faciales"
+  - "⏱️ Análisis temporal de video"
+  - "🔍 Detección de artefactos de compresión"
+  - "📊 Análisis de frecuencias espectrales"
+  - "🎥 Frame-by-frame examination"
+  - "📈 Confidence scoring per frame"
+  - "🔬 Metadata forensics"
+  - "📋 Detailed evidence reporting"
+
+execution:
+  timeout: 1800
+  memory_limit: "2GB"
+  cpu_limit: "4"
+
+output:
+  format: "structured"
+  fields:
+    - "deepfake_probability"
+    - "detection_confidence"
+    - "analysis_details"
+    - "forensic_evidence"
+    - "frame_analysis"

@@ -1,0 +1,18 @@
+
+name: "Zero-Day Scanner Lab"
+description: "Laboratorio para pruebas de CVEs recientes y vulnerabilidades críticas"
+category: "red"
+difficulty: "intermediate"
+estimated_time: "45 minutes"
+ports: ["8080", "8090", "2222"]
+services: ["DVWA", "Log4Shell App", "Kali Scanner"]
+objectives:
+  - "Identificar vulnerabilidades Log4Shell"
+  - "Explotar CVEs conocidos"
+  - "Usar herramientas de escaneo automatizado"
+flags:
+  - "ZERO_DAY{log4shell_rce_success}"
+  - "ZERO_DAY{dvwa_sqli_bypass}"
+author: "@descambiado"
+version: "1.0"
+created: "2025-06-19"
