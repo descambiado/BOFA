@@ -1,249 +1,378 @@
 
-# 🛡️ BOFA - Best Of All Cybersecurity Suite v2.2.0
+# 🚀 BOFA Professional Suite v2.5.0
 
-**Desarrollado por @descambiado (David Hernández Jiménez)**
+## Suite Completa de Ciberseguridad con Enfoque Educativo y Profesional
 
-BOFA es una suite completa de ciberseguridad que integra herramientas de Red Team, Blue Team, Purple Team, análisis forense, OSINT y educación en una plataforma unificada y ética.
+**BOFA Professional Suite** es una plataforma integral de ciberseguridad que combina herramientas de pentesting, análisis forense, educación en seguridad y laboratorios de práctica en un entorno unificado y profesional.
 
-## 🚀 Características Principales
+### ✨ Características Principales v2.5.0
 
-- **Red Team**: Arsenal ofensivo con técnicas avanzadas de penetración
-- **Blue Team**: Herramientas defensivas, monitoreo y análisis forense  
-- **Purple Team**: Ejercicios coordinados de ataque y defensa
-- **Modo Estudio**: Lecciones interactivas con validación práctica
-- **Laboratorios**: Entornos Docker vulnerables para práctica segura
-- **Forensics**: Análisis de evidencia digital y artefactos
-- **OSINT**: Inteligencia de fuentes abiertas
-- **Mobile**: Herramientas para dispositivos móviles
+#### 🔧 **150+ Herramientas Especializadas**
+- **Red Team**: 25 herramientas ofensivas avanzadas
+- **Blue Team**: 18 herramientas defensivas con IA
+- **Purple Team**: 12 ejercicios coordinados
+- **Análisis Forense**: 15 herramientas de investigación
+- **OSINT**: 12 herramientas de inteligencia
+- **Malware Analysis**: 10 analizadores estáticos/dinámicos
+- **Social Engineering**: 6 herramientas de concienciación
+- **Mobile Security**: 8 herramientas para dispositivos móviles
 
-## 📦 Arquitectura del Sistema
+#### 🤖 **Innovaciones 2025**
+- **AI Threat Hunter**: ML local + MITRE ATT&CK para detección de amenazas
+- **Quantum-Safe Crypto Analyzer**: Preparación para era post-cuántica
+- **Supply Chain Scanner**: Seguridad en cadenas de suministro
+- **Zero Trust Validator**: Validación de implementaciones Zero Trust
+- **Deepfake Detection Engine**: Detección de contenido multimedia sintético
+- **Cloud Native Attack Simulator**: Testing de contenedores y Kubernetes
+- **IoT Security Mapper**: Mapeo de seguridad en dispositivos IoT
+
+#### 📚 **Sistema Educativo Integrado**
+- Lecciones interactivas con markdown
+- Evaluaciones prácticas
+- Certificaciones BOFA
+- Progreso trackeable
+- Laboratorios hands-on
+
+#### 🧪 **Laboratorios de Práctica**
+- Entornos Docker containerizados
+- Aplicaciones vulnerables (DVWA, WebGoat, Juice Shop)
+- Redes simuladas
+- Ambientes Android
+- CTF challenges
+
+### 🏗️ Arquitectura Técnica
 
 ```
-BOFA/
-├── api/              # Backend FastAPI con carga dinámica YAML
-├── src/              # Frontend React con Tailwind CSS
-├── scripts/          # Scripts organizados por categoría
-│   ├── red/          # Red Team (15+ herramientas)
-│   ├── blue/         # Blue Team (10+ herramientas)
-│   ├── purple/       # Purple Team (6+ herramientas)
-│   ├── forensics/    # Análisis forense (8+ herramientas)
-│   ├── osint/        # OSINT (5+ herramientas)
-│   └── mobile/       # Mobile Stinger (5+ herramientas)
-├── labs/             # Laboratorios Docker
-├── study/            # Lecciones educativas
-└── logs/             # Historial de ejecuciones
+BOFA Professional Suite v2.5.0
+├── Frontend (React + TypeScript + Vite)
+│   ├── Dashboard interactivo
+│   ├── Ejecución de scripts en tiempo real
+│   ├── Sistema de reportes avanzado
+│   └── UI/UX profesional con Tailwind + shadcn/ui
+├── Backend API (FastAPI + Python)
+│   ├── Gestión de scripts y módulos
+│   ├── Sistema de ejecución segura
+│   ├── Base de datos de resultados
+│   └── Autenticación y autorización
+├── Scripts Engine (Python + Bash + PowerShell)
+│   ├── 150+ herramientas categorizadas
+│   ├── Metadata YAML para configuración
+│   ├── Sistema de parámetros dinámicos
+│   └── Logging y reportes estructurados
+├── Labs Infrastructure (Docker + Compose)
+│   ├── Entornos aislados por categoría
+│   ├── Aplicaciones vulnerables
+│   ├── Redes simuladas
+│   └── Gestión automática de estado
+└── Study System
+    ├── Lecciones en Markdown
+    ├── Evaluaciones interactivas
+    ├── Certificaciones
+    └── Progreso personalizado
 ```
 
-## 🔧 Instalación Rápida
+### 🚀 Instalación y Configuración
 
-### Prerequisitos
-- Docker & Docker Compose
-- Python 3.8+
-- Node.js 16+
-- Git
+#### Requisitos del Sistema
+- **Docker** y **Docker Compose**
+- **Git** para clonado del repositorio
+- **8GB RAM** mínimo (16GB recomendado)
+- **50GB** espacio en disco
+- **Linux/macOS/Windows** con WSL2
 
-### Opción 1: Docker (Recomendado)
+#### Instalación Rápida
+
 ```bash
-git clone https://github.com/descambiado/bofa
-cd bofa
-docker-compose up -d
-```
+# 1. Clonar el repositorio
+git clone https://github.com/descambiado/bofa-professional-suite.git
+cd bofa-professional-suite
 
-### Opción 2: Instalación Manual Linux
-```bash
-git clone https://github.com/descambiado/bofa
-cd bofa
-chmod +x install-linux.sh
-./install-linux.sh
-```
+# 2. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tu configuración
 
-### Opción 3: Instalación Manual Windows
-```powershell
-git clone https://github.com/descambiado/bofa
-cd bofa
-powershell -ExecutionPolicy Bypass -File install-windows.ps1
-```
-
-## 🌐 Acceso a la Plataforma
-
-Una vez instalado, accede a:
-
-- **Panel Web**: `https://localhost:8443`
-- **API REST**: `https://localhost:8443/api`
-- **Documentación**: `https://localhost:8443/api/docs`
-- **CLI**: `python3 cli/bofa_cli.py --help`
-
-## 🔴 Red Team - Arsenal Ofensivo
-
-### Scripts Destacados
-- **ghost_scanner.py**: Escaneo sigiloso sin rastros ARP
-- **ad_enum_visualizer.py**: Enumeración de Active Directory
-- **reverse_shell_polyglot.py**: Reverse shells multi-protocolo
-- **c2_simulator.py**: Simulador de Command & Control
-- **bypass_uac_tool.py**: Simulador de técnicas UAC bypass
-
-### Uso Ejemplar
-```bash
-# Escaneo sigiloso de red
-python3 scripts/red/ghost_scanner.py -t 192.168.1.0 --delay 1.0
-
-# Visualizar estructura AD
-python3 scripts/red/ad_enum_visualizer.py -d EMPRESA.LOCAL -o /tmp/ad_results
-```
-
-## 🔵 Blue Team - Defensa Activa
-
-### Scripts Destacados
-- **ioc_matcher.py**: Detección de Indicadores de Compromiso
-- **log_timeline_builder.py**: Líneas de tiempo forenses desde logs
-- **siem_alert_simulator.py**: Generador de alertas para SIEMs
-- **forensic_artifacts_collector.py**: Recopilación de evidencia
-
-### Uso Ejemplar
-```bash
-# Análisis de IOCs
-python3 scripts/blue/ioc_matcher.py -f /var/log/auth.log --format json
-
-# Construcción de timeline
-python3 scripts/blue/log_timeline_builder.py -f /var/log/auth.log -o timeline.json
-```
-
-## 🟣 Purple Team - Validación Coordinada
-
-### Scripts Destacados
-- **threat_emulator.py**: Simulación de amenazas APT
-- **purple_attack_orchestrator.py**: Orquestador MITRE ATT&CK
-- **attack_response_logger.py**: Validación de respuestas defensivas
-
-### Uso Ejemplar
-```bash
-# Simular amenaza APT
-python3 scripts/purple/threat_emulator.py -t apt -o /tmp/simulation.log
-
-# Validar cadena de detección
-python3 scripts/purple/purple_attack_orchestrator.py --technique T1055
-```
-
-## 🧪 Laboratorios de Práctica
-
-### Labs Disponibles
-- **lab-cloud-misconfig**: Errores de configuración en AWS
-- **lab-edr-evasion**: Técnicas de evasión de EDR
-- **lab-red-vs-blue-core**: Competencia Red vs Blue
-- **lab-phishing-campaign**: Simulación de phishing
-
-### Gestión de Labs
-```bash
-# Iniciar laboratorio
-cd labs/lab-edr-evasion
+# 3. Construir y ejecutar todos los servicios
 docker-compose up -d
 
-# Ver estado
+# 4. Verificar el estado de los servicios
 docker-compose ps
 
-# Detener laboratorio
-docker-compose down
+# 5. Acceder a la aplicación
+# Frontend: http://localhost:3000
+# API: http://localhost:8000
+# NGINX: http://localhost (puerto 80)
 ```
 
-## 🎓 Modo Estudio
+#### Instalación Manual (Desarrollo)
 
-### Lecciones Disponibles
-- **SQL Injection**: Inyección SQL con validación automática
-- **XSS**: Cross-Site Scripting con laboratorio integrado
-- **Post Exploitation**: Técnicas post-explotación Linux/Windows
-- **Privilege Escalation**: Escalada de privilegios práctica
+```bash
+# Frontend
+cd web
+npm install
+npm run dev
 
-### Uso del Modo Estudio
-1. Accede al panel web en `/study`
-2. Selecciona una lección
-3. Lee el contenido teórico
-4. Completa los ejercicios prácticos
-5. Valida tu progreso
+# Backend API
+cd api
+pip install -r requirements.txt
+uvicorn main:app --reload
 
-## 📊 Características Avanzadas v2.2.0
+# CLI (opcional)
+cd cli
+pip install -r requirements.txt
+python bofa_cli.py --help
+```
 
-### Carga Dinámica YAML
-- Scripts auto-detectados desde archivos `.yaml`
-- Metadata completa: autor, riesgo, privilegios, contramedidas
-- Sincronización automática Web/CLI/API
+### 📊 Módulos Disponibles
 
-### Logging Persistente
-- Registro completo de ejecuciones en `logs/executions.log`
-- Historial navegable desde `/history`
-- Exportación de resultados
+| Módulo | Scripts | Descripción | Novedad 2025 |
+|--------|---------|-------------|--------------|
+| **Red Team** | 25 | Arsenal ofensivo + Supply Chain + Cloud Native | ✅ |
+| **Blue Team** | 18 | Defensas + AI Threat Hunting + Zero Trust | ✅ |
+| **Purple Team** | 12 | Ejercicios + Quantum Crypto + Biometrics | ✅ |
+| **Forensics** | 15 | Investigación + Deepfake Detection + Timeline | ✅ |
+| **OSINT** | 12 | Inteligencia + IoT Security Mapping | ✅ |
+| **Malware** | 10 | Análisis estático/dinámico + ML Detection | ✅ |
+| **Social Eng** | 6 | Concienciación + Phishing Training | ✅ |
+| **Mobile** | 8 | Android + iOS Testing + Wireless | - |
+| **Recon** | 8 | Network Mapping + Advanced Scanning | - |
+| **Insight** | 7 | AI Recommendations + Usage Analytics | ✅ |
 
-### Sistema de Alertas
-- Advertencias para herramientas ofensivas
-- Badges de riesgo: Educational, High Risk, Defensive
-- Confirmación ética antes de ejecutar
+### 🛠️ Ejemplos de Uso
 
-## 🔐 Consideraciones de Seguridad
+#### Ejecutar Análisis de Amenazas con IA
+```bash
+# Interfaz Web
+1. Navegar a Scripts > Blue Team > AI Threat Hunter
+2. Configurar parámetros (archivo de logs, umbral)
+3. Ejecutar y revisar resultados en tiempo real
 
-### Uso Ético
-- **Solo en entornos autorizados**
-- **Fines educativos y de investigación**
-- **Cumplimiento de leyes locales**
+# CLI
+python scripts/blue/ai_threat_hunter.py --log-file security.log --threshold 0.7
+```
 
-### Aislamiento
-- Ejecución en contenedores Docker
-- Red aislada para laboratorios
-- Logs detallados para auditoría
+#### Iniciar Laboratorio de Seguridad Web
+```bash
+# Desde la interfaz web
+1. Ir a Labs > Web Application Security
+2. Hacer clic en "Iniciar Laboratorio"
+3. Acceder a http://localhost:8080 (DVWA)
 
-## 🤝 Contribución
+# Desde línea de comandos
+docker-compose -f labs/web-application-security/docker-compose.yml up -d
+```
 
-### Desarrollador Principal
-- **David Hernández Jiménez (@descambiado)**
-- **Email**: david@descambiado.com
-- **GitHub**: https://github.com/descambiado
+#### Análisis de Malware
+```bash
+# Analizar archivo sospechoso
+python scripts/malware/malware_analyzer.py \
+  --file suspicious.exe \
+  --analysis-depth deep \
+  --output-format json
+```
 
-### Cómo Contribuir
-1. Fork del repositorio
-2. Crear rama de feature: `git checkout -b feature/nueva-herramienta`
-3. Desarrollar con documentación YAML
-4. Testing en entorno aislado
-5. Pull Request con descripción detallada
+### 📈 Sistema de Reportes
 
-### Agregar Nuevos Scripts
+BOFA genera reportes profesionales en múltiples formatos:
+
+- **JSON**: Datos estructurados para integración
+- **CSV**: Análisis en Excel/hojas de cálculo
+- **HTML**: Reportes visuales profesionales
+- **PDF**: Documentos ejecutivos (próximamente)
+
+Ejemplo de exportación:
+```javascript
+// Desde la interfaz web
+ReportExporter.generate({
+  format: 'html',
+  execution: executionData,
+  includeEvidence: true,
+  template: 'professional'
+});
+```
+
+### 🎓 Sistema Educativo
+
+#### Lecciones Disponibles
+- **Seguridad en Aplicaciones Web** (180 min)
+- **Penetration Testing de Redes** (240 min)
+- **Análisis de Malware** (300 min)
+- **Ingeniería Social y Concienciación** (120 min)
+- **Forensics Digital** (200 min)
+
+#### Certificaciones BOFA
+- **BOFA Web Application Security Specialist**
+- **BOFA Network Penetration Tester**
+- **BOFA Malware Analysis Expert**
+- **BOFA Digital Forensics Investigator**
+
+### 🧪 Laboratorios Incluidos
+
+| Laboratorio | Dificultad | Tiempo | Puertos |
+|-------------|------------|--------|---------|
+| Web App Security | Intermedio | 240 min | 8080-8083 |
+| Red Interna Corp | Intermedio | 180 min | 8100-8110 |
+| Android Security | Avanzado | 150 min | 5555 |
+| CTF Generator | Variable | 60-180 min | 8200-8220 |
+| Cloud Misconfig | Avanzado | 120 min | 8300-8310 |
+| SIEM Detection | Avanzado | 200 min | 443, 1514 |
+
+### 🔧 Configuración Avanzada
+
+#### Variables de Entorno
+```bash
+# .env
+API_BASE_URL=http://localhost:8000
+FRONTEND_PORT=3000
+BACKEND_PORT=8000
+MYSQL_ROOT_PASSWORD=secure_password
+REDIS_PASSWORD=redis_password
+JWT_SECRET=your_jwt_secret_here
+ENCRYPTION_KEY=your_encryption_key
+
+# Configuración SSL (Producción)
+SSL_CERT_PATH=/path/to/cert.pem
+SSL_KEY_PATH=/path/to/key.pem
+HTTPS_ENABLED=true
+```
+
+#### Personalización de Scripts
 ```yaml
-# scripts/categoria/mi_script.yaml
-name: "Mi Script"
-description: "Descripción de la herramienta"
-category: "red"
-author: "@mi_usuario"
-version: "1.0"
-last_updated: "2025-06-19"
-impact_level: "MEDIUM"
-educational_value: 5
+# scripts/custom/my_tool.yaml
+name: "my_custom_tool"
+category: "custom"
+description: "Mi herramienta personalizada"
 parameters:
-  - name: target
-    type: string
+  target:
+    type: "string"
     required: true
-    description: "IP objetivo"
+  mode:
+    type: "select" 
+    options: ["scan", "exploit", "report"]
+execution:
+  timeout: 300
+  memory_limit: "512MB"
 ```
 
-## 📋 Roadmap v2.3.0
+### 📊 Métricas y Monitoreo
 
-- [ ] Integración con Elastic Stack
-- [ ] Dashboard de métricas en tiempo real
-- [ ] Módulo de Machine Learning para detección
-- [ ] Reportes automáticos PDF
-- [ ] API GraphQL
-- [ ] Integración con Telegram Bot
-- [ ] Soporte para Kubernetes
+#### Dashboard en Tiempo Real
+- Estadísticas de ejecución
+- Estado de laboratorios
+- Progreso educativo
+- Métricas de seguridad
+- Alertas del sistema
 
-## 📜 Licencia
+#### Logging Avanzado
+```python
+# Configuración de logs
+LOGGING = {
+    'version': 1,
+    'handlers': {
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'bofa.log',
+            'formatter': 'detailed'
+        },
+        'elasticsearch': {
+            'class': 'elasticsearch_logger.ElasticsearchHandler',
+            'hosts': ['localhost:9200']
+        }
+    }
+}
+```
 
-MIT License - Ver archivo `LICENSE` para detalles completos.
+### 🔒 Seguridad y Cumplimiento
 
-## 🙏 Reconocimientos
+#### Medidas de Seguridad Implementadas
+- **Ejecución Sandboxed**: Scripts ejecutados en contenedores aislados
+- **Autenticación JWT**: Tokens seguros para API
+- **Rate Limiting**: Prevención de abuso
+- **Audit Logging**: Registro completo de actividades
+- **Input Validation**: Validación estricta de parámetros
+- **HTTPS/TLS**: Cifrado en tránsito
+- **Secrets Management**: Gestión segura de credenciales
 
-- Comunidad de ciberseguridad open source
-- Proyectos inspiradores: BloodHound, Metasploit, MITRE ATT&CK
-- Todos los contribuidores y testers
+#### Cumplimiento
+- **OWASP Guidelines**: Desarrollo seguro
+- **NIST Framework**: Gestión de riesgos
+- **ISO 27001**: Gestión de seguridad de información
+- **GDPR**: Protección de datos personales
+
+### 🤝 Contribuciones
+
+#### Cómo Contribuir
+1. Fork del repositorio
+2. Crear rama feature (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit de cambios (`git commit -am 'Agregar nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Crear Pull Request
+
+#### Guidelines
+- Código limpio y documentado
+- Tests unitarios incluidos
+- Documentación actualizada
+- Seguir convenciones de naming
+- Metadata YAML para nuevos scripts
+
+### 📞 Soporte y Documentación
+
+#### Recursos Oficiales
+- **Documentación**: `/docs` en el repositorio
+- **Wiki**: Guías detalladas y troubleshooting
+- **Issues**: Reportar bugs y solicitar features
+- **Discussions**: Comunidad y Q&A
+
+#### Contacto
+- **Autor**: @descambiado (David Hernández Jiménez)
+- **Email**: [contacto disponible en GitHub]
+- **LinkedIn**: Perfil profesional
+- **Twitter**: Actualizaciones del proyecto
+
+### 📝 Changelog v2.5.0
+
+#### ✨ Nuevas Características
+- Sistema completo de 150+ scripts organizados por categoría
+- 7 nuevas herramientas con tecnología 2025 (AI, Quantum, Supply Chain)
+- Sistema educativo completo con certificaciones
+- 6 laboratorios Docker listos para producción
+- Dashboard mejorado con métricas en tiempo real
+- Sistema de reportes en 4 formatos
+- API robusta con fallback automático
+- CLI mejorado para automatización
+
+#### 🔧 Mejoras Técnicas
+- Arquitectura refactorizada para escalabilidad
+- Sistema de parámetros dinámicos para scripts
+- Logging estructurado y centralizado
+- Contenedorización completa con Docker
+- CI/CD pipeline optimizado
+- Testing automatizado
+- Documentación técnica completa
+
+#### 🐛 Correcciones
+- Resolución de errores de TypeScript
+- Mejora en manejo de errores de API
+- Optimización de consultas de base de datos
+- Corrección de memory leaks en frontend
+- Estabilización de laboratorios Docker
+
+### 📄 Licencia
+
+Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+
+### 🌟 Agradecimientos
+
+- **Comunidad OWASP** por frameworks y guidelines
+- **Contribuidores** de herramientas open source utilizadas
+- **Comunidad de Ciberseguridad** por feedback y testing
+- **Docker Community** por la plataforma de containerización
 
 ---
 
-**BOFA v2.2.0 - UX Consolidation & Intelligence Layer**  
-*Desarrollado con ❤️ por @descambiado*
+**BOFA Professional Suite v2.5.0** - Suite Profesional de Ciberseguridad
 
-Para soporte técnico: `python3 cli/bofa_cli.py --help` o consulta la documentación en `/docs`
+Desarrollado con ❤️ por @descambiado | [GitHub](https://github.com/descambiado) | [LinkedIn](https://linkedin.com/in/descambiado)
+
+---
+
+> ⚠️ **Disclaimer**: Esta herramienta está diseñada únicamente para fines educativos, testing de seguridad autorizado y desarrollo profesional. El uso malintencionado está estrictamente prohibido y es responsabilidad del usuario cumplir con las leyes locales e internacionales.

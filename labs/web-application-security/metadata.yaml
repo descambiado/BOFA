@@ -1,0 +1,227 @@
+
+id: web-application-security
+name: "Web Application Security Lab"
+description: "Laboratorio completo para práctica de vulnerabilidades web con múltiples aplicaciones vulnerables"
+category: "web_security"
+difficulty: "intermediate"
+estimated_time: "240 minutos"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+tags: ["web", "dvwa", "owasp", "vulnerabilities", "pentesting"]
+
+objectives:
+  - "Practicar explotación de vulnerabilidades web"
+  - "Aprender técnicas de análisis de seguridad"
+  - "Familiarizarse con herramientas de pentesting web"
+  - "Desarrollar habilidades de remediación"
+
+applications:
+  dvwa:
+    name: "Damn Vulnerable Web Application"
+    port: 8080
+    url: "http://localhost:8080"
+    credentials:
+      username: "admin"
+      password: "password"
+    vulnerabilities: ["SQL Injection", "XSS", "CSRF", "File Upload", "Command Injection"]
+  
+  webgoat:
+    name: "OWASP WebGoat"
+    port: 8081
+    url: "http://localhost:8081/WebGoat"
+    description: "Aplicación de entrenamiento interactiva"
+    vulnerabilities: ["A1-A10 OWASP Top 10", "Challenges interactivos"]
+  
+  juice_shop:
+    name: "OWASP Juice Shop"
+    port: 8082
+    url: "http://localhost:8082"
+    description: "Modern web application con vulnerabilidades"
+    vulnerabilities: ["XSS", "SQL Injection", "Authentication bypass", "Business logic flaws"]
+  
+  vulnerable_app:
+    name: "Custom Vulnerable Application"
+    port: 8083
+    url: "http://localhost:8083"
+    description: "Aplicación personalizada con múltiples vulnerabilidades"
+    vulnerabilities: ["Custom challenges", "Advanced attack scenarios"]
+
+tools:
+  zap:
+    name: "OWASP ZAP"
+    port: 8090
+    url: "http://localhost:8090"
+    description: "Web application security scanner"
+    usage: "Análisis automatizado y manual de vulnerabilidades"
+
+challenges:
+  beginner:
+    - name: "SQL Injection Básico"
+      app: "dvwa"
+      difficulty: "low"
+      estimated_time: 15
+      description: "Bypass de autenticación con SQL injection"
+    
+    - name: "Reflected XSS"
+      app: "dvwa"
+      difficulty: "low"
+      estimated_time: 10
+      description: "Ejecución de JavaScript mediante XSS reflejado"
+    
+    - name: "File Upload Bypass"
+      app: "dvwa"
+      difficulty: "medium"
+      estimated_time: 20
+      description: "Subir archivos maliciosos evadiendo filtros"
+
+  intermediate:
+    - name: "Blind SQL Injection"
+      app: "dvwa"
+      difficulty: "medium"
+      estimated_time: 30
+      description: "Extracción de datos mediante SQL injection ciego"
+    
+    - name: "CSRF Token Bypass"
+      app: "webgoat"
+      difficulty: "medium"
+      estimated_time: 25
+      description: "Bypass de protecciones CSRF"
+    
+    - name: "Authentication Bypass"
+      app: "juice_shop"
+      difficulty: "medium"
+      estimated_time: 35
+      description: "Múltiples técnicas de bypass de autenticación"
+
+  advanced:
+    - name: "DOM-based XSS"
+      app: "juice_shop"
+      difficulty: "high"
+      estimated_time: 45
+      description: "Explotación de XSS basado en DOM"
+    
+    - name: "Advanced SQL Injection"
+      app: "vulnerable_app"
+      difficulty: "high"
+      estimated_time: 60
+      description: "Técnicas avanzadas de inyección SQL"
+    
+    - name: "Business Logic Flaws"
+      app: "juice_shop"
+      difficulty: "high"
+      estimated_time: 40
+      description: "Explotación de fallas de lógica de negocio"
+
+learning_path:
+  phase_1:
+    name: "Reconnaissance"
+    duration: 30
+    activities:
+      - "Explorar aplicaciones disponibles"
+      - "Identificar puntos de entrada"
+      - "Enumerar tecnologías utilizadas"
+      - "Configurar herramientas de proxy"
+
+  phase_2:
+    name: "Vulnerability Discovery"
+    duration: 60
+    activities:
+      - "Escaneo automatizado con ZAP"
+      - "Análisis manual de aplicaciones"
+      - "Identificación de vulnerabilidades"
+      - "Documentación de hallazgos"
+
+  phase_3:
+    name: "Exploitation"
+    duration: 90
+    activities:
+      - "Explotación de vulnerabilidades"
+      - "Desarrollo de payloads"
+      - "Escalación de privilegios"
+      - "Extracción de datos"
+
+  phase_4:
+    name: "Remediation"
+    duration: 60
+    activities:
+      - "Análisis de código vulnerable"
+      - "Desarrollo de fixes"
+      - "Implementación de controles"
+      - "Verificación de correcciones"
+
+resources:
+  documentation:
+    - "OWASP Testing Guide"
+    - "Web Application Hackers Handbook"
+    - "DVWA Tutorial Guide"
+    - "WebGoat User Guide"
+
+  wordlists:
+    - "/usr/share/wordlists/rockyou.txt"
+    - "/usr/share/seclists/Discovery/Web-Content/common.txt"
+    - "/usr/share/seclists/Fuzzing/SQLi/Generic-SQLi.txt"
+    - "/usr/share/seclists/Fuzzing/XSS/XSS-Bypass-Filters-2021.txt"
+
+  payloads:
+    sql_injection:
+      - "' OR '1'='1"
+      - "' UNION SELECT NULL--"
+      - "'; DROP TABLE users--"
+    
+    xss:
+      - "<script>alert('XSS')</script>"
+      - "<img src=x onerror=alert('XSS')>"
+      - "javascript:alert('XSS')"
+    
+    command_injection:
+      - "; cat /etc/passwd"
+      - "| whoami"
+      - "&& id"
+
+setup_instructions:
+  - "Ejecutar: docker-compose up -d"
+  - "Esperar a que todos los servicios estén listos"
+  - "Acceder a DVWA en http://localhost:8080"
+  - "Configurar DVWA: Create Database + Login"
+  - "Configurar proxy en navegador (ZAP: localhost:8090)"
+  - "Comenzar con challenges de nivel bajo"
+
+troubleshooting:
+  common_issues:
+    - issue: "DVWA no carga"
+      solution: "Verificar que MySQL esté funcionando: docker logs bofa-dvwa-db"
+    
+    - issue: "ZAP no responde"
+      solution: "Reiniciar contenedor ZAP: docker restart bofa-zap"
+    
+    - issue: "Error de conexión de base de datos"
+      solution: "Verificar variables de entorno en docker-compose.yml"
+
+reporting:
+  template: |
+    # Reporte de Laboratorio Web Security
+    
+    ## Información General
+    - Fecha: [FECHA]
+    - Aplicaciones probadas: [LISTA]
+    - Herramientas utilizadas: [HERRAMIENTAS]
+    
+    ## Vulnerabilidades Encontradas
+    [TABLA CON VULNERABILIDADES]
+    
+    ## Explotación Exitosa
+    [DESCRIPCIÓN DE EXPLOITS]
+    
+    ## Recomendaciones
+    [MEDIDAS DE MITIGACIÓN]
+    
+    ## Conclusiones
+    [LECCIONES APRENDIDAS]
+
+certification_criteria:
+  - "Completar al menos 5 challenges de cada nivel"
+  - "Documentar todos los hallazgos"
+  - "Proponer remediation para cada vulnerabilidad"
+  - "Demostrar uso efectivo de herramientas"
+  - "Generar reporte profesional"

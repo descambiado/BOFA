@@ -1,0 +1,91 @@
+
+name: "social_engineer_toolkit"
+display_name: "Social Engineering Toolkit (Educativo)"
+description: "Herramientas educativas para concienciación sobre ingeniería social y phishing"
+category: "social"
+subcategory: "awareness_training"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["social-engineering", "phishing", "awareness", "training", "education"]
+
+requirements:
+  - "python3"
+  - "json"
+  - "random"
+
+parameters:
+  target_name:
+    type: "string"
+    description: "Nombre del objetivo (simulación)"
+    required: true
+    default: "Usuario Ejemplo"
+  
+  target_role:
+    type: "select"
+    description: "Rol del objetivo"
+    required: false
+    options: ["employee", "manager", "executive", "hr", "finance", "admin", "it"]
+    default: "employee"
+  
+  tech_level:
+    type: "select"
+    description: "Nivel técnico del objetivo"
+    required: false
+    options: ["low", "medium", "high"]
+    default: "medium"
+  
+  scenario_type:
+    type: "select"
+    description: "Tipo de escenario"
+    required: false
+    options: ["it_support", "bank_security", "survey", "delivery", "government"]
+    default: "it_support"
+  
+  analysis_type:
+    type: "select"
+    description: "Tipo de análisis"
+    required: false
+    options: ["individual", "group", "organizational"]
+    default: "individual"
+
+features:
+  - "🎭 Análisis de vulnerabilidad psicológica"
+  - "📧 Generación de emails de phishing educativos"
+  - "📞 Escenarios de pretexto telefónico"
+  - "🎯 Vectores de ataque personalizados"
+  - "🛡️ Recomendaciones defensivas"
+  - "📊 Reportes de concienciación"
+  - "🎓 Material de entrenamiento"
+  - "📋 Métricas de vulnerabilidad"
+
+execution:
+  timeout: 60
+  memory_limit: "128MB"
+  cpu_limit: "1"
+
+output:
+  format: "structured"
+  fields:
+    - "vulnerability_analysis"
+    - "phishing_examples"
+    - "pretext_scenarios"
+    - "defense_recommendations"
+    - "awareness_metrics"
+
+educational_objectives:
+  - "Identificar técnicas de ingeniería social"
+  - "Reconocer señales de phishing"
+  - "Desarrollar defensas psicológicas"
+  - "Crear conciencia organizacional"
+  - "Mejorar cultura de seguridad"
+
+safety_guidelines:
+  - "Solo para fines educativos autorizados"
+  - "No usar contra objetivos reales sin consentimiento"
+  - "Mantener confidencialidad de análisis"
+  - "Enfocar en prevención, no explotación"
+  - "Seguir políticas organizacionales"

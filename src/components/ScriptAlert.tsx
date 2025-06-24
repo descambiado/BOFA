@@ -1,109 +1,65 @@
 
-import { AlertTriangle, Shield, Zap, Smartphone, Info } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle, Shield, Info } from "lucide-react";
+
+interface Script {
+  name: string;
+  category: string;
+  impact_level?: string;
+  risk_level?: string;
+}
 
 interface ScriptAlertProps {
-  script: {
-    name: string;
-    category: string;
-    impact_level?: string;
-    educational_value?: number;
-  };
+  script: Script;
 }
 
 export const ScriptAlert = ({ script }: ScriptAlertProps) => {
-  const getAlertLevel = () => {
-    if (script.category === "red" || script.impact_level === "HIGH") {
+  const getAlertConfig = () => {
+    if (script.category === "red") {
       return {
-        icon: <AlertTriangle className="w-4 h-4" />,
-        variant: "destructive" as const,
+        icon: AlertTriangle,
+        className: "border-red-500/50 bg-red-500/10 text-red-400",
         title: "⚠️ Herramienta Ofensiva",
-        description: "Esta herramienta es para uso educativo en entornos controlados. Asegúrate de tener autorización antes de ejecutarla."
+        message: "Esta es una herramienta de Red Team. Úsala solo en entornos autorizados."
       };
     }
     
+    if (script.risk_level === "HIGH") {
+      return {
+        icon: AlertTriangle,
+        className: "border-orange-500/50 bg-orange-500/10 text-orange-400",
+        title: "🔥 Alto Impacto",
+        message: "Este script puede tener un impacto significativo en el sistema objetivo."
+      };
+    }
+
     if (script.category === "blue") {
       return {
-        icon: <Shield className="w-4 h-4" />,
-        variant: "default" as const,
+        icon: Shield,
+        className: "border-blue-500/50 bg-blue-500/10 text-blue-400",
         title: "🛡️ Herramienta Defensiva",
-        description: "Herramienta de análisis y monitoreo para fortalecer la seguridad."
+        message: "Script de análisis y defensa. Seguro para uso en producción."
       };
     }
-    
-    if (script.category === "purple") {
-      return {
-        icon: <Zap className="w-4 h-4" />,
-        variant: "default" as const,
-        title: "🟣 Ejercicio Purple Team",
-        description: "Simulación coordinada para validar defensas y entrenar equipos."
-      };
-    }
-    
-    if (script.category === "mobile") {
-      return {
-        icon: <Smartphone className="w-4 h-4" />,
-        variant: "default" as const,
-        title: "📱 Herramienta Móvil",
-        description: "Compatible con dispositivos móviles y entornos Termux."
-      };
-    }
-    
+
     return {
-      icon: <Info className="w-4 h-4" />,
-      variant: "default" as const,
-      title: "📚 Herramienta Educativa",
-      description: "Herramienta de aprendizaje y práctica de ciberseguridad."
+      icon: Info,
+      className: "border-cyan-500/50 bg-cyan-500/10 text-cyan-400",
+      title: "ℹ️ Información",
+      message: "Revisa los parámetros antes de ejecutar."
     };
   };
-  
-  const getScriptBadges = () => {
-    const badges = [];
-    
-    if (script.educational_value === 5) {
-      badges.push({ text: "EDUCATIVO", color: "bg-blue-500" });
-    }
-    
-    if (script.impact_level === "HIGH") {
-      badges.push({ text: "ALTO RIESGO", color: "bg-red-500" });
-    } else if (script.impact_level === "MEDIUM") {
-      badges.push({ text: "RIESGO MEDIO", color: "bg-yellow-500" });
-    } else {
-      badges.push({ text: "BAJO RIESGO", color: "bg-green-500" });
-    }
-    
-    if (script.category === "red") {
-      badges.push({ text: "OFENSIVO", color: "bg-red-600" });
-    } else if (script.category === "blue") {
-      badges.push({ text: "DEFENSIVO", color: "bg-blue-600" });
-    } else if (script.category === "purple") {
-      badges.push({ text: "PURPLE TEAM", color: "bg-purple-600" });
-    } else if (script.category === "mobile") {
-      badges.push({ text: "MOBILE", color: "bg-orange-600" });
-    }
-    
-    return badges;
-  };
 
-  const alert = getAlertLevel();
-  const badges = getScriptBadges();
+  const config = getAlertConfig();
+  const IconComponent = config.icon;
 
   return (
-    <div className="space-y-3">
-      <Alert variant={alert.variant}>
-        {alert.icon}
-        <AlertTitle>{alert.title}</AlertTitle>
-        <AlertDescription>{alert.description}</AlertDescription>
-      </Alert>
-      
-      <div className="flex flex-wrap gap-2">
-        {badges.map((badge, index) => (
-          <Badge key={index} className={`${badge.color} text-white text-xs`}>
-            {badge.text}
-          </Badge>
-        ))}
-      </div>
-    </div>
+    <Alert className={config.className}>
+      <IconComponent className="h-4 w-4" />
+      <AlertDescription>
+        <strong>{config.title}</strong><br />
+        {config.message}
+      </AlertDescription>
+    </Alert>
   );
 };

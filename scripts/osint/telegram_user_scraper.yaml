@@ -1,0 +1,61 @@
+
+name: "Telegram User Scraper (OSINT)"
+description: "Extrae información de usuarios de grupos públicos de Telegram"
+version: "1.0"
+author: "@descambiado"
+category: "osint"
+created: "2025-06-19"
+last_updated: "2025-06-19"
+tags: ["telegram", "osint", "social-media", "scraping", "investigation"]
+risk_level: "MEDIUM"
+impact_level: "LOW"
+educational_value: 5
+usage_type: "osint"
+
+parameters:
+  group:
+    type: "string"
+    description: "Identificador del grupo de Telegram"
+    required: true
+    example: "@crypto_signals"
+  api_id:
+    type: "string"
+    description: "API ID de Telegram"
+    required: false
+  api_hash:
+    type: "string"
+    description: "API Hash de Telegram"
+    required: false
+  export:
+    type: "select"
+    options: ["json", "csv"]
+    description: "Formato de exportación"
+    required: false
+    default: "json"
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+requirements:
+  - "telethon>=1.24.0 (para implementación real)"
+  - "python>=3.8"
+  - "asyncio"
+
+environment:
+  - "Solo grupos públicos de Telegram"
+  - "Requiere API credentials para uso real"
+  - "Respetar términos de servicio de Telegram"
+
+example_usage: |
+  python telegram_user_scraper.py @crypto_signals --export json -v
+
+mitre_attack:
+  tactic: "Collection"
+  technique: "T1213 - Data from Information Repositories"
+
+educational_notes: |
+  Esta herramienta demuestra técnicas OSINT para recopilar información de grupos públicos.
+  La versión actual usa datos simulados para fines educativos. Para uso real, requiere
+  implementación con telethon y credenciales API válidas de Telegram.

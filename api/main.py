@@ -1,4 +1,3 @@
-
 """
 BOFA API - Best Of All Backend
 Desarrollado por @descambiado (David Hernández Jiménez)
@@ -7,7 +6,7 @@ FastAPI Backend para la suite de ciberseguridad BOFA
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import os
@@ -95,6 +94,19 @@ class ExecutionHistory(BaseModel):
     execution_time: str
     output: Optional[str] = None
     error: Optional[str] = None
+
+class ReportMetadata(BaseModel):
+    script_name: str
+    module: str
+    author: str = "@descambiado"
+    generated_at: str
+    bofa_version: str = "2.3.0"
+
+class ExecutionReport(BaseModel):
+    metadata: ReportMetadata
+    execution: Dict[str, Any]
+    results: Dict[str, Any]
+    signature: str = "Desarrollado por @descambiado - BOFA Professional Security Suite"
 
 def load_scripts_from_yaml() -> Dict[str, Any]:
     """Carga dinámicamente todos los scripts desde archivos YAML"""
@@ -215,7 +227,102 @@ def load_execution_history() -> List[ExecutionHistory]:
     history.sort(key=lambda x: x.timestamp, reverse=True)
     return history
 
-# ... keep existing code (validate_script_path, build_script_command, execute_script_safely functions)
+def create_reports_directory():
+    """Crear estructura de directorios para reportes"""
+    reports_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "reports")
+    
+    for subdir in ["pdf", "markdown", "json"]:
+        os.makedirs(os.path.join(reports_path, subdir), exist_ok=True)
+    
+    return reports_path
+
+def generate_report_content(execution_data: Dict[str, Any], format_type: str) -> str:
+    """Generar contenido del reporte según el formato"""
+    report_data = {
+        "metadata": {
+            "script_name": execution_data.get("script", "unknown"),
+            "module": execution_data.get("module", "unknown"),
+            "author": "@descambiado",
+            "generated_at": datetime.now().isoformat(),
+            "bofa_version": "2.3.0"
+        },
+        "execution": {
+            "timestamp": execution_data.get("timestamp", datetime.now().isoformat()),
+            "parameters": execution_data.get("parameters", {}),
+            "duration": execution_data.get("execution_time", "0s"),
+            "status": execution_data.get("status", "unknown")
+        },
+        "results": {
+            "output": execution_data.get("output", ""),
+            "error": execution_data.get("error")
+        },
+        "signature": "Desarrollado por @descambiado - BOFA Professional Security Suite"
+    }
+    
+    if format_type == "json":
+        return json.dumps(report_data, indent=2, ensure_ascii=False)
+    
+    elif format_type == "markdown":
+        return f"""# 📊 BOFA Execution Report
+
+## 📋 Metadatos
+- **Script**: {report_data['metadata']['script_name']}
+- **Módulo**: {report_data['metadata']['module']}
+- **Autor**: {report_data['metadata']['author']}
+- **Generado**: {datetime.fromisoformat(report_data['metadata']['generated_at']).strftime('%Y-%m-%d %H:%M:%S')}
+- **Versión BOFA**: {report_data['metadata']['bofa_version']}
+
+## ⏱️ Ejecución
+- **Timestamp**: {datetime.fromisoformat(report_data['execution']['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}
+- **Duración**: {report_data['execution']['duration']}
+- **Estado**: {report_data['execution']['status']}
+
+## 🔧 Parámetros
+```json
+{json.dumps(report_data['execution']['parameters'], indent=2, ensure_ascii=False)}
+```
+
+## 📤 Resultados
+```
+{report_data['results']['output']}
+```
+
+{f'''## ❌ Errores
+```
+{report_data['results']['error']}
+```''' if report_data['results']['error'] else ''}
+
+---
+{report_data['signature']}
+"""
+    
+    elif format_type == "pdf":
+        return f"""BOFA EXECUTION REPORT
+=====================
+
+Script: {report_data['metadata']['script_name']}
+Module: {report_data['metadata']['module']}
+Author: {report_data['metadata']['author']}
+Generated: {datetime.fromisoformat(report_data['metadata']['generated_at']).strftime('%Y-%m-%d %H:%M:%S')}
+
+EXECUTION DETAILS
+================
+Timestamp: {datetime.fromisoformat(report_data['execution']['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}
+Duration: {report_data['execution']['duration']}
+Status: {report_data['execution']['status']}
+
+PARAMETERS
+==========
+{json.dumps(report_data['execution']['parameters'], indent=2, ensure_ascii=False)}
+
+RESULTS
+=======
+{report_data['results']['output']}
+
+{f'ERRORS\n======\n{report_data["results"]["error"]}' if report_data['results']['error'] else ''}
+
+{report_data['signature']}
+"""
 
 def validate_script_path(module_id: str, script_name: str) -> str:
     """Valida y construye la ruta segura del script"""
@@ -504,6 +611,180 @@ async def search_scripts(query: str):
         "results": results
     }
 
+@app.get("/reports/latest", response_model=Dict[str, Any])
+async def get_latest_report():
+    """Obtener la última ejecución registrada"""
+    history = load_execution_history()
+    
+    if not history:
+        raise HTTPException(status_code=404, detail="No hay ejecuciones registradas")
+    
+    latest = history[0]  # Ya están ordenadas por timestamp descendente
+    
+    return {
+        "execution_id": latest.id,
+        "module": latest.module,
+        "script": latest.script,
+        "timestamp": latest.timestamp,
+        "status": latest.status,
+        "duration": latest.execution_time,
+        "parameters": latest.parameters,
+        "output": latest.output,
+        "error": latest.error
+    }
+
+@app.get("/reports/pdf")
+async def download_pdf_report(execution_id: Optional[str] = None):
+    """Descargar reporte en formato PDF"""
+    try:
+        if execution_id:
+            # Buscar ejecución específica
+            history = load_execution_history()
+            execution_data = None
+            
+            for execution in history:
+                if execution.id == execution_id:
+                    execution_data = {
+                        "script": execution.script,
+                        "module": execution.module,
+                        "timestamp": execution.timestamp,
+                        "status": execution.status,
+                        "execution_time": execution.execution_time,
+                        "parameters": execution.parameters,
+                        "output": execution.output,
+                        "error": execution.error
+                    }
+                    break
+            
+            if not execution_data:
+                raise HTTPException(status_code=404, detail="Ejecución no encontrada")
+        else:
+            # Usar última ejecución
+            latest_data = await get_latest_report()
+            execution_data = latest_data
+        
+        # Generar contenido PDF
+        pdf_content = generate_report_content(execution_data, "pdf")
+        
+        # Generar nombre de archivo
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+        filename = f"{execution_data['module']}_{execution_data['script']}_{timestamp}.pdf"
+        
+        return Response(
+            content=pdf_content.encode('utf-8'),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+
+@app.get("/reports/markdown")
+async def download_markdown_report(execution_id: Optional[str] = None):
+    """Descargar reporte en formato Markdown"""
+    try:
+        if execution_id:
+            history = load_execution_history()
+            execution_data = None
+            
+            for execution in history:
+                if execution.id == execution_id:
+                    execution_data = {
+                        "script": execution.script,
+                        "module": execution.module,
+                        "timestamp": execution.timestamp,
+                        "status": execution.status,
+                        "execution_time": execution.execution_time,
+                        "parameters": execution.parameters,
+                        "output": execution.output,
+                        "error": execution.error
+                    }
+                    break
+            
+            if not execution_data:
+                raise HTTPException(status_code=404, detail="Ejecución no encontrada")
+        else:
+            latest_data = await get_latest_report()
+            execution_data = latest_data
+        
+        # Generar contenido Markdown
+        md_content = generate_report_content(execution_data, "markdown")
+        
+        # Generar nombre de archivo
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+        filename = f"{execution_data['module']}_{execution_data['script']}_{timestamp}.md"
+        
+        return Response(
+            content=md_content.encode('utf-8'),
+            media_type="text/markdown",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando Markdown: {str(e)}")
+
+@app.get("/reports/json")
+async def download_json_report(execution_id: Optional[str] = None):
+    """Descargar reporte en formato JSON"""
+    try:
+        if execution_id:
+            history = load_execution_history()
+            execution_data = None
+            
+            for execution in history:
+                if execution.id == execution_id:
+                    execution_data = {
+                        "script": execution.script,
+                        "module": execution.module,
+                        "timestamp": execution.timestamp,
+                        "status": execution.status,
+                        "execution_time": execution.execution_time,
+                        "parameters": execution.parameters,
+                        "output": execution.output,
+                        "error": execution.error
+                    }
+                    break
+            
+            if not execution_data:
+                raise HTTPException(status_code=404, detail="Ejecución no encontrada")
+        else:
+            latest_data = await get_latest_report()
+            execution_data = latest_data
+        
+        # Generar contenido JSON
+        json_content = generate_report_content(execution_data, "json")
+        
+        # Generar nombre de archivo
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+        filename = f"{execution_data['module']}_{execution_data['script']}_{timestamp}.json"
+        
+        return Response(
+            content=json_content.encode('utf-8'),
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando JSON: {str(e)}")
+
+@app.get("/reports/list", response_model=List[Dict[str, Any]])
+async def list_available_reports():
+    """Listar todos los reportes disponibles"""
+    history = load_execution_history()
+    
+    reports = []
+    for execution in history[:10]:  # Últimos 10 reportes
+        reports.append({
+            "execution_id": execution.id,
+            "script": execution.script,
+            "module": execution.module,
+            "timestamp": execution.timestamp,
+            "status": execution.status,
+            "formats_available": ["pdf", "markdown", "json"]
+        })
+    
+    return reports
+
 # Manejo de errores
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
@@ -526,6 +807,9 @@ async def internal_error_handler(request, exc):
             "contact": "david@descambiado.com"
         }
     )
+
+# Inicializar directorio de reportes al arrancar
+create_reports_directory()
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,0 +1,89 @@
+
+name: "ai_threat_hunter"
+display_name: "AI-Powered Threat Hunter"
+description: "Detecta amenazas usando machine learning local y correlación de eventos con MITRE ATT&CK"
+category: "blue"
+subcategory: "threat_hunting"
+author: "@descambiado"
+version: "2.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["ai", "ml", "threat-hunting", "mitre-attack", "anomaly-detection", "blue-team"]
+
+requirements:
+  - "python3"
+  - "pandas"
+  - "numpy"
+  - "scikit-learn"
+
+parameters:
+  log_file:
+    type: "file"
+    description: "Archivo de logs a analizar (JSON/CSV)"
+    required: true
+    default: ""
+  
+  anomaly_threshold:
+    type: "float"
+    description: "Umbral de anomalía (0.0-1.0)"
+    required: false
+    default: 0.7
+    min: 0.0
+    max: 1.0
+  
+  mitre_filter:
+    type: "select"
+    description: "Filtrar por técnicas MITRE específicas"
+    required: false
+    options: ["all", "T1003", "T1055", "T1059", "T1070", "T1082", "T1105", "T1190", "T1566"]
+    default: "all"
+  
+  output_format:
+    type: "select"
+    description: "Formato de salida"
+    required: false
+    options: ["json", "csv", "html"]
+    default: "json"
+
+features:
+  - "🤖 Machine Learning local para detección de anomalías"
+  - "🎯 Mapeo automático con MITRE ATT&CK Framework"
+  - "🔍 Pattern matching avanzado con regex"
+  - "📊 Análisis temporal y de comportamiento"
+  - "⚡ Correlación de eventos en tiempo real"
+  - "📈 Scoring de severidad automático"
+  - "💡 Recomendaciones de remediación"
+  - "📋 Exportación en múltiples formatos"
+
+execution:
+  timeout: 300
+  memory_limit: "512MB"
+  cpu_limit: "1"
+
+output:
+  format: "structured"
+  fields:
+    - "threats_detected"
+    - "mitre_techniques"
+    - "severity_counts"
+    - "recommendations"
+    - "anomaly_scores"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Amenazas Detectadas"
+      field: "threats_detected.length"
+    - type: "chart"
+      title: "Distribución de Severidad"
+      field: "severity_counts"
+      chart_type: "pie"
+    - type: "list"
+      title: "Técnicas MITRE"
+      field: "mitre_techniques"
+    - type: "timeline"
+      title: "Timeline de Amenazas"
+      field: "timeline"

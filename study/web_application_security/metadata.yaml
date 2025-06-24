@@ -1,0 +1,95 @@
+
+id: web_application_security
+title: "Seguridad en Aplicaciones Web"
+description: "Curso completo sobre vulnerabilidades web, OWASP Top 10 y técnicas de protección"
+category: "web_security"
+difficulty: "intermediate"
+duration: "180 minutos"
+prerequisite_knowledge: 
+  - "Conocimientos básicos de HTTP/HTTPS"
+  - "Programación web (HTML, CSS, JavaScript)"
+  - "Conceptos básicos de bases de datos"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+tags: ["web", "owasp", "xss", "sql-injection", "csrf", "security"]
+
+learning_objectives:
+  - "Identificar vulnerabilidades del OWASP Top 10"
+  - "Implementar controles de seguridad web"
+  - "Realizar testing de seguridad en aplicaciones"
+  - "Aplicar principios de desarrollo seguro"
+
+modules:
+  - name: "Introducción a la Seguridad Web"
+    duration: 30
+    topics: ["Threat landscape", "OWASP Top 10", "Metodologías de testing"]
+  
+  - name: "Vulnerabilidades de Injection"
+    duration: 45
+    topics: ["SQL Injection", "NoSQL Injection", "Command Injection", "LDAP Injection"]
+  
+  - name: "Cross-Site Scripting (XSS)"
+    duration: 30
+    topics: ["Reflected XSS", "Stored XSS", "DOM-based XSS", "Bypass techniques"]
+  
+  - name: "Authentication & Session Management"
+    duration: 30
+    topics: ["Broken authentication", "Session hijacking", "CSRF", "JWT vulnerabilities"]
+  
+  - name: "Controles de Seguridad"
+    duration: 45
+    topics: ["Input validation", "Output encoding", "CSP", "Security headers"]
+
+hands_on_labs:
+  - name: "DVWA SQL Injection Lab"
+    estimated_time: 30
+    description: "Explotación de vulnerabilidades SQL injection"
+  
+  - name: "XSS Challenge Lab"
+    estimated_time: 25
+    description: "Identificación y explotación de XSS"
+  
+  - name: "CSRF Protection Implementation"
+    estimated_time: 20
+    description: "Implementar protección CSRF"
+
+tools_required:
+  - "Burp Suite Community"
+  - "OWASP ZAP"
+  - "Docker"
+  - "Navegador web con proxy configurado"
+
+assessment:
+  type: "practical_exam"
+  duration: 60
+  passing_score: 80
+  components:
+    - "Identificación de vulnerabilidades (40%)"
+    - "Implementación de controles (35%)"
+    - "Análisis de código seguro (25%)"
+
+resources:
+  documentation:
+    - "OWASP Top 10 2021"
+    - "OWASP Cheat Sheet Series"
+    - "Mozilla Web Security Guidelines"
+  
+  external_tools:
+    - "DVWA - Damn Vulnerable Web Application"
+    - "WebGoat - OWASP"
+    - "VulnHub - Vulnerable VMs"
+  
+  recommended_reading:
+    - "The Web Application Hacker's Handbook"
+    - "OWASP Testing Guide v4"
+    - "Tangled Web by Michal Zalewski"
+
+certification:
+  available: true
+  name: "BOFA Web Application Security Specialist"
+  validity_period: "2 years"
+  requirements:
+    - "Complete all modules with 80%+ score"
+    - "Pass practical examination"
+    - "Submit security analysis project"

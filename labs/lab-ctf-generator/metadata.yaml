@@ -1,0 +1,25 @@
+
+name: "CTF Challenge Generator"
+description: "Generador automático de retos CTF personalizables con validación de flags"
+category: "ctf"
+difficulty: "beginner"
+estimated_time: "30 minutes"
+ports: ["8082", "8443", "2223", "5000", "6379"]
+services: ["Web Challenges", "SSH Server", "CTF Generator", "Flag Validator"]
+objectives:
+  - "Generar retos CTF automáticamente"
+  - "Resolver challenges web básicos"
+  - "Escalada de privilegios SSH"
+  - "Validar flags correctamente"
+flags:
+  - "CTF{web_sqli_basic_bypass}"
+  - "CTF{ssh_privesc_success}"
+  - "CTF{custom_generated_flag}"
+author: "@descambiado"
+version: "1.0"
+created: "2025-06-19"
+features:
+  - "Generación automática de retos"
+  - "Templates personalizables"
+  - "Sistema de puntuación"
+  - "Validación en tiempo real"

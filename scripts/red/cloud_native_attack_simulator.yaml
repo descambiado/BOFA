@@ -1,0 +1,71 @@
+
+name: "cloud_native_attack_simulator"
+display_name: "Cloud Native Attack Simulator"
+description: "Simula ataques específicos a contenedores, Kubernetes y arquitecturas serverless"
+category: "red"
+subcategory: "cloud_security"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "HIGH"
+impact_level: "HIGH"
+educational_value: 5
+tags: ["kubernetes", "docker", "containers", "serverless", "cloud-native", "privilege-escalation"]
+
+requirements:
+  - "python3"
+  - "docker"
+  - "kubectl"
+  - "requests"
+
+parameters:
+  target_type:
+    type: "select"
+    description: "Tipo de objetivo cloud native"
+    required: true
+    options: ["kubernetes", "docker", "serverless", "comprehensive"]
+    default: "kubernetes"
+  
+  cluster_endpoint:
+    type: "string"
+    description: "Endpoint del cluster Kubernetes"
+    required: false
+    default: ""
+  
+  attack_scenarios:
+    type: "multiselect"
+    description: "Escenarios de ataque a simular"
+    required: false
+    options: ["container_escape", "privilege_escalation", "lateral_movement", "data_extraction", "resource_hijacking"]
+    default: ["container_escape", "privilege_escalation"]
+  
+  intensity_level:
+    type: "select"
+    description: "Intensidad del ataque simulado"
+    required: false
+    options: ["low", "medium", "high", "extreme"]
+    default: "medium"
+
+features:
+  - "🐳 Container escape simulation"
+  - "☸️ Kubernetes privilege escalation"
+  - "🔄 Lateral movement in clusters"
+  - "📊 Resource hijacking detection"
+  - "🚀 Serverless function exploitation"
+  - "🔍 RBAC bypass techniques"
+  - "💾 Persistent volume attacks"
+  - "🌐 Service mesh exploitation"
+
+execution:
+  timeout: 900
+  memory_limit: "1GB"
+  cpu_limit: "2"
+
+output:
+  format: "structured"
+  fields:
+    - "vulnerabilities_found"
+    - "attack_paths"
+    - "privilege_escalations"
+    - "recommendations"
+    - "risk_assessment"

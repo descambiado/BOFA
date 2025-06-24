@@ -1,0 +1,77 @@
+
+name: "iot_security_mapper"
+display_name: "IoT/OT Security Mapper"
+description: "Descubre y evalúa dispositivos IoT/OT expuestos usando Shodan y análisis de protocolos industriales"
+category: "osint"
+subcategory: "iot_discovery"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "MEDIUM"
+impact_level: "HIGH"
+educational_value: 5
+tags: ["iot", "ot", "shodan", "industrial", "scada", "modbus", "mqtt"]
+
+requirements:
+  - "python3"
+  - "shodan"
+  - "requests"
+  - "nmap"
+
+parameters:
+  search_query:
+    type: "string"
+    description: "Query de búsqueda Shodan"
+    required: false
+    default: "port:502,1883,47808,20000"
+  
+  target_protocols:
+    type: "multiselect"
+    description: "Protocolos industriales a buscar"
+    required: false
+    options: ["modbus", "mqtt", "bacnet", "dnp3", "iec61850", "opcua", "coap"]
+    default: ["modbus", "mqtt", "bacnet"]
+  
+  geographic_filter:
+    type: "string"
+    description: "Filtro geográfico (país/ciudad)"
+    required: false
+    default: ""
+  
+  vulnerability_check:
+    type: "boolean"
+    description: "Verificar vulnerabilidades conocidas"
+    required: false
+    default: true
+  
+  max_results:
+    type: "integer"
+    description: "Máximo número de resultados"
+    required: false
+    default: 100
+    min: 10
+    max: 1000
+
+features:
+  - "🔍 Shodan API integration"
+  - "🏭 Industrial protocol detection"
+  - "🌍 Geographic mapping"
+  - "🚨 Vulnerability assessment"
+  - "📊 Device fingerprinting"
+  - "🔒 Security posture analysis"
+  - "📈 Exposure timeline"
+  - "🗺️ Interactive visualization"
+
+execution:
+  timeout: 600
+  memory_limit: "256MB"
+  cpu_limit: "1"
+
+output:
+  format: "structured"
+  fields:
+    - "devices_found"
+    - "vulnerabilities"
+    - "geographic_distribution"
+    - "protocol_analysis"
+    - "risk_assessment"

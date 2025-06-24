@@ -1,0 +1,22 @@
+
+name: "Android Mobile Security Lab"
+description: "Laboratorio de seguridad móvil con emulación Android y análisis de tráfico"
+category: "mobile"
+difficulty: "advanced"
+estimated_time: "60 minutes"
+ports: ["6080", "8081", "3333", "5554", "5555"]
+services: ["Android Emulator", "APK Server", "Traffic Analyzer"]
+objectives:
+  - "Analizar APKs vulnerables"
+  - "Interceptar tráfico móvil"
+  - "Realizar ingeniería inversa básica"
+  - "Detectar comunicaciones inseguras"
+flags:
+  - "MOBILE{apk_hardcoded_secrets}"
+  - "MOBILE{traffic_intercept_success}"
+author: "@descambiado"
+version: "1.0"
+created: "2025-06-19"
+requirements:
+  - "KVM support (Linux host)"
+  - "8GB RAM minimum"
