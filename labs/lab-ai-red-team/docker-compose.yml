@@ -1,0 +1,373 @@
+version: '3.8'
+
+services:
+  # AI Red Team Command Center
+  ai-red-team-hub:
+    image: ubuntu:22.04
+    container_name: bofa-ai-red-team-hub
+    hostname: ai-red-hub
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+      - AI_MODEL=gpt-4-enhanced
+      - ATTACK_MODE=autonomous
+      - TARGET_ENVIRONMENT=lab
+    volumes:
+      - ./ai-models:/ai-models
+      - ./attack-data:/attack-data
+      - ./payloads:/payloads
+      - ./results:/results
+    working_dir: /ai-models
+    command: |
+      bash -c "
+        apt-get update && apt-get install -y \
+          python3 python3-pip python3-venv \
+          nodejs npm \
+          golang-go \
+          docker.io \
+          nmap masscan \
+          metasploit-framework \
+          sqlmap \
+          nikto dirb gobuster \
+          hydra john hashcat \
+          aircrack-ng \
+          git curl wget \
+          vim nano \
+          net-tools iproute2 \
+        && pip3 install \
+          torch transformers \
+          tensorflow \
+          langchain \
+          openai \
+          pandas numpy \
+          requests beautifulsoup4 \
+          scapy python-nmap \
+          pwntools \
+        && echo '🤖 BOFA AI Red Team Lab v2.5.0' > /etc/motd \
+        && echo 'Advanced AI-Powered Penetration Testing Environment' >> /etc/motd \
+        && echo 'WARNING: For authorized testing only!' >> /etc/motd \
+        && tail -f /dev/null
+      "
+    ports:
+      - "8080:8080"   # AI Control Panel
+      - "4444:4444"   # Reverse Shell Listener
+      - "8888:8888"   # Jupyter Notebook
+    networks:
+      - ai-redteam-network
+    restart: unless-stopped
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+
+  # AI-Powered Vulnerability Scanner
+  ai-vuln-scanner:
+    image: python:3.11-slim
+    container_name: bofa-ai-vuln-scanner
+    hostname: ai-vuln-scan
+    environment:
+      - SCAN_MODE=intelligent
+      - AI_ENHANCEMENT=enabled
+      - VULNERABILITY_DB=2025_latest
+    volumes:
+      - ./ai-scanner:/scanner
+      - ./attack-data:/shared
+      - ./vulnerability-db:/vuln-db
+    working_dir: /scanner
+    command: |
+      bash -c "
+        pip install \
+          python-nmap \
+          requests \
+          beautifulsoup4 \
+          selenium \
+          transformers \
+          torch \
+          scikit-learn \
+        && echo 'AI Vulnerability Scanner ready' \
+        && python3 ai_vulnerability_scanner.py --mode continuous
+      "
+    networks:
+      - ai-redteam-network
+    depends_on:
+      - target-web-app
+
+  # AI Payload Generator
+  ai-payload-generator:
+    image: python:3.11-slim
+    container_name: bofa-ai-payload-gen
+    hostname: ai-payload-gen
+    environment:
+      - PAYLOAD_TYPE=adaptive
+      - EVASION_LEVEL=maximum
+      - TARGET_OS=multi-platform
+    volumes:
+      - ./ai-payloads:/payloads
+      - ./attack-data:/shared
+    working_dir: /payloads
+    command: |
+      bash -c "
+        pip install \
+          transformers \
+          torch \
+          cryptography \
+          pycryptodome \
+          requests \
+        && echo 'AI Payload Generator initialized' \
+        && python3 ai_payload_generator.py --generate-continuous
+      "
+    networks:
+      - ai-redteam-network
+
+  # Machine Learning Attack Orchestrator
+  ml-attack-orchestrator:
+    image: tensorflow/tensorflow:latest-gpu-py3
+    container_name: bofa-ml-orchestrator
+    hostname: ml-orchestrator
+    environment:
+      - ML_MODEL=attack_planning_v2
+      - LEARNING_MODE=reinforcement
+      - ATTACK_STRATEGY=adaptive
+    volumes:
+      - ./ml-models:/models
+      - ./attack-data:/data
+      - ./training-data:/training
+    working_dir: /models
+    command: |
+      bash -c "
+        pip install \
+          keras \
+          gym \
+          stable-baselines3 \
+          ray[rllib] \
+          wandb \
+        && echo 'ML Attack Orchestrator ready' \
+        && python3 ml_attack_orchestrator.py
+      "
+    networks:
+      - ai-redteam-network
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+
+  # Target Web Application (Vulnerable)
+  target-web-app:
+    image: vulnerables/web-dvwa:latest
+    container_name: bofa-target-webapp
+    hostname: target-webapp
+    environment:
+      - MYSQL_HOST=target-database
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=password
+      - SECURITY_LEVEL=low
+    networks:
+      - ai-redteam-network
+      - target-network
+    ports:
+      - "8081:80"
+    depends_on:
+      - target-database
+
+  # Target Database
+  target-database:
+    image: mysql:8.0
+    container_name: bofa-target-db
+    hostname: target-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=dvwa
+      - MYSQL_PASSWORD=password
+    volumes:
+      - target-db-data:/var/lib/mysql
+    networks:
+      - target-network
+    ports:
+      - "3306:3306"
+
+  # Target Windows System (Simulation)
+  target-windows:
+    image: mcr.microsoft.com/windows/servercore:ltsc2022
+    container_name: bofa-target-windows
+    hostname: target-win
+    environment:
+      - ACCEPT_EULA=Y
+    volumes:
+      - ./target-windows:/windows-target
+    networks:
+      - target-network
+    ports:
+      - "3389:3389"  # RDP
+      - "135:135"    # RPC
+      - "445:445"    # SMB
+    platform: windows/amd64
+
+  # AI Social Engineering Bot
+  ai-social-eng:
+    image: node:18-alpine
+    container_name: bofa-ai-social-eng
+    hostname: ai-social-bot
+    environment:
+      - NODE_ENV=production
+      - AI_PERSONALITY=technical_recruiter
+      - SOCIAL_PLATFORM=multiple
+    volumes:
+      - ./ai-social-eng:/app
+      - ./attack-data:/shared
+    working_dir: /app
+    command: |
+      sh -c "
+        npm install \
+          puppeteer \
+          openai \
+          @google-cloud/speech \
+          discord.js \
+          telegraf \
+        && echo 'AI Social Engineering Bot ready' \
+        && node ai_social_engineer.js
+      "
+    networks:
+      - ai-redteam-network
+
+  # Advanced Persistent Threat Simulator
+  apt-simulator:
+    image: kalilinux/kali-rolling:latest
+    container_name: bofa-apt-simulator
+    hostname: apt-sim
+    environment:
+      - APT_GROUP=lazarus
+      - CAMPAIGN_NAME=operation_quantum
+      - PERSISTENCE_LEVEL=advanced
+    volumes:
+      - ./apt-simulation:/apt
+      - ./attack-data:/shared
+    working_dir: /apt
+    command: |
+      bash -c "
+        apt-get update && apt-get install -y \
+          metasploit-framework \
+          empire \
+          covenant \
+          powershell \
+          python3-impacket \
+        && echo 'APT Simulation Environment ready' \
+        && tail -f /dev/null
+      "
+    networks:
+      - ai-redteam-network
+    privileged: true
+
+  # Network Traffic Analyzer & IDS Evasion
+  network-evasion:
+    image: ubuntu:22.04
+    container_name: bofa-network-evasion
+    hostname: net-evasion
+    environment:
+      - EVASION_MODE=ai_adaptive
+      - IDS_BYPASS=enabled
+      - TRAFFIC_OBFUSCATION=maximum
+    volumes:
+      - ./network-evasion:/evasion
+      - ./attack-data:/shared
+    working_dir: /evasion
+    command: |
+      bash -c "
+        apt-get update && apt-get install -y \
+          wireshark-common \
+          tcpdump \
+          nmap \
+          hping3 \
+          scapy \
+          python3 \
+          python3-pip \
+        && pip3 install scapy netfilterqueue \
+        && echo 'Network Evasion System ready' \
+        && tail -f /dev/null
+      "
+    networks:
+      - ai-redteam-network
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  # AI Red Team Analytics & Reporting
+  redteam-analytics:
+    image: jupyter/tensorflow-notebook:latest
+    container_name: bofa-redteam-analytics
+    hostname: redteam-analytics
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - ANALYSIS_MODE=realtime
+    volumes:
+      - ./analytics:/home/jovyan/work
+      - ./attack-data:/home/jovyan/data
+      - ./results:/home/jovyan/results
+    working_dir: /home/jovyan/work
+    command: |
+      bash -c "
+        pip install \
+          plotly \
+          dash \
+          streamlit \
+          seaborn \
+          networkx \
+          python-docx \
+        && echo 'Red Team Analytics ready' \
+        && start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+      "
+    ports:
+      - "8888:8888"
+    networks:
+      - ai-redteam-network
+
+  # Lab Monitoring & SIEM
+  lab-siem:
+    image: elastic/elasticsearch:8.11.0
+    container_name: bofa-lab-siem
+    hostname: lab-siem
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - xpack.security.enabled=false
+    volumes:
+      - siem-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - ai-redteam-network
+
+  # Kibana for SIEM Visualization
+  lab-kibana:
+    image: elastic/kibana:8.11.0
+    container_name: bofa-lab-kibana
+    hostname: lab-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://lab-siem:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - ai-redteam-network
+    depends_on:
+      - lab-siem
+
+networks:
+  ai-redteam-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1
+  
+  target-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+          gateway: 172.22.0.1
+    internal: true  # Isolated network for targets
+
+volumes:
+  target-db-data:
+    driver: local
+  siem-data:
+    driver: local

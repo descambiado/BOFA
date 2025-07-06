@@ -1,0 +1,205 @@
+version: '3.8'
+
+services:
+  # Quantum Cryptography Lab Environment
+  quantum-crypto-lab:
+    image: ubuntu:22.04
+    container_name: bofa-quantum-crypto-lab
+    hostname: quantum-lab
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+      - LAB_TYPE=quantum-cryptography
+      - CHALLENGE_LEVEL=advanced
+    volumes:
+      - ./lab-data:/lab-data
+      - ./challenges:/challenges
+      - ./solutions:/solutions
+    working_dir: /lab-data
+    command: |
+      bash -c "
+        apt-get update && apt-get install -y \
+          python3 python3-pip python3-venv \
+          gcc g++ make cmake \
+          openssl libssl-dev \
+          git curl wget \
+          vim nano \
+          net-tools iproute2 \
+          && pip3 install \
+            cryptography \
+            pycryptodome \
+            qiskit \
+            numpy \
+            sympy \
+            matplotlib \
+          && echo '🔬 BOFA Quantum Cryptography Lab v2.5.0' > /etc/motd \
+          && echo 'Welcome to the Quantum Cryptography Challenge Lab!' >> /etc/motd \
+          && echo 'Type \"start-challenges\" to begin...' >> /etc/motd \
+          && tail -f /dev/null
+      "
+    ports:
+      - "8080:8080"  # Web interface
+      - "2222:22"    # SSH access
+    networks:
+      - quantum-lab-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Quantum Key Distribution Simulator
+  qkd-simulator:
+    image: python:3.11-slim
+    container_name: bofa-qkd-simulator
+    hostname: qkd-sim
+    environment:
+      - QKD_MODE=bb84
+      - PHOTON_COUNT=1000000
+      - ERROR_RATE=0.05
+    volumes:
+      - ./qkd-simulator:/app
+      - ./lab-data:/shared
+    working_dir: /app
+    command: |
+      bash -c "
+        pip install qiskit numpy matplotlib flask \
+        && python3 qkd_simulator.py --mode bb84 --continuous
+      "
+    ports:
+      - "5000:5000"
+    networks:
+      - quantum-lab-network
+    depends_on:
+      - quantum-crypto-lab
+
+  # Post-Quantum Cryptography Testing Environment
+  pqc-testing:
+    image: ubuntu:22.04
+    container_name: bofa-pqc-testing
+    hostname: pqc-test
+    environment:
+      - PQC_ALGORITHMS=kyber,dilithium,falcon
+      - TEST_MODE=comprehensive
+    volumes:
+      - ./pqc-testing:/pqc-test
+      - ./lab-data:/shared
+    working_dir: /pqc-test
+    command: |
+      bash -c "
+        apt-get update && apt-get install -y \
+          build-essential \
+          cmake \
+          git \
+          python3 \
+          python3-pip \
+          libssl-dev \
+        && git clone https://github.com/PQClean/PQClean.git \
+        && cd PQClean && make \
+        && echo 'Post-Quantum Cryptography algorithms ready' \
+        && tail -f /dev/null
+      "
+    networks:
+      - quantum-lab-network
+
+  # Quantum Attack Simulator
+  quantum-attack-sim:
+    image: python:3.11-slim
+    container_name: bofa-quantum-attack-sim
+    hostname: quantum-attack
+    environment:
+      - ATTACK_TYPE=shors_algorithm
+      - TARGET_KEY_SIZE=2048
+      - SIMULATION_MODE=realistic
+    volumes:
+      - ./quantum-attacks:/attacks
+      - ./lab-data:/shared
+    working_dir: /attacks
+    command: |
+      bash -c "
+        pip install qiskit numpy sympy \
+        && echo 'Quantum Attack Simulator ready' \
+        && python3 -c 'print(\"🔬 Quantum attacks can break RSA-2048 in ~8 hours with 4099 qubits\")' \
+        && tail -f /dev/null
+      "
+    networks:
+      - quantum-lab-network
+
+  # Classical vs Quantum Cryptography Comparison
+  crypto-comparison:
+    image: node:18-alpine
+    container_name: bofa-crypto-comparison
+    hostname: crypto-compare
+    environment:
+      - NODE_ENV=production
+      - COMPARISON_MODE=realtime
+    volumes:
+      - ./crypto-comparison:/app
+      - ./lab-data:/shared
+    working_dir: /app
+    command: |
+      sh -c "
+        npm install express socket.io chart.js \
+        && echo 'Starting Cryptography Comparison Dashboard...' \
+        && node server.js
+      "
+    ports:
+      - "3000:3000"
+    networks:
+      - quantum-lab-network
+
+  # Lab Database for storing results
+  lab-database:
+    image: postgres:15-alpine
+    container_name: bofa-quantum-lab-db
+    hostname: lab-db
+    environment:
+      - POSTGRES_DB=quantum_lab
+      - POSTGRES_USER=lab_user
+      - POSTGRES_PASSWORD=quantum_2025
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - quantum-lab-db:/var/lib/postgresql/data
+      - ./database/init-quantum-lab.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - quantum-lab-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab_user -d quantum_lab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Lab Monitoring and Metrics
+  lab-monitoring:
+    image: prom/prometheus:latest
+    container_name: bofa-quantum-lab-monitoring
+    hostname: lab-monitor
+    volumes:
+      - ./monitoring/prometheus-quantum.yml:/etc/prometheus/prometheus.yml
+      - quantum-lab-metrics:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - quantum-lab-network
+
+networks:
+  quantum-lab-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  quantum-lab-db:
+    driver: local
+  quantum-lab-metrics:
+    driver: local
