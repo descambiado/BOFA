@@ -2,53 +2,331 @@
 version: '3.8'
 
 services:
-  nginx:
-    build: ./nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - web
-    restart: unless-stopped
-    networks:
-      - bofa-network
-
-  api:
-    build: ./api
-    ports:
-      - "8000:8000"
-    environment:
-      - ENV=development
-    volumes:
-      - ./scripts:/app/scripts
-    restart: unless-stopped
-    networks:
-      - bofa-network
-
-  web:
-    build: ./web
+  # Frontend - React Application
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: bofa_frontend
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - VITE_APP_NAME=BOFA Extended Systems
+      - VITE_APP_VERSION=2.5.0
+      - VITE_API_URL=http://localhost:8000
+      - NODE_ENV=production
+    volumes:
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
     depends_on:
       - api
     restart: unless-stopped
     networks:
       - bofa-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  cli:
-    build: ./cli
-    stdin_open: true
-    tty: true
-    volumes:
-      - ./scripts:/app/scripts
-      - ./cli:/app/cli
+  # Backend API - FastAPI
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: bofa_api
+    ports:
+      - "8000:8000"
     environment:
-      - API_URL=http://api:8000
+      - DATABASE_URL=postgresql://bofa:bofa123@postgres:5432/bofa_db
+      - JWT_SECRET=${JWT_SECRET:-bofa_jwt_secret_change_in_production}
+      - API_VERSION=v2.5
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./api:/app/api:ro
+      - ./scripts:/app/scripts:ro
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
     networks:
       - bofa-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # Database - PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: bofa_postgres
+    environment:
+      - POSTGRES_DB=bofa_db
+      - POSTGRES_USER=bofa
+      - POSTGRES_PASSWORD=bofa123
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - bofa-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bofa -d bofa_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Cache - Redis
+  redis:
+    image: redis:7-alpine
+    container_name: bofa_redis
+    command: redis-server --appendonly yes --requirepass bofa123
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - bofa-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web Application Security Lab
+  web-security-lab:
+    build:
+      context: ./labs/web-security
+      dockerfile: Dockerfile
+    container_name: bofa_web_lab
+    ports:
+      - "8080:80"
+    environment:
+      - LAB_NAME=Web Application Security
+      - LAB_VERSION=1.0
+      - DIFFICULTY=intermediate
+    volumes:
+      - ./labs/web-security/challenges:/var/www/html/challenges:ro
+    restart: "no"
+    networks:
+      - bofa-network
+      - lab-network
+    profiles:
+      - labs
+
+  # Network Security Lab
+  network-lab:
+    build:
+      context: ./labs/network
+      dockerfile: Dockerfile
+    container_name: bofa_network_lab
+    ports:
+      - "2222:22"    # SSH
+      - "8081:80"    # HTTP
+      - "4443:443"   # HTTPS
+      - "1433:1433"  # MSSQL
+      - "3389:3389"  # RDP
+    environment:
+      - LAB_NAME=Corporate Network
+      - LAB_VERSION=1.0
+      - DIFFICULTY=intermediate
+    cap_add:
+      - NET_ADMIN
+    restart: "no"
+    networks:
+      - bofa-network
+      - lab-network
+    profiles:
+      - labs
+
+  # Android Security Lab
+  android-lab:
+    image: budtmo/docker-android:emulator_11.0
+    container_name: bofa_android_lab
+    ports:
+      - "5555:5555"  # ADB
+      - "6080:6080"  # noVNC Web Interface
+    environment:
+      - DEVICE=Samsung Galaxy S10
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./labs/android/apks:/root/src:ro
+    restart: "no"
+    networks:
+      - bofa-network
+      - lab-network
+    profiles:
+      - labs
+
+  # Kubernetes Security Lab (Kind cluster)
+  k8s-lab:
+    image: kindest/node:v1.28.0
+    container_name: bofa_k8s_lab
+    ports:
+      - "6443:6443"  # Kubernetes API
+      - "30000-30100:30000-30100"  # NodePort range
+    environment:
+      - LAB_NAME=Kubernetes Security
+      - LAB_VERSION=1.0
+      - DIFFICULTY=advanced
+    privileged: true
+    volumes:
+      - ./labs/kubernetes:/labs:ro
+      - /var/lib/docker
+    restart: "no"
+    networks:
+      - bofa-network
+      - lab-network
+    profiles:
+      - labs
+
+  # IoT/OT Security Lab
+  iot-lab:
+    build:
+      context: ./labs/iot
+      dockerfile: Dockerfile
+    container_name: bofa_iot_lab
+    ports:
+      - "8502:502"    # Modbus TCP
+      - "1883:1883"   # MQTT
+      - "47808:47808" # BACnet
+      - "20000:20000" # DNP3
+      - "5683:5683"   # CoAP
+    environment:
+      - LAB_NAME=IoT/OT Security
+      - LAB_VERSION=1.0
+      - DIFFICULTY=expert
+    volumes:
+      - ./labs/iot/configs:/app/configs:ro
+    restart: "no"
+    networks:
+      - bofa-network
+      - lab-network
+    profiles:
+      - labs
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: bofa_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - bofa-network
+    profiles:
+      - monitoring
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bofa_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=bofa123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    networks:
+      - bofa-network
+    profiles:
+      - monitoring
+
+  # Log Management - ELK Stack (Elasticsearch)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: bofa_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    restart: unless-stopped
+    networks:
+      - bofa-network
+    profiles:
+      - logging
+
+  # Log Management - Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: bofa_kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    networks:
+      - bofa-network
+    profiles:
+      - logging
+
+  # Log Management - Logstash
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: bofa_logstash
+    volumes:
+      - ./logging/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - ./logs:/logs:ro
+    ports:
+      - "5044:5044"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    networks:
+      - bofa-network
+    profiles:
+      - logging
+
+# Named Volumes
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+
+# Networks
 networks:
   bofa-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  lab-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

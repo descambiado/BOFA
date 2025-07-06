@@ -1,470 +1,319 @@
 
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Terminal, Play, Eye, Shield, Globe, Wrench, Users, Search, Brain, Clock, Smartphone, Zap, Lock, Link } from "lucide-react";
 import { ScriptExecutor } from "@/components/ScriptExecutor";
-import { ScriptAlert } from "@/components/ScriptAlert";
-
-interface Module {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  script_count: number;
-}
-
-interface Script {
-  name: string;
-  description: string;
-  category: string;
-  author: string;
-  version: string;
-  last_updated: string;
-  impact_level?: string;
-  educational_value?: number;
-}
-
-const moduleIcons = {
-  recon: <Eye className="w-6 h-6" />,
-  exploit: <Terminal className="w-6 h-6" />,
-  osint: <Globe className="w-6 h-6" />,
-  blue: <Shield className="w-6 h-6" />,
-  purple: <Users className="w-6 h-6" />,
-  malware: <Wrench className="w-6 h-6" />,
-  red: <Terminal className="w-6 h-6" />,
-  forensics: <Search className="w-6 h-6" />,
-  insight: <Brain className="w-6 h-6" />,
-  timewarp: <Clock className="w-6 h-6" />,
-  mobile: <Smartphone className="w-6 h-6" />
-};
+import { ActionButton } from "@/components/UI/ActionButton";
+import { 
+  Terminal, 
+  Shield, 
+  Users, 
+  Search, 
+  Bug, 
+  BookOpen,
+  Filter,
+  Play,
+  Star,
+  Calendar,
+  User,
+  Tag,
+  Zap
+} from "lucide-react";
+import { useModules, useScripts } from "@/services/api";
+import { ScriptConfig } from "@/types/script";
 
 const Scripts = () => {
-  const [selectedModule, setSelectedModule] = useState<string | null>(null);
-  const [selectedScript, setSelectedScript] = useState<Script | null>(null);
+  const [selectedModule, setSelectedModule] = useState<string>("");
+  const [selectedScript, setSelectedScript] = useState<ScriptConfig | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterRisk, setFilterRisk] = useState<string>("all");
+  const [filterNew, setFilterNew] = useState<boolean>(false);
 
-  const { data: modules, isLoading: modulesLoading } = useQuery<Module[]>({
-    queryKey: ['modules'],
-    queryFn: async (): Promise<Module[]> => {
-      return [
-        {
-          id: "recon",
-          name: "Reconocimiento",
-          description: "Herramientas de descubrimiento y enumeración de redes",
-          icon: "eye",
-          script_count: 4
-        },
-        {
-          id: "red", 
-          name: "Red Team",
-          description: "Arsenal ofensivo avanzado y técnicas de penetración + Supply Chain + Cloud Native",
-          icon: "terminal",
-          script_count: 18
-        },
-        {
-          id: "blue",
-          name: "Blue Team", 
-          description: "Herramientas defensivas, AI threat hunting, Zero Trust validation y análisis forense",
-          icon: "shield",
-          script_count: 15
-        },
-        {
-          id: "purple",
-          name: "Purple Team",
-          description: "Ejercicios coordinados + Quantum-Safe Crypto Analysis + Behavioral Biometrics",
-          icon: "users",
-          script_count: 10
-        },
-        {
-          id: "forensics",
-          name: "Análisis Forense",
-          description: "Investigación digital avanzada + Deepfake Detection Engine + Timeline Analysis",
-          icon: "search",
-          script_count: 12
-        },
-        {
-          id: "mobile",
-          name: "Mobile Stinger",
-          description: "Herramientas móviles para Android y testing wireless",
-          icon: "smartphone", 
-          script_count: 5
-        },
-        {
-          id: "insight",
-          name: "BOFA Insight",
-          description: "Sistema de recomendaciones inteligentes con AI y análisis de uso",
-          icon: "brain",
-          script_count: 5
-        },
-        {
-          id: "timewarp",
-          name: "TimeWarp",
-          description: "Reproducción y análisis de sesiones de seguridad",
-          icon: "clock",
-          script_count: 2
-        },
-        {
-          id: "osint",
-          name: "OSINT",
-          description: "Inteligencia de fuentes abiertas + IoT Security Mapping + Threat Intelligence",
-          icon: "globe",
-          script_count: 10
-        }
-      ];
-    }
-  });
+  const { data: modules, isLoading: modulesLoading } = useModules();
+  const { data: scripts, isLoading: scriptsLoading } = useScripts(selectedModule);
 
-  const { data: scripts, isLoading: scriptsLoading } = useQuery<Script[]>({
-    queryKey: ['scripts', selectedModule],
-    queryFn: async (): Promise<Script[]> => {
-      if (!selectedModule) return [];
-      
-      const scriptData: { [key: string]: Script[] } = {
-        "red": [
-          {
-            name: "ad_enum_visualizer",
-            description: "Genera visualizaciones tipo BloodHound de entornos Active Directory",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18",
-            impact_level: "LOW",
-            educational_value: 5
-          },
-          {
-            name: "bypass_uac_tool",
-            description: "Simula técnicas de bypass UAC para entrenamiento defensivo",
-            category: "red", 
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18",
-            impact_level: "LOW",
-            educational_value: 5
-          },
-          {
-            name: "reverse_shell_polyglot",
-            description: "Genera reverse shells en múltiples lenguajes y formatos",
-            category: "red",
-            author: "@descambiado", 
-            version: "1.0",
-            last_updated: "2025-06-18",
-            impact_level: "MEDIUM",
-            educational_value: 5
-          },
-          {
-            name: "c2_simulator",
-            description: "Simula infraestructura Command & Control para entrenamiento",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0", 
-            last_updated: "2025-06-18",
-            impact_level: "MEDIUM",
-            educational_value: 5
-          },
-          {
-            name: "ghost_scanner",
-            description: "Escaneo sigiloso de red sin ARP con TTL y MAC randomization",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-19", 
-            impact_level: "MEDIUM",
-            educational_value: 5
-          },
-          // 🚀 NUEVOS 2025
-          {
-            name: "supply_chain_scanner",
-            description: "🔗 Mapea cadenas de suministro completas - NPM, PyPI, Maven. Detecta vulnerabilidades y riesgos post-SolarWinds",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-01-20",
-            impact_level: "LOW",
-            educational_value: 5
-          },
-          {
-            name: "cloud_native_attack_simulator", 
-            description: "☁️ Simula ataques a contenedores, Kubernetes y serverless. Container escape, privilege escalation, lateral movement",
-            category: "red",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-01-20",
-            impact_level: "HIGH",  
-            educational_value: 5
-          }
-        ],
-        "blue": [
-          {
-            name: "ioc_matcher",
-            description: "Análisis de Indicadores de Compromiso en archivos y logs",
-            category: "blue",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-18",
-            impact_level: "LOW",
-            educational_value: 5
-          },
-          {
-            name: "log_timeline_builder", 
-            description: "Genera línea de tiempo visual con eventos clave desde logs del sistema",
-            category: "blue",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-19",
-            impact_level: "LOW",
-            educational_value: 5
-          },
-          // 🚀 NUEVOS 2025
-          {
-            name: "ai_threat_hunter",
-            description: "🤖 ML local + MITRE ATT&CK. Detecta 0-days, anomalías temporales y comportamiento malicioso con IA",
-            category: "blue", 
-            author: "@descambiado",
-            version: "2.0",
-            last_updated: "2025-01-20", 
-            impact_level: "LOW",
-            educational_value: 5
-          },
-          {
-            name: "zero_trust_validator",
-            description: "🛡️ Valida implementaciones Zero Trust reales. Micro-segmentación, least privilege, identity verification",
-            category: "blue",
-            author: "@descambiado", 
-            version: "1.0",
-            last_updated: "2025-01-20",
-            impact_level: "LOW", 
-            educational_value: 5
-          }
-        ],
-        "purple": [
-          {
-            name: "threat_emulator",
-            description: "Simula comportamiento de amenazas reales de forma ética para entrenamiento",
-            category: "purple",
-            author: "@descambiado",
-            version: "1.0", 
-            last_updated: "2025-06-19",
-            impact_level: "LOW",
-            educational_value: 5
-          },
-          // 🚀 NUEVOS 2025
-          {
-            name: "quantum_crypto_analyzer",
-            description: "🔮 Evalúa resistencia ante computación cuántica. Audita RSA, ECDSA. Genera planes de migración post-cuántica",
-            category: "purple",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-01-20",
-            impact_level: "LOW",
-            educational_value: 5
-          }
-        ],
-        "forensics": [
-          {
-            name: "memory_dump_analyzer",
-            description: "Análisis forense de volcados de memoria para detectar malware y artefactos",
-            category: "forensics",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-19",
-            impact_level: "LOW", 
-            educational_value: 5
-          },
-          // 🚀 NUEVOS 2025
-          {
-            name: "deepfake_detection_engine",
-            description: "🎭 Detecta contenido multimedia generado por IA. Análisis facial, temporal y artefactos de compresión",
-            category: "forensics",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-01-20",
-            impact_level: "MEDIUM",
-            educational_value: 5
-          }
-        ],
-        "osint": [
-          {
-            name: "telegram_user_scraper",
-            description: "Extrae información de usuarios de grupos públicos de Telegram",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0", 
-            last_updated: "2025-06-19",
-            impact_level: "MEDIUM",
-            educational_value: 5
-          },
-          {
-            name: "public_email_validator",
-            description: "Verifica emails con HaveIBeenPwned y valida dominios públicamente",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-19",
-            impact_level: "LOW", 
-            educational_value: 5
-          },
-          {
-            name: "github_repo_leak_detector",
-            description: "Detecta secretos (API keys, tokens) en repositorios públicos de GitHub",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-06-19",
-            impact_level: "MEDIUM",
-            educational_value: 5
-          },
-          // 🚀 NUEVOS 2025
-          {
-            name: "iot_security_mapper",
-            description: "🏭 Descubre dispositivos IoT/OT expuestos via Shodan. Analiza protocolos industriales y evalúa seguridad",
-            category: "osint",
-            author: "@descambiado",
-            version: "1.0",
-            last_updated: "2025-01-20",
-            impact_level: "MEDIUM",
-            educational_value: 5
-          }
-        ]
-      };
-      
-      return scriptData[selectedModule] || [];
-    },
-    enabled: !!selectedModule
-  });
+  const moduleIcons: Record<string, any> = {
+    red: Terminal,
+    blue: Shield,
+    purple: Users,
+    osint: Search,
+    malware: Bug,
+    social: Users,
+    study: BookOpen
+  };
+
+  const filteredScripts = scripts?.filter(script => {
+    const matchesSearch = script.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         script.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         script.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesRisk = filterRisk === "all" || script.risk_level === filterRisk.toUpperCase();
+    const matchesNew = !filterNew || script.last_updated === "2025-01-20";
+    
+    return matchesSearch && matchesRisk && matchesNew;
+  }) || [];
 
   if (selectedScript) {
     return (
-      <ScriptExecutor 
-        module={selectedModule!}
+      <ScriptExecutor
+        module={selectedModule}
         script={selectedScript}
         onBack={() => setSelectedScript(null)}
+        onExecutionComplete={() => {
+          // Handle execution completion if needed
+        }}
       />
     );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6">
-      <div className="container mx-auto">
+      <div className="container mx-auto max-w-7xl">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2">BOFA Extended Systems v2.5.0 🚀</h1>
-          <p className="text-gray-300">
-            <span className="text-cyan-400 font-semibold">INNOVACIÓN 2025:</span> AI Threat Hunting, Quantum-Safe Crypto, Supply Chain Security, Zero Trust Validation, Deepfake Detection, Cloud Native Attacks, IoT Security Mapping
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="px-3 py-1 bg-cyan-600 text-white text-xs rounded-full">🤖 AI/ML Integration</span>
-            <span className="px-3 py-1 bg-purple-600 text-white text-xs rounded-full">🔮 Post-Quantum Ready</span>
-            <span className="px-3 py-1 bg-red-600 text-white text-xs rounded-full">🔗 Supply Chain Security</span>
-            <span className="px-3 py-1 bg-blue-600 text-white text-xs rounded-full">🛡️ Zero Trust Validation</span>
-            <span className="px-3 py-1 bg-green-600 text-white text-xs rounded-full">☁️ Cloud Native Attacks</span>
-            <span className="px-3 py-1 bg-orange-600 text-white text-xs rounded-full">🎭 Deepfake Detection</span>
-            <span className="px-3 py-1 bg-indigo-600 text-white text-xs rounded-full">🏭 IoT Security Mapping</span>
+          <div className="flex items-center space-x-4 mb-4">
+            <h1 className="text-4xl font-bold text-cyan-400">Scripts & Herramientas</h1>
+            <Badge className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white animate-pulse">
+              <Zap className="w-3 h-3 mr-1" />
+              {scripts?.filter(s => s.last_updated === "2025-01-20").length || 0} NUEVOS 2025
+            </Badge>
           </div>
+          <p className="text-gray-300 text-lg">
+            Explora nuestro arsenal completo de herramientas de ciberseguridad con tecnologías 2025
+          </p>
         </div>
 
-        {!selectedModule ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {modulesLoading ? (
-              <div className="col-span-full text-center py-12">
-                <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto"></div>
-                <p className="text-gray-400 mt-4">Cargando módulos...</p>
-              </div>
-            ) : (
-              modules?.map((module) => (
-                <Card 
-                  key={module.id} 
-                  className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all cursor-pointer transform hover:scale-105"
-                  onClick={() => setSelectedModule(module.id)}
-                >
-                  <CardHeader>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-cyan-400">
-                        {moduleIcons[module.id as keyof typeof moduleIcons] || <Terminal className="w-6 h-6" />}
-                      </div>
-                      <div>
+        {/* Module Selection */}
+        {!selectedModule && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-cyan-400 mb-6">Selecciona un Módulo</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {modulesLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <Card key={i} className="bg-gray-800/50 border-gray-700 animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-16 bg-gray-700 rounded mb-4"></div>
+                      <div className="h-4 bg-gray-700 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-700 rounded"></div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                modules?.map((module) => {
+                  const Icon = moduleIcons[module.id] || Terminal;
+                  return (
+                    <Card 
+                      key={module.id} 
+                      className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all cursor-pointer transform hover:scale-105"
+                      onClick={() => setSelectedModule(module.id)}
+                    >
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <Icon className="w-8 h-8 text-cyan-400" />
+                          <Badge className="bg-cyan-600 text-white">
+                            {module.script_count} scripts
+                          </Badge>
+                        </div>
                         <CardTitle className="text-cyan-400">{module.name}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
                         <CardDescription className="text-gray-300">
-                          {module.script_count} herramientas disponibles
-                          {(module.id === 'red' || module.id === 'blue' || module.id === 'purple' || module.id === 'forensics' || module.id === 'osint') && (
-                            <span className="ml-2 px-2 py-1 bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-xs rounded font-bold animate-pulse">
-                              ✨ ACTUALIZADO 2025
-                            </span>
-                          )}
+                          {module.description}
                         </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-300 mb-4">{module.description}</p>
-                    <Button variant="outline" className="w-full border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black">
-                      Explorar Módulo
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))
-            )}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
           </div>
-        ) : (
-          <div>
-            <div className="mb-6">
-              <Button 
-                variant="outline" 
-                onClick={() => setSelectedModule(null)}
-                className="border-gray-600 text-gray-300 hover:bg-gray-700"
-              >
-                ← Volver a Módulos
-              </Button>
+        )}
+
+        {/* Script List */}
+        {selectedModule && (
+          <div className="space-y-6">
+            {/* Module Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedModule("")}
+                  className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black"
+                >
+                  ← Volver a Módulos
+                </Button>
+                <div>
+                  <h2 className="text-3xl font-bold text-cyan-400">
+                    {modules?.find(m => m.id === selectedModule)?.name}
+                  </h2>
+                  <p className="text-gray-300">
+                    {filteredScripts.length} scripts disponibles
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-4">
+            {/* Filters */}
+            <Card className="bg-gray-800/50 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-cyan-400 flex items-center">
+                  <Filter className="w-5 h-5 mr-2" />
+                  Filtros y Búsqueda
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-400 mb-2 block">Buscar</label>
+                    <Input
+                      placeholder="Buscar scripts..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="bg-gray-700 border-gray-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-400 mb-2 block">Nivel de Riesgo</label>
+                    <Select value={filterRisk} onValueChange={setFilterRisk}>
+                      <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="low">Bajo</SelectItem>
+                        <SelectItem value="medium">Medio</SelectItem>
+                        <SelectItem value="high">Alto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-400 mb-2 block">Scripts Nuevos 2025</label>
+                    <Button
+                      variant={filterNew ? "default" : "outline"}
+                      onClick={() => setFilterNew(!filterNew)}
+                      className={filterNew ? "bg-cyan-600 hover:bg-cyan-700" : "border-gray-600 text-gray-300"}
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      {filterNew ? "Mostrando Nuevos" : "Mostrar Nuevos"}
+                    </Button>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setFilterRisk("all");
+                        setFilterNew(false);
+                      }}
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      Limpiar Filtros
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Scripts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {scriptsLoading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto"></div>
-                  <p className="text-gray-400 mt-4">Cargando herramientas...</p>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="bg-gray-800/50 border-gray-700 animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-6 bg-gray-700 rounded mb-4"></div>
+                      <div className="h-4 bg-gray-700 rounded mb-2"></div>
+                      <div className="h-4 bg-gray-700 rounded mb-4"></div>
+                      <div className="h-10 bg-gray-700 rounded"></div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : filteredScripts.length === 0 ? (
+                <div className="col-span-full text-center py-12">
+                  <Search className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-400 mb-2">No se encontraron scripts</h3>
+                  <p className="text-gray-500">Intenta ajustar los filtros de búsqueda</p>
                 </div>
               ) : (
-                scripts?.map((script) => (
-                  <Card key={script.name} className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all">
+                filteredScripts.map((script) => (
+                  <Card 
+                    key={script.name} 
+                    className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all transform hover:scale-105"
+                  >
                     <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <CardTitle className="text-cyan-400 flex items-center space-x-2">
-                            <span>{script.name}</span>
-                            {script.last_updated === "2025-01-20" && (
-                              <span className="px-2 py-1 bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-xs rounded font-bold animate-pulse">
-                                ✨ NUEVO 2025
-                              </span>
-                            )}
-                          </CardTitle>
-                          <CardDescription className="text-gray-300 mt-2">{script.description}</CardDescription>
-                          
-                          <div className="mt-4">
-                            <ScriptAlert script={script} />
-                          </div>
-                        </div>
-                        <Button 
-                          size="sm"
-                          onClick={() => setSelectedScript(script)}
-                          className={`ml-4 ${
-                            script.last_updated === "2025-01-20" 
-                              ? "bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700" 
-                              : "bg-cyan-600 hover:bg-cyan-700"
-                          }`}
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          Ejecutar
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-                        <span>Autor: {script.author}</span>
-                        <span>Versión: {script.version}</span>
-                        <span>Actualizado: {script.last_updated}</span>
+                      <div className="flex items-start justify-between mb-2">
+                        <CardTitle className="text-cyan-400 text-lg">
+                          {script.display_name || script.name}
+                        </CardTitle>
                         {script.last_updated === "2025-01-20" && (
-                          <span className="text-cyan-400 font-semibold">🚀 Tecnología 2025</span>
+                          <Badge className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-xs animate-pulse">
+                            ✨ NUEVO
+                          </Badge>
                         )}
                       </div>
+                      <CardDescription className="text-gray-300 line-clamp-3">
+                        {script.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Script Metadata */}
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="flex items-center text-gray-400">
+                          <User className="w-3 h-3 mr-1" />
+                          {script.author}
+                        </div>
+                        <div className="flex items-center text-gray-400">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {script.version}
+                        </div>
+                        {script.educational_value && (
+                          <div className="flex items-center text-gray-400">
+                            <Star className="w-3 h-3 mr-1" />
+                            {Array.from({ length: script.educational_value }, (_, i) => (
+                              <span key={i} className="text-yellow-400">★</span>
+                            ))}
+                          </div>
+                        )}
+                        {script.risk_level && (
+                          <div className="flex items-center">
+                            <span className={`px-2 py-1 rounded text-xs font-bold ${
+                              script.risk_level === 'HIGH' ? 'bg-red-600 text-white' :
+                              script.risk_level === 'MEDIUM' ? 'bg-yellow-600 text-black' : 
+                              'bg-green-600 text-white'
+                            }`}>
+                              {script.risk_level}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tags */}
+                      {script.tags && script.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {script.tags.slice(0, 3).map((tag, index) => (
+                            <span key={index} className="px-2 py-1 bg-gray-700 text-cyan-400 text-xs rounded flex items-center">
+                              <Tag className="w-2 h-2 mr-1" />
+                              {tag}
+                            </span>
+                          ))}
+                          {script.tags.length > 3 && (
+                            <span className="px-2 py-1 bg-gray-700 text-gray-400 text-xs rounded">
+                              +{script.tags.length - 3} más
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Execute Button */}
+                      <Button
+                        onClick={() => setSelectedScript(script)}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Ejecutar Script
+                      </Button>
                     </CardContent>
                   </Card>
                 ))

@@ -1,30 +1,18 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ScriptConfig, ExecutionHistory } from '@/types/script';
+import { scriptConfigs, getScriptsByCategory, getAllScripts } from '@/utils/scriptLoader';
 
 const API_BASE = 'http://localhost:8000';
 
 // Types
-export interface Script {
-  name: string;
-  description: string;
-  category: string;
-  author: string;
-  version: string;
-  last_updated: string;
-  impact_level?: string;
-  educational_value?: number;
-  risk_level?: string;
-  tags?: string[];
-  parameters?: Record<string, any>;
-}
-
 export interface Module {
   id: string;
   name: string;
   description: string;
   icon: string;
   script_count: number;
-  scripts?: Script[];
+  scripts?: ScriptConfig[];
 }
 
 export interface ExecutionResult {
@@ -62,211 +50,95 @@ export interface StudyLesson {
   progress: number;
 }
 
-// Enhanced mock data with complete coverage
+// Enhanced mock data with real script counts
 const mockModules: Module[] = [
-  {
-    id: "recon",
-    name: "Reconocimiento",
-    description: "Herramientas de descubrimiento y enumeración de redes",
-    icon: "eye",
-    script_count: 8
-  },
   {
     id: "red", 
     name: "Red Team",
     description: "Arsenal ofensivo avanzado y técnicas de penetración + Supply Chain + Cloud Native",
     icon: "terminal",
-    script_count: 25
+    script_count: getScriptsByCategory("red").length
   },
   {
     id: "blue",
     name: "Blue Team", 
     description: "Herramientas defensivas, AI threat hunting, Zero Trust validation y análisis forense",
     icon: "shield",
-    script_count: 18
+    script_count: getScriptsByCategory("blue").length
   },
   {
     id: "purple",
     name: "Purple Team",
     description: "Ejercicios coordinados + Quantum-Safe Crypto Analysis + Behavioral Biometrics",
     icon: "users",
-    script_count: 12
+    script_count: getScriptsByCategory("purple").length
   },
   {
-    id: "forensics",
-    name: "Análisis Forense",
-    description: "Investigación digital avanzada + Deepfake Detection Engine + Timeline Analysis",
+    id: "osint",
+    name: "OSINT",
+    description: "Inteligencia de fuentes abiertas + IoT Security Mapping + Threat Intelligence",
     icon: "search",
-    script_count: 15
-  },
-  {
-    id: "mobile",
-    name: "Mobile Stinger",
-    description: "Herramientas móviles para Android y testing wireless",
-    icon: "smartphone", 
-    script_count: 8
+    script_count: getScriptsByCategory("osint").length
   },
   {
     id: "malware",
     name: "Malware Analysis",
     description: "Análisis de malware, detección de amenazas y reverse engineering",
     icon: "bug",
-    script_count: 10
+    script_count: getScriptsByCategory("malware").length
   },
   {
     id: "social",
     name: "Social Engineering",
     description: "Herramientas de concienciación sobre ingeniería social",
     icon: "users",
-    script_count: 6
+    script_count: getScriptsByCategory("social").length
   },
   {
-    id: "insight",
-    name: "BOFA Insight",
-    description: "Sistema de recomendaciones inteligentes con AI y análisis de uso",
-    icon: "brain",
-    script_count: 7
-  },
-  {
-    id: "osint",
-    name: "OSINT",
-    description: "Inteligencia de fuentes abiertas + IoT Security Mapping + Threat Intelligence",
-    icon: "globe",
-    script_count: 12
+    id: "study",
+    name: "Study & Training",
+    description: "Herramientas educativas y de entrenamiento CTF",
+    icon: "book-open",
+    script_count: getScriptsByCategory("study").length
   }
 ];
 
-const mockScripts: Record<string, Script[]> = {
-  "recon": [
-    {
-      name: "advanced_network_mapper",
-      description: "🗺️ Herramienta avanzada de mapeo de red con técnicas sigilosas y detección de servicios",
-      category: "recon",
-      author: "@descambiado",
-      version: "1.0",
-      last_updated: "2025-01-20",
-      impact_level: "LOW",
-      educational_value: 5
-    },
-    {
-      name: "port_slayer",
-      description: "Escáner de puertos ultra-rápido con técnicas de evasión",
-      category: "recon",
-      author: "@descambiado",
-      version: "1.0",
-      last_updated: "2025-06-18",
-      impact_level: "LOW",
-      educational_value: 5
-    }
-  ],
-  "red": [
-    {
-      name: "supply_chain_scanner",
-      description: "🔗 Mapea cadenas de suministro completas - NPM, PyPI, Maven. Detecta vulnerabilidades y riesgos post-SolarWinds",
-      category: "red",
-      author: "@descambiado",
-      version: "1.0",
-      last_updated: "2025-01-20",
-      impact_level: "LOW",
-      educational_value: 5
-    },
-    {
-      name: "cloud_native_attack_simulator",
-      description: "☁️ Simula ataques a contenedores, Kubernetes y serverless. Container escape, privilege escalation, lateral movement",
-      category: "red",
-      author: "@descambiado",
-      version: "1.0",
-      last_updated: "2025-01-20",
-      impact_level: "HIGH",
-      educational_value: 5
-    }
-  ],
-  "blue": [
-    {
-      name: "ai_threat_hunter",
-      description: "🤖 ML local + MITRE ATT&CK. Detecta 0-days, anomalías temporales y comportamiento malicioso con IA",
-      category: "blue",
-      author: "@descambiado",
-      version: "2.0",
-      last_updated: "2025-01-20",
-      impact_level: "LOW",
-      educational_value: 5
-    },
-    {
-      name: "zero_trust_validator",
-      description: "🛡️ Valida implementaciones Zero Trust reales. Micro-segmentación, least privilege, identity verification",
-      category: "blue",
-      author: "@descambiado",
-      version: "1.0",
-      last_updated: "2025-01-20",
-      impact_level: "LOW",
-      educational_value: 5
-    }
-  ],
-  "malware": [
-    {
-      name: "malware_analyzer",
-      description: "🔍 Analizador educativo de malware con técnicas de análisis estático avanzado",
-      category: "malware",
-      author: "@descambiado",
-      version: "1.0",
-      last_updated: "2025-01-20",
-      impact_level: "LOW",
-      educational_value: 5
-    }
-  ],
-  "social": [
-    {
-      name: "social_engineer_toolkit",
-      description: "🎭 Herramientas educativas para concienciación sobre ingeniería social y phishing",
-      category: "social",
-      author: "@descambiado",
-      version: "1.0",
-      last_updated: "2025-01-20",
-      impact_level: "LOW",
-      educational_value: 5
-    }
-  ]
+// Generate realistic execution history
+const generateMockHistory = (): ExecutionResult[] => {
+  const scripts = getAllScripts();
+  const history: ExecutionResult[] = [];
+  
+  for (let i = 0; i < 25; i++) {
+    const script = scripts[Math.floor(Math.random() * scripts.length)];
+    const now = new Date();
+    const timestamp = new Date(now.getTime() - (i * 3600000 + Math.random() * 3600000));
+    
+    history.push({
+      id: `exec-${String(i).padStart(3, '0')}`,
+      module: script.category,
+      script: script.name,
+      parameters: script.parameters ? Object.keys(script.parameters).reduce((acc, key) => {
+        const param = script.parameters![key];
+        acc[key] = param.default?.toString() || 'test_value';
+        return acc;
+      }, {} as Record<string, string>) : {},
+      timestamp: timestamp.toISOString(),
+      status: Math.random() > 0.8 ? (Math.random() > 0.5 ? 'warning' : 'error') : 'success',
+      execution_time: `${(Math.random() * 15 + 1).toFixed(1)}s`,
+      output: `Script ${script.name} ejecutado correctamente`
+    });
+  }
+  
+  return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 };
 
-const mockHistory: ExecutionResult[] = [
-  {
-    id: "exec-001",
-    module: "blue",
-    script: "ai_threat_hunter",
-    parameters: { log_file: "security.log", threshold: "0.7" },
-    timestamp: new Date().toISOString(),
-    status: "success",
-    execution_time: "2.3s",
-    output: "[INFO] AI Threat Hunter iniciado\n[SUCCESS] 3 amenazas detectadas\n[INFO] Análisis completado"
-  },
-  {
-    id: "exec-002",
-    module: "red",
-    script: "supply_chain_scanner",
-    parameters: { project_path: "./", scan_depth: "deep" },
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    status: "warning",
-    execution_time: "5.7s",
-    output: "[WARNING] 2 vulnerabilidades encontradas\n[INFO] Escaneo completado"
-  },
-  {
-    id: "exec-003",
-    module: "malware",
-    script: "malware_analyzer",
-    parameters: { file_path: "suspicious.exe", analysis_depth: "deep" },
-    timestamp: new Date(Date.now() - 7200000).toISOString(),
-    status: "success",
-    execution_time: "8.1s",
-    output: "[INFO] Análisis de malware iniciado\n[SUCCESS] 5 indicadores de riesgo detectados\n[INFO] Reporte generado"
-  }
-];
+const mockHistory = generateMockHistory();
 
 const mockLabs: Lab[] = [
   {
     id: "web-application-security",
     name: "Web Application Security Lab",
-    description: "Laboratorio completo para práctica de vulnerabilidades web",
+    description: "Laboratorio completo para práctica de vulnerabilidades web (OWASP Top 10)",
     category: "web_security",
     difficulty: "intermediate",
     status: "stopped",
@@ -277,7 +149,7 @@ const mockLabs: Lab[] = [
   {
     id: "internal-network",
     name: "Red Interna Corporativa",
-    description: "Simula una red corporativa completa con múltiples servicios",
+    description: "Simula una red corporativa completa con múltiples servicios y vulnerabilidades",
     category: "network",
     difficulty: "intermediate",
     status: "stopped",
@@ -292,6 +164,26 @@ const mockLabs: Lab[] = [
     status: "running",
     estimated_time: "150 minutos",
     port: 5555
+  },
+  {
+    id: "kubernetes-cluster",
+    name: "Kubernetes Security Cluster",
+    description: "Cluster Kubernetes vulnerable para práctica de Cloud Native Security",
+    category: "cloud_native",
+    difficulty: "advanced",
+    status: "stopped",
+    estimated_time: "300 minutos",
+    port: 6443
+  },
+  {
+    id: "iot-simulation",
+    name: "IoT/OT Simulation Environment",
+    description: "Entorno simulado de dispositivos IoT/OT con protocolos industriales",
+    category: "iot_security",
+    difficulty: "expert",
+    status: "stopped",
+    estimated_time: "360 minutos",
+    port: 8502
   }
 ];
 
@@ -325,6 +217,26 @@ const mockStudyLessons: StudyLesson[] = [
     duration: 300,
     completed: true,
     progress: 100
+  },
+  {
+    id: "cloud_native_security",
+    title: "Cloud Native Security",
+    description: "Seguridad en contenedores, Kubernetes y arquitecturas serverless",
+    category: "cloud_security",
+    difficulty: "expert",
+    duration: 420,
+    completed: false,
+    progress: 15
+  },
+  {
+    id: "ai_threat_hunting",
+    title: "AI-Powered Threat Hunting",
+    description: "Uso de inteligencia artificial para detección avanzada de amenazas",
+    category: "ai_security",
+    difficulty: "expert",
+    duration: 360,
+    completed: false,
+    progress: 0
   }
 ];
 
@@ -336,7 +248,7 @@ export const apiService = {
       const response = await fetch(`${API_BASE}/modules`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: AbortSignal.timeout(5000)
       });
       
       if (!response.ok) {
@@ -352,7 +264,7 @@ export const apiService = {
     }
   },
 
-  getScriptsByModule: async (module: string): Promise<Script[]> => {
+  getScriptsByModule: async (module: string): Promise<ScriptConfig[]> => {
     try {
       const response = await fetch(`${API_BASE}/modules/${module}/scripts`, {
         signal: AbortSignal.timeout(5000)
@@ -365,7 +277,7 @@ export const apiService = {
       return data;
     } catch (error) {
       console.warn(`⚠️ API: Using offline scripts for ${module}`);
-      return mockScripts[module] || [];
+      return getScriptsByCategory(module);
     }
   },
 
@@ -379,7 +291,7 @@ export const apiService = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        signal: AbortSignal.timeout(30000) // 30 second timeout for execution
+        signal: AbortSignal.timeout(30000)
       });
       
       if (!response.ok) throw new Error('API not available');
@@ -390,13 +302,6 @@ export const apiService = {
     } catch (error) {
       console.warn(`⚠️ API: Simulating execution of ${data.script}`);
       
-      // Enhanced simulation with realistic outputs
-      const simulatedOutputs = {
-        "ai_threat_hunter": "[INFO] AI Threat Hunter v2.0 iniciado\n[ML] Cargando modelos de detección...\n[SCAN] Analizando 1,245 eventos de log\n[DETECT] 3 amenazas de alta severidad encontradas\n[MITRE] Técnicas identificadas: T1055, T1003\n[SUCCESS] Análisis completado - Reporte generado",
-        "malware_analyzer": "[INFO] Malware Analyzer v1.0\n[HASH] MD5: 5d41402abc4b2a76b9719d911017c592\n[SCAN] Analizando patrones sospechosos...\n[DETECT] 5 indicadores de riesgo encontrados\n[RISK] Nivel de amenaza: ALTO\n[SUCCESS] Análisis completado",
-        "supply_chain_scanner": "[INFO] Supply Chain Scanner iniciado\n[SCAN] Analizando dependencias NPM/PyPI...\n[VULN] 2 vulnerabilidades críticas encontradas\n[CVE] CVE-2023-1234, CVE-2023-5678\n[WARNING] Verificar cadena de suministro\n[SUCCESS] Escaneo completado"
-      };
-      
       return {
         id: `exec-${Date.now()}`,
         module: data.module,
@@ -405,8 +310,7 @@ export const apiService = {
         timestamp: new Date().toISOString(),
         status: Math.random() > 0.8 ? 'warning' : 'success',
         execution_time: `${(Math.random() * 15 + 2).toFixed(1)}s`,
-        output: simulatedOutputs[data.script as keyof typeof simulatedOutputs] || 
-                `[INFO] Ejecutando ${data.script}...\n[SUCCESS] Script ejecutado exitosamente\n[INFO] Proceso completado`
+        output: `Script ${data.script} ejecutado correctamente con parámetros: ${JSON.stringify(data.parameters)}`
       };
     }
   },
@@ -539,9 +443,9 @@ export const apiService = {
     } catch (error) {
       console.warn('⚠️ API: Using simulated dashboard stats');
       return {
-        total_scripts: 150,
-        total_executions: 1247,
-        active_labs: 3,
+        total_scripts: getAllScripts().length,
+        total_executions: mockHistory.length,
+        active_labs: mockLabs.filter(lab => lab.status === 'running').length,
         completion_rate: 78,
         threat_level: "MEDIUM",
         last_scan: new Date().toISOString()
@@ -555,7 +459,7 @@ export const useModules = () => {
   return useQuery({
     queryKey: ['modules'],
     queryFn: apiService.getModules,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 1,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
@@ -576,9 +480,9 @@ export const useExecutionHistory = () => {
   return useQuery({
     queryKey: ['execution-history'],
     queryFn: apiService.getExecutionHistory,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
     retry: 1,
-    staleTime: 10 * 1000, // 10 seconds
+    staleTime: 10 * 1000,
   });
 };
 
@@ -587,8 +491,7 @@ export const useLabs = () => {
     queryKey: ['labs'],
     queryFn: apiService.getLabs,
     retry: 1,
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 15000, // Check status every 15 seconds
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -605,59 +508,8 @@ export const useDashboardStats = () => {
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: apiService.getDashboardStats,
-    retry: 1,
-    staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 60000, // Refresh every minute
-  });
-};
-
-export const useExecuteScript = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: apiService.executeScript,
-    onSuccess: (data) => {
-      // Invalidate and refetch history
-      queryClient.invalidateQueries({ queryKey: ['execution-history'] });
-      
-      // Update dashboard stats
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      
-      console.log(`✅ Script execution completed: ${data.script}`);
-    },
-    onError: (error) => {
-      console.error('❌ Script execution failed:', error);
-    }
-  });
-};
-
-export const useLabControl = () => {
-  const queryClient = useQueryClient();
-  
-  return {
-    startLab: useMutation({
-      mutationFn: apiService.startLab,
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['labs'] });
-      },
-    }),
-    stopLab: useMutation({
-      mutationFn: apiService.stopLab,
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['labs'] });
-      },
-    }),
-  };
-};
-
-export const useUpdateLessonProgress = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ lessonId, progress }: { lessonId: string; progress: number }) =>
-      apiService.updateLessonProgress(lessonId, progress),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['study-lessons'] });
-    },
+    retry: 1,
+    staleTime: 30 * 1000,
   });
 };
