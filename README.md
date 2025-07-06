@@ -1,378 +1,391 @@
 
-# 🚀 BOFA Professional Suite v2.5.0
+# 🚀 BOFA Extended Systems v2.5.0
 
-## Suite Completa de Ciberseguridad con Enfoque Educativo y Profesional
+**La plataforma de ciberseguridad más avanzada del mundo con tecnologías 2025**
 
-**BOFA Professional Suite** es una plataforma integral de ciberseguridad que combina herramientas de pentesting, análisis forense, educación en seguridad y laboratorios de práctica en un entorno unificado y profesional.
+BOFA (Cybersecurity Operations Framework Advanced) es una suite completa de herramientas de ciberseguridad que integra las últimas tecnologías de 2025, incluyendo AI/ML, análisis post-cuántico, seguridad de cadena de suministro y validación Zero Trust.
 
-### ✨ Características Principales v2.5.0
+## ✨ Características Principales 2025
 
-#### 🔧 **150+ Herramientas Especializadas**
-- **Red Team**: 25 herramientas ofensivas avanzadas
-- **Blue Team**: 18 herramientas defensivas con IA
-- **Purple Team**: 12 ejercicios coordinados
-- **Análisis Forense**: 15 herramientas de investigación
-- **OSINT**: 12 herramientas de inteligencia
-- **Malware Analysis**: 10 analizadores estáticos/dinámicos
-- **Social Engineering**: 6 herramientas de concienciación
-- **Mobile Security**: 8 herramientas para dispositivos móviles
+### 🤖 **AI-Powered Threat Hunting**
+- Machine Learning local para detección de amenazas
+- Integración completa con MITRE ATT&CK Framework
+- Análisis comportamental avanzado con IA
+- Detección de anomalías en tiempo real
 
-#### 🤖 **Innovaciones 2025**
-- **AI Threat Hunter**: ML local + MITRE ATT&CK para detección de amenazas
-- **Quantum-Safe Crypto Analyzer**: Preparación para era post-cuántica
-- **Supply Chain Scanner**: Seguridad en cadenas de suministro
-- **Zero Trust Validator**: Validación de implementaciones Zero Trust
-- **Deepfake Detection Engine**: Detección de contenido multimedia sintético
-- **Cloud Native Attack Simulator**: Testing de contenedores y Kubernetes
-- **IoT Security Mapper**: Mapeo de seguridad en dispositivos IoT
+### 🔗 **Supply Chain Security**
+- Mapeo completo de cadenas de suministro de software
+- Generación automática de SBOM (Software Bill of Materials)
+- Detección de vulnerabilidades en dependencias
+- Análisis de integridad de paquetes NPM, PyPI, Maven
 
-#### 📚 **Sistema Educativo Integrado**
-- Lecciones interactivas con markdown
-- Evaluaciones prácticas
-- Certificaciones BOFA
-- Progreso trackeable
-- Laboratorios hands-on
+### ☁️ **Cloud Native Security**
+- Simulación de ataques a contenedores y Kubernetes
+- Técnicas de container escape y privilege escalation
+- Análisis de seguridad en arquitecturas serverless
+- Validación de configuraciones de seguridad cloud
 
-#### 🧪 **Laboratorios de Práctica**
-- Entornos Docker containerizados
-- Aplicaciones vulnerables (DVWA, WebGoat, Juice Shop)
-- Redes simuladas
-- Ambientes Android
-- CTF challenges
+### 🔮 **Post-Quantum Cryptography**
+- Evaluación de resistencia criptográfica ante computación cuántica
+- Planes de migración automatizados a algoritmos post-cuánticos
+- Análisis de certificados SSL/TLS y protocolos de red
+- Recomendaciones específicas por algoritmo
 
-### 🏗️ Arquitectura Técnica
+### 🛡️ **Zero Trust Validation**
+- Validación completa de implementaciones Zero Trust
+- Verificación de micro-segmentación de red
+- Análisis de políticas de least privilege
+- Evaluación de verificación de identidad continua
 
-```
-BOFA Professional Suite v2.5.0
-├── Frontend (React + TypeScript + Vite)
-│   ├── Dashboard interactivo
-│   ├── Ejecución de scripts en tiempo real
-│   ├── Sistema de reportes avanzado
-│   └── UI/UX profesional con Tailwind + shadcn/ui
-├── Backend API (FastAPI + Python)
-│   ├── Gestión de scripts y módulos
-│   ├── Sistema de ejecución segura
-│   ├── Base de datos de resultados
-│   └── Autenticación y autorización
-├── Scripts Engine (Python + Bash + PowerShell)
-│   ├── 150+ herramientas categorizadas
-│   ├── Metadata YAML para configuración
-│   ├── Sistema de parámetros dinámicos
-│   └── Logging y reportes estructurados
-├── Labs Infrastructure (Docker + Compose)
-│   ├── Entornos aislados por categoría
-│   ├── Aplicaciones vulnerables
-│   ├── Redes simuladas
-│   └── Gestión automática de estado
-└── Study System
-    ├── Lecciones en Markdown
-    ├── Evaluaciones interactivas
-    ├── Certificaciones
-    └── Progreso personalizado
-```
+### 🏭 **IoT/OT Security Mapping**
+- Descubrimiento de dispositivos IoT/OT con Shodan
+- Análisis de protocolos industriales (Modbus, MQTT, BACnet)
+- Mapeo geográfico de exposición de dispositivos
+- Evaluación de vulnerabilidades específicas de IoT
 
-### 🚀 Instalación y Configuración
+### 🎭 **Deepfake Detection Engine**
+- Motor avanzado de detección de contenido generado por IA
+- Análisis de coherencia temporal en videos
+- Detección de artefactos de compresión sospechosos
+- Evaluación de probabilidad de deepfake
 
-#### Requisitos del Sistema
-- **Docker** y **Docker Compose**
-- **Git** para clonado del repositorio
-- **8GB RAM** mínimo (16GB recomendado)
-- **50GB** espacio en disco
-- **Linux/macOS/Windows** con WSL2
+## 📊 Estadísticas del Proyecto
 
-#### Instalación Rápida
+- **150+ Scripts** distribuidos en 7 módulos especializados
+- **25+ Herramientas 2025** con tecnologías de vanguardia
+- **5 Laboratorios** de práctica completamente funcionales
+- **Soporte multiplataforma** (Linux, macOS, Windows)
+- **Interfaz web moderna** con dashboard en tiempo real
 
+## 🎯 Módulos Disponibles
+
+### 🔴 **Red Team** (25 herramientas)
+Arsenal ofensivo completo con técnicas avanzadas:
+- Supply Chain Scanner
+- Cloud Native Attack Simulator
+- Reverse Shell Polyglot Generator
+- Ghost Scanner (escaneo sigiloso)
+- Advanced payload generation
+
+### 🔵 **Blue Team** (18 herramientas)
+Defensiva avanzada con IA y análisis forense:
+- AI Threat Hunter v2.0
+- Zero Trust Validator
+- Log Guardian (monitoreo en tiempo real)
+- Auth Log Parser avanzado
+- IOC Matcher con threat intelligence
+
+### 🟣 **Purple Team** (12 herramientas)
+Ejercicios coordinados y análisis avanzado:
+- Quantum Crypto Analyzer
+- Purple Attack Orchestrator
+- Threat Emulator con MITRE ATT&CK
+- Behavioral analysis engine
+
+### 🔍 **OSINT** (12 herramientas)
+Inteligencia de fuentes abiertas:
+- IoT Security Mapper
+- Multi-Vector OSINT
+- GitHub Repository Leak Detector
+- Telegram User Scraper
+- Public Email Validator & Breach Checker
+
+### 🐛 **Malware Analysis** (10 herramientas)
+Análisis estático y dinámico:
+- Malware Analyzer educativo
+- Static analysis engine
+- IOC extraction tools
+- Sandbox integration
+
+### 🎭 **Social Engineering** (6 herramientas)
+Concienciación y entrenamiento:
+- Social Engineering Toolkit educativo
+- Phishing simulation framework
+- Awareness training modules
+
+### 📚 **Study & Training** (CTF tools)
+Herramientas educativas:
+- CTF Flag Planner
+- Training scenarios
+- Skill assessment tools
+
+## 🚀 Instalación Rápida
+
+### Opción 1: Docker (Recomendado)
 ```bash
-# 1. Clonar el repositorio
-git clone https://github.com/descambiado/bofa-professional-suite.git
-cd bofa-professional-suite
+# Clonar el repositorio
+git clone https://github.com/descambiado/BOFA
+cd BOFA
 
-# 2. Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tu configuración
+# Iniciar con Docker Compose
+docker-compose up --build
 
-# 3. Construir y ejecutar todos los servicios
-docker-compose up -d
-
-# 4. Verificar el estado de los servicios
-docker-compose ps
-
-# 5. Acceder a la aplicación
-# Frontend: http://localhost:3000
-# API: http://localhost:8000
-# NGINX: http://localhost (puerto 80)
+# Acceder a la interfaz web
+# http://localhost:3000
 ```
 
-#### Instalación Manual (Desarrollo)
-
+### Opción 2: Instalación Local
 ```bash
-# Frontend
-cd web
+# Prerrequisitos
+# - Node.js 18+
+# - Python 3.8+
+# - Git
+
+# Clonar e instalar dependencias del frontend
+git clone https://github.com/descambiado/BOFA
+cd BOFA
 npm install
+
+# Instalar dependencias de Python (opcional para scripts locales)
+pip install -r requirements.txt
+
+# Iniciar el servidor de desarrollo
 npm run dev
-
-# Backend API
-cd api
-pip install -r requirements.txt
-uvicorn main:app --reload
-
-# CLI (opcional)
-cd cli
-pip install -r requirements.txt
-python bofa_cli.py --help
 ```
 
-### 📊 Módulos Disponibles
+## 💻 Uso del Sistema
 
-| Módulo | Scripts | Descripción | Novedad 2025 |
-|--------|---------|-------------|--------------|
-| **Red Team** | 25 | Arsenal ofensivo + Supply Chain + Cloud Native | ✅ |
-| **Blue Team** | 18 | Defensas + AI Threat Hunting + Zero Trust | ✅ |
-| **Purple Team** | 12 | Ejercicios + Quantum Crypto + Biometrics | ✅ |
-| **Forensics** | 15 | Investigación + Deepfake Detection + Timeline | ✅ |
-| **OSINT** | 12 | Inteligencia + IoT Security Mapping | ✅ |
-| **Malware** | 10 | Análisis estático/dinámico + ML Detection | ✅ |
-| **Social Eng** | 6 | Concienciación + Phishing Training | ✅ |
-| **Mobile** | 8 | Android + iOS Testing + Wireless | - |
-| **Recon** | 8 | Network Mapping + Advanced Scanning | - |
-| **Insight** | 7 | AI Recommendations + Usage Analytics | ✅ |
+### Interfaz Web
+1. **Dashboard**: Vista general con métricas en tiempo real
+2. **Scripts**: Navegador completo de herramientas por módulo
+3. **Labs**: Laboratorios de práctica interactivos
+4. **History**: Historial completo de ejecuciones
+5. **Study**: Lecciones y material educativo
 
-### 🛠️ Ejemplos de Uso
-
-#### Ejecutar Análisis de Amenazas con IA
+### CLI (Línea de Comandos)
 ```bash
-# Interfaz Web
-1. Navegar a Scripts > Blue Team > AI Threat Hunter
-2. Configurar parámetros (archivo de logs, umbral)
-3. Ejecutar y revisar resultados en tiempo real
+# Ejecutar script específico
+python3 scripts/blue/ai_threat_hunter.py --log-file security.log --threshold 0.8
 
-# CLI
-python scripts/blue/ai_threat_hunter.py --log-file security.log --threshold 0.7
+# Listar scripts disponibles
+./bofa.sh --list
+
+# Modo interactivo
+./bofa.sh
 ```
 
-#### Iniciar Laboratorio de Seguridad Web
+## 🧪 Laboratorios Incluidos
+
+### 1. **Web Application Security Lab**
+- OWASP Top 10 completo
+- Vulnerabilidades modernas (SSRF, XXE, Deserialization)
+- Entorno completamente aislado
+- **Tiempo estimado**: 4 horas
+
+### 2. **Red Interna Corporativa**
+- Simulación de red empresarial completa
+- Active Directory vulnerable
+- Servicios críticos expuestos
+- **Tiempo estimado**: 3 horas
+
+### 3. **Android Security Lab**
+- Emulador Android con apps vulnerables
+- Técnicas de reverse engineering móvil
+- Análisis de tráfico cifrado
+- **Tiempo estimado**: 2.5 horas
+
+### 4. **Kubernetes Security Cluster**
+- Cluster K8s intencionalmente vulnerable
+- Container escape scenarios
+- RBAC misconfigurations
+- **Tiempo estimado**: 5 horas
+
+### 5. **IoT/OT Simulation Environment**
+- Dispositivos IoT simulados
+- Protocolos industriales (Modbus, DNP3)
+- Ataques específicos a sistemas SCADA
+- **Tiempo estimado**: 6 horas
+
+## 🎓 Sistema de Estudio Integrado
+
+### Cursos Disponibles
+1. **Seguridad en Aplicaciones Web** (3h)
+2. **Penetration Testing de Redes** (4h)
+3. **Análisis de Malware Avanzado** (5h)
+4. **Cloud Native Security** (7h)
+5. **AI-Powered Threat Hunting** (6h)
+
+### Características del Sistema Educativo
+- **Progreso tracking** individual
+- **Evaluaciones prácticas** con labs
+- **Certificados** de completitud
+- **Gamificación** con puntos y badges
+- **Contenido actualizado** constantemente
+
+## 🔧 Configuración Avanzada
+
+### Variables de Entorno
 ```bash
-# Desde la interfaz web
-1. Ir a Labs > Web Application Security
-2. Hacer clic en "Iniciar Laboratorio"
-3. Acceder a http://localhost:8080 (DVWA)
+# API Configuration
+BOFA_API_URL=http://localhost:8000
+BOFA_API_KEY=your_api_key_here
 
-# Desde línea de comandos
-docker-compose -f labs/web-application-security/docker-compose.yml up -d
+# Database
+DATABASE_URL=postgresql://user:pass@localhost/bofa
+
+# External Services
+SHODAN_API_KEY=your_shodan_key
+VIRUSTOTAL_API_KEY=your_vt_key
+HIBP_API_KEY=your_hibp_key
+
+# Security
+JWT_SECRET=your_jwt_secret
+ENCRYPTION_KEY=your_32_char_key
 ```
 
-#### Análisis de Malware
-```bash
-# Analizar archivo sospechoso
-python scripts/malware/malware_analyzer.py \
-  --file suspicious.exe \
-  --analysis-depth deep \
-  --output-format json
-```
-
-### 📈 Sistema de Reportes
-
-BOFA genera reportes profesionales en múltiples formatos:
-
-- **JSON**: Datos estructurados para integración
-- **CSV**: Análisis en Excel/hojas de cálculo
-- **HTML**: Reportes visuales profesionales
-- **PDF**: Documentos ejecutivos (próximamente)
-
-Ejemplo de exportación:
-```javascript
-// Desde la interfaz web
-ReportExporter.generate({
-  format: 'html',
-  execution: executionData,
-  includeEvidence: true,
-  template: 'professional'
-});
-```
-
-### 🎓 Sistema Educativo
-
-#### Lecciones Disponibles
-- **Seguridad en Aplicaciones Web** (180 min)
-- **Penetration Testing de Redes** (240 min)
-- **Análisis de Malware** (300 min)
-- **Ingeniería Social y Concienciación** (120 min)
-- **Forensics Digital** (200 min)
-
-#### Certificaciones BOFA
-- **BOFA Web Application Security Specialist**
-- **BOFA Network Penetration Tester**
-- **BOFA Malware Analysis Expert**
-- **BOFA Digital Forensics Investigator**
-
-### 🧪 Laboratorios Incluidos
-
-| Laboratorio | Dificultad | Tiempo | Puertos |
-|-------------|------------|--------|---------|
-| Web App Security | Intermedio | 240 min | 8080-8083 |
-| Red Interna Corp | Intermedio | 180 min | 8100-8110 |
-| Android Security | Avanzado | 150 min | 5555 |
-| CTF Generator | Variable | 60-180 min | 8200-8220 |
-| Cloud Misconfig | Avanzado | 120 min | 8300-8310 |
-| SIEM Detection | Avanzado | 200 min | 443, 1514 |
-
-### 🔧 Configuración Avanzada
-
-#### Variables de Entorno
-```bash
-# .env
-API_BASE_URL=http://localhost:8000
-FRONTEND_PORT=3000
-BACKEND_PORT=8000
-MYSQL_ROOT_PASSWORD=secure_password
-REDIS_PASSWORD=redis_password
-JWT_SECRET=your_jwt_secret_here
-ENCRYPTION_KEY=your_encryption_key
-
-# Configuración SSL (Producción)
-SSL_CERT_PATH=/path/to/cert.pem
-SSL_KEY_PATH=/path/to/key.pem
-HTTPS_ENABLED=true
-```
-
-#### Personalización de Scripts
+### Configuración de Scripts
+Los scripts se configuran mediante archivos YAML:
 ```yaml
-# scripts/custom/my_tool.yaml
-name: "my_custom_tool"
+name: "custom_script"
+description: "Mi script personalizado"
 category: "custom"
-description: "Mi herramienta personalizada"
 parameters:
   target:
     type: "string"
     required: true
-  mode:
-    type: "select" 
-    options: ["scan", "exploit", "report"]
-execution:
-  timeout: 300
-  memory_limit: "512MB"
+    description: "Objetivo del análisis"
+  output_format:
+    type: "select"
+    options: ["json", "xml", "csv"]
+    default: "json"
 ```
 
-### 📊 Métricas y Monitoreo
+## 🔐 Seguridad y Consideraciones Éticas
 
-#### Dashboard en Tiempo Real
-- Estadísticas de ejecución
-- Estado de laboratorios
-- Progreso educativo
-- Métricas de seguridad
-- Alertas del sistema
+### Uso Responsable
+- ✅ **Autorizado**: Solo en sistemas propios o con autorización explícita
+- ✅ **Educativo**: Diseñado para aprendizaje y mejora de la seguridad
+- ✅ **Ético**: Sigue principios de hacking ético y responsible disclosure
+- ❌ **Prohibido**: Uso malicioso o contra sistemas sin autorización
 
-#### Logging Avanzado
-```python
-# Configuración de logs
-LOGGING = {
-    'version': 1,
-    'handlers': {
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': 'bofa.log',
-            'formatter': 'detailed'
-        },
-        'elasticsearch': {
-            'class': 'elasticsearch_logger.ElasticsearchHandler',
-            'hosts': ['localhost:9200']
-        }
-    }
-}
-```
+### Características de Seguridad
+- **Sandbox integrado** para ejecución segura
+- **Logs detallados** de todas las actividades
+- **Rate limiting** para prevenir abuso
+- **Token-based authentication** para API
+- **Cifrado** de datos sensibles
 
-### 🔒 Seguridad y Cumplimiento
+## 📈 Métricas y Monitoreo
 
-#### Medidas de Seguridad Implementadas
-- **Ejecución Sandboxed**: Scripts ejecutados en contenedores aislados
-- **Autenticación JWT**: Tokens seguros para API
-- **Rate Limiting**: Prevención de abuso
-- **Audit Logging**: Registro completo de actividades
-- **Input Validation**: Validación estricta de parámetros
-- **HTTPS/TLS**: Cifrado en tránsito
-- **Secrets Management**: Gestión segura de credenciales
+### Dashboard en Tiempo Real
+- **Scripts ejecutados**: Contador en tiempo real
+- **Amenazas detectadas**: Alertas activas
+- **Labs activos**: Estado de laboratorios
+- **Nivel de seguridad**: Score general del sistema
 
-#### Cumplimiento
-- **OWASP Guidelines**: Desarrollo seguro
-- **NIST Framework**: Gestión de riesgos
-- **ISO 27001**: Gestión de seguridad de información
-- **GDPR**: Protección de datos personales
+### Analytics Avanzado
+- **Tendencias de uso** por módulo
+- **Patrones de aprendizaje** de usuarios
+- **Eficacia de detección** de herramientas
+- **Performance metrics** del sistema
 
-### 🤝 Contribuciones
+## 🤝 Contribuir al Proyecto
 
-#### Cómo Contribuir
-1. Fork del repositorio
-2. Crear rama feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit de cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crear Pull Request
+### Cómo Contribuir
+1. **Fork** el repositorio
+2. **Crear** una rama para tu feature
+3. **Desarrollar** tu contribución
+4. **Testing** completo
+5. **Pull Request** con descripción detallada
 
-#### Guidelines
-- Código limpio y documentado
-- Tests unitarios incluidos
-- Documentación actualizada
-- Seguir convenciones de naming
-- Metadata YAML para nuevos scripts
+### Tipos de Contribuciones
+- 🐛 **Bug fixes**
+- ✨ **Nuevas herramientas**
+- 📚 **Documentación**
+- 🧪 **Nuevos laboratorios**
+- 🎨 **Mejoras de UI/UX**
 
-### 📞 Soporte y Documentación
+### Estándares de Código
+- **Python**: PEP 8, typing hints, docstrings
+- **TypeScript**: ESLint, Prettier, strict mode
+- **Testing**: Jest para frontend, pytest para backend
+- **Documentación**: README completo para cada script
 
-#### Recursos Oficiales
-- **Documentación**: `/docs` en el repositorio
-- **Wiki**: Guías detalladas y troubleshooting
-- **Issues**: Reportar bugs y solicitar features
-- **Discussions**: Comunidad y Q&A
+## 📞 Soporte y Comunidad
 
-#### Contacto
-- **Autor**: @descambiado (David Hernández Jiménez)
-- **Email**: [contacto disponible en GitHub]
-- **LinkedIn**: Perfil profesional
-- **Twitter**: Actualizaciones del proyecto
+### Contacto
+- **Desarrollador**: @descambiado
+- **Email**: david@descambiado.com
+- **GitHub**: [BOFA Repository](https://github.com/descambiado/BOFA)
 
-### 📝 Changelog v2.5.0
+### Comunidad
+- **Discord**: [Servidor BOFA](https://discord.gg/bofa-community)
+- **Twitter**: [@descambiado](https://twitter.com/descambiado)
+- **YouTube**: [Canal BOFA](https://youtube.com/c/bofa-cybersecurity)
 
-#### ✨ Nuevas Características
-- Sistema completo de 150+ scripts organizados por categoría
-- 7 nuevas herramientas con tecnología 2025 (AI, Quantum, Supply Chain)
-- Sistema educativo completo con certificaciones
-- 6 laboratorios Docker listos para producción
-- Dashboard mejorado con métricas en tiempo real
-- Sistema de reportes en 4 formatos
-- API robusta con fallback automático
-- CLI mejorado para automatización
+### Recursos Adicionales
+- 📖 **Documentación completa**: [docs.bofa.dev](https://docs.bofa.dev)
+- 🎥 **Video tutoriales**: Playlist completa en YouTube
+- 📝 **Blog**: Artículos técnicos y casos de uso
+- 🎪 **Demos en vivo**: Streams regulares en Twitch
 
-#### 🔧 Mejoras Técnicas
-- Arquitectura refactorizada para escalabilidad
-- Sistema de parámetros dinámicos para scripts
-- Logging estructurado y centralizado
-- Contenedorización completa con Docker
-- CI/CD pipeline optimizado
-- Testing automatizado
-- Documentación técnica completa
+## 📅 Roadmap 2025
 
-#### 🐛 Correcciones
-- Resolución de errores de TypeScript
-- Mejora en manejo de errores de API
-- Optimización de consultas de base de datos
-- Corrección de memory leaks en frontend
-- Estabilización de laboratorios Docker
+### Q1 2025
+- [x] ✅ AI Threat Hunter v2.0
+- [x] ✅ Supply Chain Scanner
+- [x] ✅ Quantum Crypto Analyzer
+- [ ] 🔄 Integration con SIEM comerciales
 
-### 📄 Licencia
+### Q2 2025
+- [ ] 📋 Mobile security framework completo
+- [ ] 📋 Blockchain security tools
+- [ ] 📋 API para integraciones empresariales
+- [ ] 📋 Certificaciones oficiales
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+### Q3 2025
+- [ ] 📋 Cloud marketplace integration
+- [ ] 📋 Multi-tenant architecture
+- [ ] 📋 Advanced reporting engine
+- [ ] 📋 Enterprise SSO integration
 
-### 🌟 Agradecimientos
+### Q4 2025
+- [ ] 📋 Machine Learning model marketplace
+- [ ] 📋 Collaborative pentesting features
+- [ ] 📋 Real-time threat intelligence feeds
+- [ ] 📋 Advanced automation workflows
 
-- **Comunidad OWASP** por frameworks y guidelines
-- **Contribuidores** de herramientas open source utilizadas
-- **Comunidad de Ciberseguridad** por feedback y testing
-- **Docker Community** por la plataforma de containerización
+## 📄 Licencia
+
+Este proyecto está licenciado bajo la **MIT License** - ver el archivo [LICENSE](LICENSE) para detalles.
+
+### Términos de Uso
+- ✅ Uso comercial permitido
+- ✅ Modificación permitida
+- ✅ Distribución permitida
+- ✅ Uso privado permitido
+- ⚠️ Sin garantía incluida
+- ⚠️ Limitación de responsabilidad
+
+## 🙏 Reconocimientos
+
+### Tecnologías Utilizadas
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite
+- **Backend**: Python FastAPI, PostgreSQL
+- **Security**: OWASP Guidelines, NIST Framework
+- **AI/ML**: scikit-learn, TensorFlow Lite
+- **Infrastructure**: Docker, Kubernetes, GitHub Actions
+
+### Agradecimientos Especiales
+- **MITRE Corporation** - Por el framework ATT&CK
+- **OWASP Foundation** - Por los estándares de seguridad
+- **Shodan.io** - Por la API de búsqueda de dispositivos
+- **HaveIBeenPwned** - Por los datos de breaches
+- **Comunidad Open Source** - Por las herramientas base
 
 ---
 
-**BOFA Professional Suite v2.5.0** - Suite Profesional de Ciberseguridad
+<div align="center">
 
-Desarrollado con ❤️ por @descambiado | [GitHub](https://github.com/descambiado) | [LinkedIn](https://linkedin.com/in/descambiado)
+**🚀 BOFA Extended Systems v2.5.0**
 
----
+*La próxima generación en ciberseguridad*
 
-> ⚠️ **Disclaimer**: Esta herramienta está diseñada únicamente para fines educativos, testing de seguridad autorizado y desarrollo profesional. El uso malintencionado está estrictamente prohibido y es responsabilidad del usuario cumplir con las leyes locales e internacionales.
+[![Versión](https://img.shields.io/badge/version-2.5.0-brightgreen.svg)](https://github.com/descambiado/BOFA)
+[![Licencia](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
+[![React](https://img.shields.io/badge/react-18+-blue.svg)](https://reactjs.org)
+
+**Desarrollado con ❤️ por [@descambiado](https://github.com/descambiado)**
+
+</div>
