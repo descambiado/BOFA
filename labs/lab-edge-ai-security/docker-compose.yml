@@ -1,0 +1,188 @@
+version: '3.8'
+
+services:
+  edge-ai-security:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bofa-edge-ai-security
+    ports:
+      - "8893:8888"  # Jupyter Edge AI Lab
+      - "5002:5002"  # Edge AI API
+      - "8051:8051"  # IoT Dashboard
+      - "1883:1883"  # MQTT Broker
+      - "8086:8086"  # InfluxDB (IoT metrics)
+    environment:
+      - LAB_TYPE=edge_ai_security
+      - JUPYTER_TOKEN=edge_ai_bofa_2025
+      - TENSORFLOW_LITE_ENABLE=true
+      - ONNX_RUNTIME_ENABLE=true
+      - MQTT_ENABLE=true
+      - IOT_SIMULATION=true
+    volumes:
+      - ./edge_models:/workspace/edge_models
+      - ./iot_devices:/workspace/iot_devices
+      - ./edge_notebooks:/workspace/notebooks
+      - ./iot_datasets:/workspace/datasets
+      - ./security_logs:/workspace/logs
+      - ./firmware_analysis:/workspace/firmware
+    privileged: true  # For hardware simulation
+    working_dir: /workspace
+    command: >
+      bash -c "
+        echo '🌐 Starting BOFA Edge AI Security Lab v2.5.1...' &&
+        echo '📦 Installing edge AI frameworks...' &&
+        pip install --quiet tensorflow-lite tflite-runtime onnxruntime &&
+        pip install --quiet jupyter matplotlib plotly dash paho-mqtt &&
+        pip install --quiet scapy wireshark flask socketio influxdb-client &&
+        echo '🔧 Installing IoT security tools...' &&
+        pip install --quiet binwalk firmware-mod-kit angr &&
+        echo '📊 Starting services...' &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=edge_ai_bofa_2025 &
+        echo '🌐 Starting Edge AI API...' &&
+        python /workspace/edge_ai_api.py &
+        echo '📈 Starting IoT Dashboard...' &&
+        python /workspace/iot_dashboard.py &
+        echo '📡 Starting MQTT Broker...' &&
+        mosquitto -c /workspace/config/mosquitto.conf &
+        echo '💾 Starting InfluxDB...' &&
+        influxd &
+        echo '🤖 Starting IoT Device Simulators...' &&
+        python /workspace/simulators/iot_device_sim.py &
+        echo '✅ Edge AI Security Lab ready!' &&
+        echo 'Access points:' &&
+        echo '  Jupyter Lab: http://localhost:8893 (token: edge_ai_bofa_2025)' &&
+        echo '  Edge AI API: http://localhost:5002' &&
+        echo '  IoT Dashboard: http://localhost:8051' &&
+        echo '  MQTT: localhost:1883' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  edge-device-farm:
+    image: alpine:latest
+    container_name: bofa-edge-device-farm
+    ports:
+      - "2222:22"    # SSH access to simulated devices
+      - "8080-8090:8080-8090"  # Web interfaces for devices
+    environment:
+      - DEVICE_COUNT=10
+      - DEVICE_TYPES=camera,sensor,gateway,actuator
+      - VULNERABILITY_LEVEL=high
+    volumes:
+      - ./device_configs:/configs
+      - ./device_logs:/logs
+      - ./firmware_images:/firmware
+    command: >
+      sh -c "
+        echo '📱 Starting Edge Device Farm...' &&
+        apk add --no-cache python3 py3-pip openssh-server &&
+        pip3 install flask paho-mqtt requests &&
+        ssh-keygen -A &&
+        echo 'root:edge_device_2025' | chpasswd &&
+        /usr/sbin/sshd &
+        echo '🔧 Starting simulated IoT devices...' &&
+        python3 /configs/device_simulator.py &
+        echo '✅ Edge Device Farm ready!' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  firmware-analyzer:
+    image: python:3.9-slim
+    container_name: bofa-firmware-analyzer
+    ports:
+      - "7002:7002"
+    environment:
+      - ANALYSIS_MODE=automated
+      - REVERSE_ENGINEERING=enabled
+    volumes:
+      - ./firmware_samples:/workspace/firmware
+      - ./analysis_results:/workspace/results
+      - ./reverse_engineering:/workspace/reverse
+    command: >
+      bash -c "
+        echo '🔍 Starting Firmware Analysis Engine...' &&
+        apt-get update && apt-get install -y binutils file hexdump strings &&
+        pip install --quiet angr capstone keystone-engine ropper &&
+        pip install --quiet binwalk firmware-mod-kit flask &&
+        python /workspace/firmware_analyzer.py &
+        echo '✅ Firmware Analyzer ready at http://localhost:7002' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  ai-model-optimizer:
+    image: tensorflow/tensorflow:2.11.0
+    container_name: bofa-ai-model-optimizer
+    ports:
+      - "8894:8888"
+    environment:
+      - JUPYTER_TOKEN=ai_optimizer_2025
+      - OPTIMIZATION_TARGET=edge_deployment
+    volumes:
+      - ./model_optimization:/tf/optimization
+      - ./edge_models:/tf/edge_models
+      - ./benchmarks:/tf/benchmarks
+    command: >
+      bash -c "
+        echo '⚡ Starting AI Model Optimization Lab...' &&
+        pip install --quiet tensorflow-lite onnx onnxruntime &&
+        pip install --quiet jupyter matplotlib plotly &&
+        pip install --quiet tensorflow-model-optimization &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=ai_optimizer_2025 &
+        echo '✅ AI Model Optimizer ready at http://localhost:8894' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  network-monitor:
+    image: wireshark/tshark
+    container_name: bofa-network-monitor
+    ports:
+      - "7003:7003"
+    environment:
+      - CAPTURE_INTERFACE=eth0
+      - ANALYSIS_MODE=real_time
+    volumes:
+      - ./network_captures:/captures
+      - ./traffic_analysis:/analysis
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    command: >
+      sh -c "
+        echo '📡 Starting Network Traffic Monitor...' &&
+        apk add --no-cache python3 py3-pip tcpdump &&
+        pip3 install scapy flask &&
+        python3 /analysis/traffic_analyzer.py &
+        echo '✅ Network Monitor ready!' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+networks:
+  lab-network:
+    external: true
+
+volumes:
+  edge_ai_models:
+    driver: local
+  iot_device_data:
+    driver: local
+  firmware_analysis:
+    driver: local
+  network_captures:
+    driver: local
+  security_metrics:
+    driver: local

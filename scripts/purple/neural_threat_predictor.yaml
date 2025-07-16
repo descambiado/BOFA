@@ -1,0 +1,70 @@
+name: "Neural Threat Predictor"
+description: "Advanced AI-powered threat prediction using deep learning models and neural networks"
+author: "BOFA Security Team"
+version: "2.5.1"
+category: "purple"
+difficulty: "expert"
+estimated_time: "15-30 minutes"
+
+features:
+  - "🧠 Deep Learning Threat Prediction"
+  - "🎯 APT Campaign Detection"
+  - "🔍 Behavioral Anomaly Analysis"
+  - "⚡ Zero-day Exploit Prediction"
+  - "🔗 Real-time Threat Correlation"
+  - "📊 Neural Network Models"
+  - "🤖 Machine Learning Integration"
+  - "📈 Predictive Analytics"
+
+requirements:
+  - "Python 3.8+"
+  - "TensorFlow 2.x"
+  - "scikit-learn"
+  - "pandas, numpy"
+  - "aiohttp for async operations"
+  - "Network access for threat intelligence"
+
+parameters:
+  - name: "prediction_mode"
+    description: "Prediction mode (apt|behavioral|zero_day|correlation|all)"
+    required: true
+    default: "all"
+    type: "select"
+    options: ["apt", "behavioral", "zero_day", "correlation", "all"]
+  
+  - name: "model_type"
+    description: "Neural network model type"
+    required: false
+    default: "lstm"
+    type: "select"
+    options: ["lstm", "gru", "transformer", "cnn"]
+  
+  - name: "threat_feeds"
+    description: "Enable real-time threat intelligence feeds"
+    required: false
+    default: "true"
+    type: "boolean"
+  
+  - name: "sensitivity"
+    description: "Prediction sensitivity level"
+    required: false
+    default: "medium"
+    type: "select"
+    options: ["low", "medium", "high", "maximum"]
+
+usage_examples:
+  - "python neural_threat_predictor.py --prediction_mode all --sensitivity high"
+  - "python neural_threat_predictor.py --prediction_mode apt --model_type transformer"
+  - "python neural_threat_predictor.py --prediction_mode behavioral --threat_feeds true"
+
+tags:
+  - "neural-networks"
+  - "threat-prediction"
+  - "machine-learning"
+  - "deep-learning"
+  - "apt-detection"
+  - "behavioral-analysis"
+  - "zero-day"
+  - "ai-security"
+  - "predictive-analytics"
+  - "2025-tech"

@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  neural-adversarial-lab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bofa-neural-adversarial-lab
+    ports:
+      - "8888:8888"  # Jupyter Notebook
+      - "6006:6006"  # TensorBoard
+      - "5000:5000"  # Flask API
+    environment:
+      - LAB_TYPE=neural_adversarial
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=bofa_neural_2025
+      - TENSORFLOW_ENABLE_GPU=false
+      - CUDA_VISIBLE_DEVICES=""
+    volumes:
+      - ./notebooks:/workspace/notebooks
+      - ./models:/workspace/models
+      - ./datasets:/workspace/datasets
+      - ./adversarial_examples:/workspace/adversarial_examples
+      - ./results:/workspace/results
+    working_dir: /workspace
+    command: >
+      bash -c "
+        echo '🧠 Starting BOFA Neural Adversarial Lab v2.5.1...' &&
+        pip install --quiet jupyter tensorboard flask numpy tensorflow scikit-learn matplotlib seaborn pillow &&
+        echo '🎯 Installing adversarial attack libraries...' &&
+        pip install --quiet cleverhans foolbox adversarial-robustness-toolbox art &&
+        echo '📊 Starting Jupyter Lab...' &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=bofa_neural_2025 &
+        echo '📈 Starting TensorBoard...' &&
+        tensorboard --logdir=/workspace/logs --host=0.0.0.0 --port=6006 &
+        echo '🌐 Starting Flask API...' &&
+        python /workspace/adversarial_api.py &
+        echo '✅ Neural Adversarial Lab ready!' &&
+        echo 'Access points:' &&
+        echo '  Jupyter Lab: http://localhost:8888 (token: bofa_neural_2025)' &&
+        echo '  TensorBoard: http://localhost:6006' &&
+        echo '  API: http://localhost:5000' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  adversarial-target-models:
+    image: tensorflow/tensorflow:2.11.0-jupyter
+    container_name: bofa-target-models
+    ports:
+      - "8889:8888"
+    environment:
+      - JUPYTER_TOKEN=target_models_2025
+    volumes:
+      - ./target_models:/tf/target_models
+      - ./victim_datasets:/tf/victim_datasets
+    command: >
+      bash -c "
+        echo '🎯 Starting Target Models Server...' &&
+        pip install --quiet pillow matplotlib scikit-learn &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=target_models_2025 &
+        echo '✅ Target Models ready at http://localhost:8889' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  adversarial-defense-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.defense
+    container_name: bofa-defense-engine
+    ports:
+      - "7000:7000"
+    environment:
+      - DEFENSE_MODE=active
+      - DETECTION_THRESHOLD=0.85
+    volumes:
+      - ./defense_models:/workspace/defense_models
+      - ./detection_logs:/workspace/detection_logs
+    command: >
+      bash -c "
+        echo '🛡️ Starting Adversarial Defense Engine...' &&
+        python /workspace/defense_engine.py &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+networks:
+  lab-network:
+    external: true
+
+volumes:
+  neural_adversarial_data:
+    driver: local
+  adversarial_models:
+    driver: local
+  defense_logs:
+    driver: local

@@ -1,0 +1,81 @@
+name: "DNA-based Cryptography Simulator"
+description: "Revolutionary biological cryptography using DNA sequences and genetic algorithms"
+author: "BOFA Biotechnology Security Team"
+version: "2.5.1"
+category: "purple"
+difficulty: "expert"
+estimated_time: "25-40 minutes"
+
+features:
+  - "🧬 DNA Sequence Encryption/Decryption"
+  - "🔐 DNA One-Time Pad Implementation"
+  - "🕵️ DNA Steganography Techniques"
+  - "#️⃣ DNA-based Hash Functions"
+  - "🧬 Genetic Algorithm Key Generation"
+  - "🔬 Biological Constraint Validation"
+  - "⚡ Error Correction for DNA Storage"
+  - "🌐 Hybrid Classical-DNA Systems"
+
+requirements:
+  - "Python 3.8+"
+  - "Advanced cryptographic knowledge"
+  - "Understanding of molecular biology"
+  - "Genetic algorithm concepts"
+  - "No special hardware required (simulation)"
+
+parameters:
+  - name: "operation_mode"
+    description: "DNA cryptographic operation to perform"
+    required: true
+    default: "comprehensive"
+    type: "select"
+    options: ["encrypt", "decrypt", "steganography", "hash", "keygen", "comprehensive"]
+  
+  - name: "message"
+    description: "Message to encrypt or process"
+    required: false
+    default: "BOFA DNA Cryptography Test"
+    type: "string"
+  
+  - name: "dna_key"
+    description: "DNA sequence key (leave empty for auto-generation)"
+    required: false
+    default: ""
+    type: "string"
+  
+  - name: "genetic_generations"
+    description: "Number of generations for genetic algorithm"
+    required: false
+    default: "100"
+    type: "select"
+    options: ["25", "50", "100", "200", "500"]
+  
+  - name: "error_correction"
+    description: "Enable DNA error correction codes"
+    required: false
+    default: "true"
+    type: "boolean"
+  
+  - name: "validate_constraints"
+    description: "Validate biological DNA constraints"
+    required: false
+    default: "true"
+    type: "boolean"
+
+usage_examples:
+  - "python dna_crypto_simulator.py --operation_mode comprehensive"
+  - "python dna_crypto_simulator.py --operation_mode encrypt --message 'Secret Data'"
+  - "python dna_crypto_simulator.py --operation_mode keygen --genetic_generations 200"
+  - "python dna_crypto_simulator.py --operation_mode steganography --error_correction true"
+
+tags:
+  - "dna-cryptography"
+  - "biological-security"
+  - "genetic-algorithms"
+  - "molecular-cryptography"
+  - "bio-steganography"
+  - "dna-storage"
+  - "genetic-encryption"
+  - "biotechnology"
+  - "next-gen-crypto"
+  - "2025-tech"
