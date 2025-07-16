@@ -1,0 +1,273 @@
+name: "Edge AI Security Laboratory"
+description: "Comprehensive security testing laboratory for Edge AI and IoT systems"
+version: "2.5.1"
+category: "iot_security"
+difficulty: "expert"
+estimated_time: "120-240 minutes"
+
+author: "BOFA Edge Security Research Team"
+created: "2025-01-16"
+updated: "2025-01-16"
+
+tags:
+  - "edge-computing"
+  - "iot-security"
+  - "ai-edge-deployment"
+  - "firmware-analysis"
+  - "embedded-security"
+  - "tensorflow-lite"
+  - "onnx"
+  - "mqtt-security"
+  - "network-monitoring"
+
+technologies:
+  - "TensorFlow Lite"
+  - "ONNX Runtime"
+  - "MQTT"
+  - "InfluxDB"
+  - "Wireshark/TShark"
+  - "Binwalk"
+  - "Angr"
+  - "Jupyter Lab"
+  - "Docker"
+
+features:
+  - "🌐 Edge AI Model Deployment & Testing"
+  - "🔍 IoT Device Firmware Analysis"
+  - "📡 Network Traffic Monitoring"
+  - "🤖 AI Model Optimization for Edge"
+  - "🛡️ Edge Device Security Assessment"
+  - "📊 Real-time IoT Metrics Dashboard"
+  - "🔧 Firmware Reverse Engineering"
+  - "⚡ Performance vs Security Trade-offs"
+
+edge_ai_components:
+  model_formats:
+    - "TensorFlow Lite (.tflite)"
+    - "ONNX (.onnx)"
+    - "Core ML (.mlmodel)"
+    - "Edge TPU (.tflite with Edge TPU delegation)"
+    - "OpenVINO IR (.xml/.bin)"
+  
+  optimization_techniques:
+    - "Quantization (INT8, FP16)"
+    - "Pruning (Weight/Structured)"
+    - "Knowledge Distillation"
+    - "Neural Architecture Search"
+    - "Model Compression"
+  
+  deployment_targets:
+    - "Raspberry Pi 4"
+    - "NVIDIA Jetson Nano"
+    - "Intel Neural Compute Stick"
+    - "Google Coral Edge TPU"
+    - "ARM Cortex-M microcontrollers"
+
+iot_security_vectors:
+  - name: "Firmware Vulnerabilities"
+    description: "Buffer overflows, backdoors, weak encryption"
+    impact: "Device compromise, botnet inclusion"
+    detection: "Static/Dynamic analysis, fuzzing"
+  
+  - name: "Communication Protocols"
+    description: "Weak MQTT, CoAP, insecure wireless"
+    impact: "Man-in-the-middle, data interception"
+    detection: "Protocol analysis, traffic inspection"
+  
+  - name: "Authentication Weaknesses"
+    description: "Default credentials, weak tokens"
+    impact: "Unauthorized access, device hijacking"
+    detection: "Credential testing, token analysis"
+  
+  - name: "Update Mechanisms"
+    description: "Unsigned updates, insecure channels"
+    impact: "Malicious firmware installation"
+    detection: "Update process analysis"
+  
+  - name: "Physical Access"
+    description: "JTAG/UART exposure, chip extraction"
+    impact: "Complete device compromise"
+    detection: "Hardware analysis, side-channels"
+
+ai_model_attacks:
+  - name: "Model Extraction"
+    description: "Steal proprietary edge AI models"
+    technique: "Query-based model stealing"
+    countermeasures: "Model watermarking, query limiting"
+  
+  - name: "Adversarial Examples"
+    description: "Fool edge AI with crafted inputs"
+    technique: "FGSM, PGD on resource-constrained devices"
+    countermeasures: "Adversarial training, input validation"
+  
+  - name: "Model Poisoning"
+    description: "Corrupt edge model updates"
+    technique: "Federated learning attacks"
+    countermeasures: "Byzantine-robust aggregation"
+  
+  - name: "Side-channel Attacks"
+    description: "Extract model info from power/timing"
+    technique: "Power analysis, timing attacks"
+    countermeasures: "Constant-time operations, masking"
+  
+  - name: "Hardware Trojan"
+    description: "Malicious circuits in AI accelerators"
+    technique: "Chip-level backdoors"
+    countermeasures: "Hardware verification, testing"
+
+lab_components:
+  notebooks:
+    - "01_Edge_AI_Basics.ipynb"
+    - "02_Model_Optimization.ipynb"
+    - "03_IoT_Device_Analysis.ipynb"
+    - "04_Firmware_Reverse_Engineering.ipynb"
+    - "05_Network_Security_Monitoring.ipynb"
+    - "06_AI_Model_Attacks.ipynb"
+    - "07_Edge_Security_Assessment.ipynb"
+    - "08_Performance_Security_Tradeoffs.ipynb"
+  
+  simulated_devices:
+    - "Smart Camera (Computer Vision)"
+    - "Environmental Sensors (Temperature, Humidity)"
+    - "Smart Gateway (Protocol Bridge)"
+    - "Industrial Controller (Modbus/TCP)"
+    - "Wearable Device (Health Monitoring)"
+    - "Smart Home Hub (Zigbee/Z-Wave)"
+  
+  analysis_tools:
+    - "Binwalk (Firmware extraction)"
+    - "Angr (Binary analysis)"
+    - "Ghidra (Reverse engineering)"
+    - "Wireshark (Network analysis)"
+    - "TensorFlow Lite Converter"
+    - "ONNX Model Validator"
+
+firmware_analysis:
+  extraction_methods:
+    - "UART/Serial access"
+    - "JTAG debugging interface"
+    - "SPI/I2C flash reading"
+    - "Chip desoldering/reading"
+    - "Bootloader exploitation"
+  
+  analysis_techniques:
+    - "File system extraction"
+    - "Binary disassembly"
+    - "String analysis"
+    - "Entropy analysis"
+    - "Cryptographic key discovery"
+    - "Vulnerability identification"
+  
+  common_vulnerabilities:
+    - "Hardcoded credentials"
+    - "Unencrypted firmware"
+    - "Debug interfaces enabled"
+    - "Insecure bootloader"
+    - "Buffer overflow vulnerabilities"
+
+learning_objectives:
+  - "Deploy and secure edge AI models"
+  - "Analyze IoT device firmware for vulnerabilities"
+  - "Monitor and analyze IoT network traffic"
+  - "Optimize AI models for edge deployment"
+  - "Assess security vs performance trade-offs"
+  - "Implement edge AI security best practices"
+  - "Conduct IoT penetration testing"
+
+prerequisites:
+  - "Basic understanding of IoT systems"
+  - "Machine learning fundamentals"
+  - "Network security concepts"
+  - "Linux command line proficiency"
+  - "Python programming (intermediate)"
+
+ports:
+  - port: 8893
+    description: "Jupyter Edge AI Lab"
+    access: "http://localhost:8893"
+    credentials: "token: edge_ai_bofa_2025"
+  
+  - port: 5002
+    description: "Edge AI Security API"
+    access: "http://localhost:5002"
+  
+  - port: 8051
+    description: "IoT Security Dashboard"
+    access: "http://localhost:8051"
+  
+  - port: 1883
+    description: "MQTT Broker"
+    protocol: "MQTT"
+    access: "mqtt://localhost:1883"
+  
+  - port: 8086
+    description: "InfluxDB (IoT Metrics)"
+    access: "http://localhost:8086"
+  
+  - port: 2222
+    description: "SSH to Simulated Devices"
+    protocol: "SSH"
+    credentials: "root:edge_device_2025"
+  
+  - port: 7002
+    description: "Firmware Analysis Engine"
+    access: "http://localhost:7002"
+  
+  - port: 8894
+    description: "AI Model Optimization Lab"
+    access: "http://localhost:8894"
+    credentials: "token: ai_optimizer_2025"
+  
+  - port: 7003
+    description: "Network Traffic Monitor"
+    access: "http://localhost:7003"
+
+setup_instructions:
+  - "Start the laboratory: docker-compose up -d"
+  - "Access Jupyter Lab at http://localhost:8893"
+  - "Use token 'edge_ai_bofa_2025' for authentication"
+  - "Monitor IoT dashboard at http://localhost:8051"
+  - "Connect to MQTT broker at localhost:1883"
+  - "Access simulated devices via SSH on port 2222"
+
+exercises:
+  beginner:
+    - "Deploy a simple TensorFlow Lite model"
+    - "Analyze basic IoT device firmware"
+    - "Monitor MQTT traffic patterns"
+    - "Optimize neural network for edge"
+  
+  intermediate:
+    - "Reverse engineer IoT device bootloader"
+    - "Implement edge AI adversarial attacks"
+    - "Set up secure MQTT communication"
+    - "Benchmark AI models on edge hardware"
+  
+  advanced:
+    - "Develop custom firmware analysis tools"
+    - "Design secure edge AI architectures"
+    - "Implement federated learning security"
+    - "Create hardware trojan detection methods"
+    - "Build comprehensive IoT security framework"
+
+security_scenarios:
+  - "Smart home camera compromise"
+  - "Industrial IoT sabotage"
+  - "Autonomous vehicle AI manipulation"
+  - "Healthcare device data theft"
+  - "Smart city infrastructure attack"
+  - "Supply chain firmware trojan"
+
+performance_metrics:
+  - "Inference latency vs accuracy"
+  - "Model size vs security features"
+  - "Power consumption vs encryption"
+  - "Network bandwidth vs data protection"
+  - "Memory usage vs attack resistance"
+
+resources:
+  documentation: "/workspace/docs/edge_ai_security_guide.md"
+  tutorials: "/workspace/tutorials/"
+  firmware_samples: "/workspace/firmware_samples/"
+  model_zoo: "/workspace/models/"
+  vulnerability_database: "/workspace/vulndb/"

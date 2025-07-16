@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  quantum-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bofa-quantum-simulator
+    ports:
+      - "8890:8888"  # Jupyter Quantum Lab
+      - "5001:5001"  # Quantum API
+      - "8050:8050"  # Dash Dashboard
+    environment:
+      - LAB_TYPE=quantum_computing
+      - JUPYTER_TOKEN=quantum_bofa_2025
+      - QISKIT_BACKEND=qasm_simulator
+      - CIRQ_ENABLE=true
+      - PENNYLANE_ENABLE=true
+    volumes:
+      - ./quantum_circuits:/workspace/circuits
+      - ./quantum_algorithms:/workspace/algorithms
+      - ./quantum_results:/workspace/results
+      - ./quantum_notebooks:/workspace/notebooks
+      - ./post_quantum_crypto:/workspace/post_quantum
+    working_dir: /workspace
+    command: >
+      bash -c "
+        echo '⚛️ Starting BOFA Quantum Computing Simulator v2.5.1...' &&
+        echo '📦 Installing quantum computing frameworks...' &&
+        pip install --quiet qiskit[visualization] cirq pennylane pennylane-qiskit &&
+        pip install --quiet qiskit-aer qiskit-ibmq-provider qiskit-optimization &&
+        pip install --quiet jupyter matplotlib plotly dash scipy networkx &&
+        echo '🔬 Installing post-quantum cryptography libraries...' &&
+        pip install --quiet pqcrypto ntru-python kyber-py dilithium-py &&
+        echo '📊 Starting Jupyter Quantum Lab...' &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=quantum_bofa_2025 &
+        echo '🌐 Starting Quantum API Server...' &&
+        python /workspace/quantum_api.py &
+        echo '📈 Starting Quantum Dashboard...' &&
+        python /workspace/quantum_dashboard.py &
+        echo '✅ Quantum Simulator ready!' &&
+        echo 'Access points:' &&
+        echo '  Jupyter Lab: http://localhost:8890 (token: quantum_bofa_2025)' &&
+        echo '  Quantum API: http://localhost:5001' &&
+        echo '  Dashboard: http://localhost:8050' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  quantum-cryptanalysis:
+    image: python:3.9-slim
+    container_name: bofa-quantum-cryptanalysis
+    ports:
+      - "7001:7001"
+    environment:
+      - CRYPTO_TARGET=rsa
+      - KEY_SIZES=1024,2048,4096
+    volumes:
+      - ./cryptanalysis:/workspace/cryptanalysis
+      - ./classical_keys:/workspace/classical_keys
+      - ./quantum_attacks:/workspace/quantum_attacks
+    command: >
+      bash -c "
+        echo '🔐 Starting Quantum Cryptanalysis Engine...' &&
+        pip install --quiet qiskit cryptography numpy sympy &&
+        python /workspace/cryptanalysis/shor_simulator.py &
+        python /workspace/cryptanalysis/grover_simulator.py &
+        echo '✅ Cryptanalysis engines ready!' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  post-quantum-lab:
+    image: python:3.9-slim
+    container_name: bofa-post-quantum-lab
+    ports:
+      - "8891:8888"
+    environment:
+      - JUPYTER_TOKEN=post_quantum_2025
+      - PQC_ALGORITHMS=kyber,dilithium,falcon,sphincs
+    volumes:
+      - ./post_quantum_notebooks:/tf/notebooks
+      - ./pqc_implementations:/tf/implementations
+      - ./pqc_benchmarks:/tf/benchmarks
+    command: >
+      bash -c "
+        echo '🔒 Starting Post-Quantum Cryptography Lab...' &&
+        pip install --quiet jupyter numpy matplotlib cryptography &&
+        pip install --quiet pqcrypto kyber-py dilithium-py &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=post_quantum_2025 &
+        echo '✅ Post-Quantum Lab ready at http://localhost:8891' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+  quantum-ml:
+    image: tensorflow/tensorflow:2.11.0-jupyter
+    container_name: bofa-quantum-ml
+    ports:
+      - "8892:8888"
+    environment:
+      - JUPYTER_TOKEN=quantum_ml_2025
+      - TF_QUANTUM_ENABLE=true
+    volumes:
+      - ./quantum_ml:/tf/quantum_ml
+      - ./qml_datasets:/tf/datasets
+      - ./qml_models:/tf/models
+    command: >
+      bash -c "
+        echo '🧠 Starting Quantum Machine Learning Lab...' &&
+        pip install --quiet tensorflow-quantum cirq qiskit pennylane &&
+        pip install --quiet matplotlib seaborn plotly &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=quantum_ml_2025 &
+        echo '✅ Quantum ML Lab ready at http://localhost:8892' &&
+        tail -f /dev/null
+      "
+    networks:
+      - lab-network
+    restart: unless-stopped
+
+networks:
+  lab-network:
+    external: true
+
+volumes:
+  quantum_circuits:
+    driver: local
+  quantum_algorithms:
+    driver: local
+  quantum_results:
+    driver: local
+  post_quantum_crypto:
+    driver: local
+  quantum_ml_data:
+    driver: local
