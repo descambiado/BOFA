@@ -1,6 +1,9 @@
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { LoginDialog } from "@/components/auth/LoginDialog";
+import { authService } from "@/services/api";
+import { APP_CONFIG } from "@/config/app";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,20 +23,23 @@ import {
   Lock,
   Cloud,
   Eye,
-  BookOpen
+  BookOpen,
+  ChevronRight
 } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [showLogin, setShowLogin] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(authService.isAuthenticated());
 
-  // Auto-redirect to dashboard after a brief moment to show the welcome screen
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      navigate('/dashboard');
-    }, 3000);
-    
-    return () => clearTimeout(timer);
-  }, [navigate]);
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+  };
 
   const modules = [
     {
@@ -89,7 +95,7 @@ const Index = () => {
           <div className="space-y-6">
             <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-cyan-600 to-purple-600 px-4 py-2 rounded-full text-sm font-medium animate-pulse">
               <Zap className="w-4 h-4" />
-              <span>NUEVO: BOFA Extended Systems v2.5.0</span>
+              <span>NUEVO: {APP_CONFIG.fullName} v{APP_CONFIG.version}</span>
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
@@ -110,25 +116,44 @@ const Index = () => {
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
-              <Button
-                size="lg"
-                onClick={() => navigate('/dashboard')}
-                className="bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 text-white px-8 py-4 text-lg"
+            {isAuthenticated ? (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
+                <Button
+                  size="lg"
+                  onClick={() => navigate('/dashboard')}
+                  className="bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700 text-white px-8 py-4 text-lg"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Ir al Dashboard
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => navigate('/scripts')}
+                  className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black px-8 py-4 text-lg"
+                >
+                  <Terminal className="w-5 h-5 mr-2" />
+                  Explorar Scripts
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="lg"
+                  onClick={handleLogout}
+                  className="border-red-400 text-red-400 hover:bg-red-400 hover:text-black px-8 py-4 text-lg"
+                >
+                  Cerrar Sesión ({authService.getCurrentUser()?.username})
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                size="lg" 
+                className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium px-8 py-4 rounded-xl transform transition-all duration-300 hover:scale-105 hover:shadow-xl text-lg"
+                onClick={() => setShowLogin(true)}
               >
-                <Play className="w-5 h-5 mr-2" />
-                Ir al Dashboard
+                Iniciar Sesión
+                <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate('/scripts')}
-                className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black px-8 py-4 text-lg"
-              >
-                <Terminal className="w-5 h-5 mr-2" />
-                Explorar Scripts
-              </Button>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -247,10 +272,10 @@ const Index = () => {
         <div className="container mx-auto px-6 text-center">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Zap className="w-5 h-5 text-cyan-400" />
-            <span className="text-cyan-400 font-semibold">BOFA Extended Systems v2.5.0</span>
+            <span className="text-cyan-400 font-semibold">{APP_CONFIG.fullName} v{APP_CONFIG.version}</span>
           </div>
           <p className="text-gray-400 mb-4">
-            Desarrollado por @descambiado • La plataforma de ciberseguridad más completa del mundo
+            Desarrollado por {APP_CONFIG.developer.name} • La plataforma de ciberseguridad más completa del mundo
           </p>
           <div className="flex justify-center space-x-6 text-sm text-gray-500">
             <span>🤖 AI Ready</span>
@@ -260,6 +285,12 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      <LoginDialog 
+        open={showLogin} 
+        onOpenChange={setShowLogin}
+        onSuccess={handleLoginSuccess}
+      />
     </div>
   );
 };

@@ -1,523 +1,303 @@
+# 📖 BOFA v2.5.1 Usage Guide
 
-# 📚 Guía de Uso - BOFA Extended Systems v2.5.0
+Complete guide for using BOFA Extended Systems v2.5.1 - Professional Cybersecurity Platform
 
-Esta guía completa te enseñará cómo utilizar todas las características de BOFA v2.5.0.
+## 🎯 Platform Overview
 
-## 🎯 Primeros Pasos
+BOFA provides three main interfaces:
+1. **Web Interface** - Educational platform for learning and exploring
+2. **CLI Interface** - Professional tools for real security operations  
+3. **Labs Interface** - Hands-on practical testing environments
 
-### 1. Acceso al Sistema
-- **URL Principal**: http://localhost:3000
-- **Dashboard**: Vista general del sistema
-- **Navegación**: Menú superior para acceder a módulos
+## 🌐 Web Interface
 
-### 2. Interface Principal
-La interfaz está organizada en 5 secciones principales:
-- **🏠 Dashboard**: Métricas y estado general
-- **⚡ Scripts**: Herramientas y scripts organizados por módulo
-- **🧪 Labs**: Laboratorios de práctica interactivos
-- **📊 Historial**: Registro de ejecuciones y actividades
-- **📚 Estudiar**: Lecciones y material educativo
+### Getting Started
+1. **Access**: http://localhost:3000
+2. **Login**: Use provided credentials or register new account
+3. **Navigation**: Use sidebar to explore different sections
 
-## 🏠 Dashboard - Centro de Comando
+### Scripts Library
+The heart of the educational platform:
 
-### Métricas en Tiempo Real
-- **Scripts Ejecutados**: Contador total de ejecuciones
-- **Amenazas Detectadas**: Alertas de seguridad activas
-- **Labs Activos**: Laboratorios en funcionamiento
-- **Nivel de Seguridad**: Score general del sistema
+#### Browsing Scripts
+- **Filter by Category**: Red Team, Blue Team, Purple Team, etc.
+- **Search**: Find tools by name, description, or functionality
+- **View Code**: Complete source code with syntax highlighting
+- **Copy/Download**: Get scripts for local use
 
-### Novedades 2025
-El dashboard destaca las nuevas herramientas:
-- 🤖 **AI Threat Hunter**: Detección con IA
-- 🔗 **Supply Chain Scanner**: Análisis de dependencias
-- 🔮 **Quantum Crypto Analyzer**: Evaluación post-cuántica
-- 🎭 **Deepfake Detection**: Motor de detección IA
-- ☁️ **Cloud Native Attacks**: Simulador de ataques cloud
-- 🛡️ **Zero Trust Validator**: Validación ZT
+#### Understanding Tools
+Each script shows:
+- **Purpose**: What the tool does and why it's useful
+- **Parameters**: Configuration options and requirements
+- **Examples**: How to use the tool effectively
+- **Learning Materials**: Educational context and explanations
 
-### Actividad Reciente
-Visualiza las últimas ejecuciones con:
-- Timestamp de ejecución
-- Módulo utilizado
-- Estado del resultado
-- Tiempo de ejecución
+## 💻 CLI Interface
 
-## ⚡ Scripts - Arsenal de Herramientas
-
-### Navegación por Módulos
-
-#### 🔴 Red Team (25 herramientas)
-**Herramientas ofensivas y de penetración**
-
-**Scripts Destacados 2025:**
+### Quick Start
 ```bash
-# Supply Chain Scanner
-- Mapea dependencias NPM, PyPI, Maven
-- Detecta vulnerabilidades CVE
-- Genera SBOM automático
-- Parámetros: project_path, scan_depth, output_format
+# Interactive menu
+./bofa.sh
 
-# Cloud Native Attack Simulator  
-- Simula ataques a Kubernetes/Docker
-- Container escape scenarios
-- Privilege escalation attacks
-- Parámetros: target_type, attack_scenarios, intensity_level
+# Direct execution
+python3 cli/bofa_cli.py
 
-# Ghost Scanner
-- Escaneo de red sigiloso
-- Randomización TTL y MAC
-- Evasión de IDS/IPS
-- Parámetros: target, delay, stealth_mode
+# Help
+python3 cli/bofa_cli.py --help
 ```
 
-#### 🔵 Blue Team (18 herramientas)
-**Defensiva avanzada y análisis forense**
+### Tool Categories
 
-**Scripts Destacados 2025:**
+#### 🔴 Red Team Tools (35+ scripts)
+Offensive security and penetration testing:
 ```bash
-# AI Threat Hunter v2.0
-- Machine Learning local
-- Integración MITRE ATT&CK
-- Análisis comportamental
-- Parámetros: log_file, anomaly_threshold, mitre_filter
+# Network reconnaissance
+python3 scripts/red/ghost_scanner.py -t 192.168.1.0/24
 
-# Zero Trust Validator
-- Validación de implementaciones ZT
-- Verificación micro-segmentación
-- Análisis least privilege
-- Parámetros: environment, scope, compliance_check
+# Payload generation  
+python3 scripts/red/reverse_shell_generator.py --ip 10.0.0.1 --port 4444
 
-# Log Guardian
-- Monitoreo en tiempo real
-- Detección de patrones maliciosos
-- Alertas automáticas
-- Parámetros: config_file, alert_threshold, output_format
+# Supply chain analysis
+python3 scripts/red/supply_chain_scanner.py --target npm --package express
 ```
 
-#### 🟣 Purple Team (12 herramientas)
-**Ejercicios coordinados y análisis avanzado**
-
-**Scripts Destacados 2025:**
+#### 🔵 Blue Team Tools (28+ scripts)
+Defensive security and threat detection:
 ```bash
-# Quantum Crypto Analyzer
-- Evaluación post-cuántica
-- Plan de migración automático
-- Análisis SSL/TLS
-- Parámetros: analysis_type, target_file, target_host
+# AI-powered threat hunting
+python3 scripts/blue/ai_threat_hunter.py --log-file /var/log/auth.log
 
-# Purple Attack Orchestrator
-- Coordinación Red vs Blue
-- Métricas de detección
-- Simulaciones realistas
-- Parámetros: scenario, speed_multiplier, metrics_enabled
+# Real-time correlation
+python3 scripts/blue/real_time_threat_correlator.py --sources syslog,network
+
+# Zero trust validation
+python3 scripts/blue/zero_trust_validator.py --network 192.168.1.0/24
 ```
 
-#### 🔍 OSINT (12 herramientas)
-**Inteligencia de fuentes abiertas**
-
-**Scripts Destacados 2025:**
+#### 🟣 Purple Team Tools (20+ scripts)
+Coordinated security exercises:
 ```bash
-# IoT Security Mapper
-- Búsqueda con Shodan API
-- Mapeo geográfico
-- Protocolos industriales
-- Parámetros: search_query, protocols, max_results
+# Autonomous testing
+python3 scripts/purple/autonomous_pentest_agent.py --target web
 
-# Multi-Vector OSINT
-- Correlación multi-fuente
-- Perfiles sociales
-- Intelligence gathering
-- Parámetros: target_email, target_name, output_format
+# Threat prediction
+python3 scripts/purple/neural_threat_predictor.py --model lstm
 ```
 
-### Ejecución de Scripts
-
-#### 1. Selección y Configuración
-```
-1. Navegar al módulo deseado
-2. Seleccionar script específico
-3. Configurar parámetros requeridos
-4. Revisar información de seguridad
-5. Ejecutar con botón "Ejecutar Script"
-```
-
-#### 2. Parámetros Comunes
-- **target**: Objetivo del análisis
-- **output_format**: json, xml, csv, html
-- **verbose**: Nivel de detalle en logs
-- **timeout**: Tiempo máximo de ejecución
-- **config_file**: Archivo de configuración personalizada
-
-#### 3. Monitoreo de Ejecución
-- **Console en tiempo real**: Salida del script
-- **Progress indicator**: Barra de progreso
-- **Status updates**: Estados de ejecución
-- **Error handling**: Gestión de errores
-
-## 🧪 Labs - Laboratorios de Práctica
-
-### Laboratorios Disponibles
-
-#### 1. Web Application Security Lab
-```yaml
-Descripción: OWASP Top 10 completo
-Dificultad: Intermedio
-Tiempo: 4 horas
-Puerto: 8080
-URL: http://localhost:8080
-
-Vulnerabilidades incluidas:
-- SQL Injection avanzado
-- XSS (Stored, Reflected, DOM)
-- CSRF con tokens
-- XXE (XML External Entity)
-- Insecure Deserialization
-- SSRF (Server-Side Request Forgery)
-```
-
-#### 2. Red Interna Corporativa
-```yaml
-Descripción: Simulación de red empresarial
-Dificultad: Intermedio  
-Tiempo: 3 horas
-Servicios: AD, SMB, RDP, SSH, HTTP
-
-Escenarios:
-- Enumeración de Active Directory
-- Lateral movement
-- Privilege escalation
-- Persistence techniques
-```
-
-#### 3. Android Security Lab
-```yaml
-Descripción: Testing de seguridad móvil
-Dificultad: Avanzado
-Tiempo: 2.5 horas
-Puerto: 5555
-
-Características:
-- Apps vulnerables preinstaladas
-- Análisis de tráfico HTTPS
-- Reverse engineering tools
-- Dynamic analysis
-```
-
-#### 4. Kubernetes Security Cluster
-```yaml
-Descripción: Seguridad en contenedores
-Dificultad: Avanzado
-Tiempo: 5 horas
-Puerto: 6443
-
-Vulnerabilidades:
-- Privileged containers
-- RBAC misconfigurations
-- Network policy bypass
-- Pod escape scenarios
-```
-
-#### 5. IoT/OT Simulation Environment
-```yaml
-Descripción: Dispositivos industriales
-Dificultad: Experto
-Tiempo: 6 horas
-Puerto: 8502
-
-Protocolos:
-- Modbus TCP/RTU
-- DNP3
-- BACnet
-- MQTT
-- CoAP
-```
-
-### Gestión de Laboratorios
-
-#### Controles Disponibles
-- **▶️ Iniciar**: Activar laboratorio
-- **⏹️ Detener**: Parar laboratorio
-- **🔄 Reiniciar**: Reset completo
-- **📊 Monitorear**: Ver métricas
-- **📝 Logs**: Acceso a logs del lab
-
-#### Estados del Laboratorio
-- **🟢 Running**: Activo y accesible
-- **🔴 Stopped**: Detenido
-- **🟡 Starting**: Iniciándose
-- **🔵 Error**: Error en ejecución
-
-## 📊 Historial - Tracking de Actividades
-
-### Vista de Ejecuciones
-El historial muestra todas las ejecuciones con:
-- **Timestamp**: Fecha y hora exacta
-- **Script**: Herramienta ejecutada
-- **Módulo**: Categoría del script
-- **Parámetros**: Configuración utilizada
-- **Estado**: Success, Warning, Error
-- **Tiempo**: Duración de ejecución
-- **Output**: Resultado de la ejecución
-
-### Filtros y Búsqueda
+#### 🔍 OSINT Tools (18+ scripts)
+Intelligence gathering and analysis:
 ```bash
-# Filtros disponibles
-- Por módulo (Red, Blue, Purple, etc.)
-- Por estado (Success, Warning, Error)
-- Por rango de fechas
-- Por script específico
-- Búsqueda por texto libre
+# Multi-source intelligence
+python3 scripts/osint/multi_vector_osint.py --target example.com
+
+# IoT device mapping
+python3 scripts/osint/iot_security_mapper.py --network 192.168.1.0/24
+
+# Repository scanning
+python3 scripts/osint/github_repo_leak_detector.py --org mycompany
 ```
 
-### Exportación de Datos
-- **JSON**: Para análisis programático
-- **CSV**: Para análisis en Excel
-- **PDF**: Reportes formales
-- **HTML**: Reportes visuales
+## 🧪 Lab Environments
 
-## 📚 Estudiar - Sistema Educativo
+### Available Labs
 
-### Cursos Disponibles
-
-#### 1. Seguridad en Aplicaciones Web (3h)
-```
-Módulos:
-- OWASP Top 10 2023
-- Técnicas de bypass WAF
-- Secure coding practices
-- Testing automatizado
-
-Evaluación:
-- Quizzes interactivos
-- Labs prácticos
-- CTF challenges
-```
-
-#### 2. Penetration Testing de Redes (4h)
-```
-Contenido:
-- Metodología OWASP Testing Guide
-- Técnicas de enumeración avanzada
-- Post-explotación
-- Reporting profesional
-
-Herramientas:
-- Nmap scripting
-- Metasploit avanzado
-- Custom payload creation
-```
-
-#### 3. Análisis de Malware Avanzado (5h)
-```
-Técnicas:
-- Static analysis deep dive
-- Dynamic analysis sandbox
-- Reverse engineering
-- IOC extraction
-- Threat intelligence
-
-Labs:
-- Real malware samples (seguro)
-- Analysis workflows
-- Reporting techniques
-```
-
-### Sistema de Progreso
-- **Progress tracking**: % de completitud
-- **Badges y logros**: Gamificación
-- **Certificados**: Al completar cursos
-- **Leaderboard**: Competencia sana
-
-## 🔧 Configuración Avanzada
-
-### Personalización de Scripts
-
-#### Crear Scripts Personalizados
-```yaml
-# scripts/custom/mi_script.yaml
-name: "mi_herramienta_custom"
-description: "Mi herramienta personalizada"
-category: "custom"
-author: "mi_usuario"
-version: "1.0"
-parameters:
-  target:
-    type: "string"
-    required: true
-    description: "Objetivo del análisis"
-  depth:
-    type: "select" 
-    options: ["shallow", "deep", "comprehensive"]
-    default: "deep"
-```
-
-#### Integración de APIs Externas
+#### Web Application Security Lab
 ```bash
-# Variables de entorno para APIs
-SHODAN_API_KEY=tu_key_aqui
-VIRUSTOTAL_API_KEY=tu_key_aqui
-HIBP_API_KEY=tu_key_aqui
+# Start lab
+docker-compose --profile labs up web-security-lab -d
 
-# Uso en scripts
-export SHODAN_API_KEY
-python3 scripts/osint/iot_security_mapper.py --api-key $SHODAN_API_KEY
+# Access: http://localhost:8080
+# Focus: OWASP Top 10, web vulnerabilities
+# Time: ~4 hours
 ```
 
-### Configuración de Alertas
-```json
-{
-  "alerts": {
-    "email": {
-      "enabled": true,
-      "smtp_server": "smtp.gmail.com",
-      "smtp_port": 587,
-      "recipients": ["admin@empresa.com"]
-    },
-    "webhook": {
-      "enabled": true,
-      "url": "https://hooks.slack.com/services/...",
-      "format": "slack"
-    },
-    "thresholds": {
-      "high_risk_detection": true,
-      "failed_executions": 3,
-      "unusual_activity": true
-    }
-  }
-}
-```
-
-## 📈 Monitoreo y Métricas
-
-### Dashboard Analytics
-- **Gráficos en tiempo real**: Uso por módulo
-- **Heatmaps**: Actividad por horario
-- **Trends**: Tendencias de uso semanal/mensual
-- **Performance**: Métricas de rendimiento
-
-### Logs Avanzados
+#### Corporate Network Lab
 ```bash
-# Ubicación de logs
-/var/log/bofa/
-├── app.log                 # Logs de aplicación
-├── scripts/                # Logs por script
-│   ├── red_team.log
-│   ├── blue_team.log
-│   └── purple_team.log
-├── labs/                   # Logs de laboratorios
-└── security.log           # Eventos de seguridad
+# Start lab
+docker-compose --profile labs up network-lab -d
+
+# Access: SSH to localhost:2222
+# Focus: Network penetration testing
+# Time: ~3 hours
 ```
 
-### Integración SIEM
-```python
-# Ejemplo de envío a SIEM
-def send_to_siem(event_data):
-    siem_payload = {
-        "timestamp": event_data["timestamp"],
-        "source": "BOFA",
-        "event_type": event_data["type"],
-        "severity": event_data["severity"],
-        "details": event_data["details"]
-    }
-    
-    requests.post(
-        "https://your-siem.com/api/events",
-        json=siem_payload,
-        headers={"Authorization": f"Bearer {SIEM_TOKEN}"}
-    )
-```
-
-## 🚨 Mejores Prácticas de Uso
-
-### Seguridad Operacional
-1. **Solo en entornos autorizados**
-2. **Documentar todas las ejecuciones**
-3. **Revisar logs regularmente** 
-4. **Mantener actualizaciones**
-5. **Backup de configuraciones**
-
-### Flujo de Trabajo Recomendado
-```
-1. Planning
-   ├── Definir objetivos
-   ├── Seleccionar herramientas
-   └── Configurar parámetros
-
-2. Execution
-   ├── Ejecutar en entorno controlado
-   ├── Monitorear resultados
-   └── Documentar hallazgos
-
-3. Analysis
-   ├── Revisar outputs
-   ├── Correlacionar datos
-   └── Generar reportes
-
-4. Follow-up
-   ├── Implementar mejoras
-   ├── Actualizar procedimientos
-   └── Compartir knowledge
-```
-
-### Tips de Rendimiento
-- **Ejecutar scripts de forma secuencial** para evitar sobrecarga
-- **Usar filtros** para optimizar búsquedas
-- **Configurar timeouts** apropiados
-- **Monitorear uso de recursos** del sistema
-- **Limpiar logs antiguos** periódicamente
-
-## 📞 Soporte y Troubleshooting
-
-### Problemas Comunes
-
-#### 1. Script No Responde
+#### Android Security Lab
 ```bash
-# Verificar proceso
-ps aux | grep python
-ps aux | grep node
+# Start lab
+docker-compose --profile labs up android-lab -d
 
-# Revisar logs
-tail -f /var/log/bofa/app.log
+# Access: http://localhost:6080 (noVNC)
+# Focus: Mobile application security
+# Time: ~2.5 hours
+```
 
-# Reiniciar servicio
+## 📊 Best Practices
+
+### Before Testing
+1. **Get Authorization**: Only test systems you own or have permission for
+2. **Read Documentation**: Understand tool capabilities and limitations
+3. **Plan Approach**: Define objectives and methodology
+4. **Prepare Environment**: Set up proper testing infrastructure
+
+### During Testing
+1. **Document Everything**: Keep detailed notes of findings
+2. **Use Methodology**: Follow structured testing approaches
+3. **Stay Legal**: Respect boundaries and permissions
+4. **Monitor Impact**: Ensure testing doesn't cause damage
+
+### After Testing
+1. **Generate Reports**: Document findings and recommendations
+2. **Clean Up**: Remove test artifacts and restore systems
+3. **Share Knowledge**: Contribute back to the community
+4. **Continue Learning**: Practice new techniques and tools
+
+## 🔐 Security Considerations
+
+### Data Protection
+- **Encrypt Sensitive Data**: Protect credentials and findings
+- **Secure Communications**: Use encrypted channels when possible
+- **Access Control**: Implement proper user permissions
+- **Audit Logging**: Track all security activities
+
+### Ethical Guidelines
+- **Responsible Disclosure**: Report vulnerabilities ethically
+- **Minimize Impact**: Avoid disrupting production systems
+- **Respect Privacy**: Protect personal and confidential information
+- **Follow Laws**: Comply with local and international regulations
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+#### Web Interface Problems
+```bash
+# Check service status
+docker-compose ps
+
+# View logs
+docker-compose logs frontend api
+
+# Restart services
 docker-compose restart
 ```
 
-#### 2. Laboratorio No Inicia
+#### CLI Script Issues
 ```bash
-# Verificar puertos
-netstat -tulpn | grep :8080
+# Fix permissions
+chmod +x scripts/category/script.py
 
-# Revisar contenedores
-docker ps -a
-docker logs lab_container_name
+# Install dependencies
+pip install -r requirements.txt
 
-# Limpiar y reiniciar
-docker-compose down
-docker system prune
-docker-compose up -d
+# Check Python path
+export PYTHONPATH="/path/to/BOFA:$PYTHONPATH"
 ```
 
-#### 3. Performance Lento
+#### Lab Environment Issues
 ```bash
-# Verificar recursos
-htop
-df -h
+# Check lab status
+docker-compose --profile labs ps
+
+# View lab logs
+docker-compose --profile labs logs lab-name
+
+# Clean and restart
+docker-compose --profile labs down && docker-compose --profile labs up -d
+```
+
+### Performance Optimization
+```bash
+# Clean Docker resources
+docker system prune -f
+
+# Monitor resource usage
 docker stats
 
-# Optimizar
-docker system prune -a
-npm run build --prod
+# Optimize script parameters
+python3 scripts/recon/web_discover.py --threads 10 --timeout 30
 ```
 
-### Contacto de Soporte
-- **Discord**: [Comunidad BOFA](https://discord.gg/bofa)
+## 📈 Advanced Usage
+
+### Automation Scripts
+```bash
+# Batch execution
+cat > batch_scan.sh << EOF
+#!/bin/bash
+python3 scripts/recon/web_discover.py -d example.com
+python3 scripts/red/ghost_scanner.py -t 192.168.1.0/24
+python3 scripts/blue/ai_threat_hunter.py --log-file results.log
+EOF
+
+chmod +x batch_scan.sh
+./batch_scan.sh
+```
+
+### Report Generation
+```bash
+# HTML reports
+python3 scripts/blue/ai_threat_hunter.py --report-format html > report.html
+
+# JSON output for automation
+python3 scripts/osint/multi_vector_osint.py --output json > data.json
+
+# PDF reports (when supported)
+python3 scripts/red/ghost_scanner.py --report-format pdf
+```
+
+### Integration with Other Tools
+```bash
+# Export to SIEM
+python3 scripts/blue/log_guardian.py --output syslog --destination 192.168.1.100
+
+# Import threat intelligence
+python3 scripts/blue/real_time_threat_correlator.py --import-iocs threats.json
+
+# API integration
+curl -X POST http://localhost:8000/execute \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"module":"red","script":"ghost_scanner","parameters":{"target":"192.168.1.0/24"}}'
+```
+
+## 🎓 Learning Resources
+
+### Beginner Path
+1. Start with Web Interface to explore tools
+2. Try basic OSINT and reconnaissance tools
+3. Practice with Web Security Lab
+4. Learn defensive techniques with Blue Team tools
+
+### Intermediate Path  
+1. Master CLI interface and automation
+2. Explore Purple Team coordination tools
+3. Practice with multiple lab environments
+4. Develop custom scripts and modifications
+
+### Advanced Path
+1. Contribute new tools and techniques
+2. Research cutting-edge security methods
+3. Integrate with enterprise security tools
+4. Mentor others in the community
+
+## 📞 Getting Help
+
+### Documentation
+- **Installation Guide**: [INSTALLATION.md](INSTALLATION.md)
+- **API Reference**: [api/README.md](../api/README.md)
+- **CLI Reference**: [cli/README.md](../cli/README.md)
+
+### Community Support
+- **GitHub Issues**: [Report problems](https://github.com/descambiado/BOFA/issues)
+- **Discord**: [Join community](https://discord.gg/bofa-security)  
 - **Email**: david@descambiado.com
-- **GitHub Issues**: [Reportar problemas](https://github.com/descambiado/BOFA/issues)
-- **Documentación**: [docs.bofa.dev](https://docs.bofa.dev)
+
+### Professional Services
+- **Training**: Corporate cybersecurity programs
+- **Consulting**: Security assessments and implementation
+- **Custom Development**: Tailored solutions
 
 ---
 
-¡Ahora estás listo para aprovechar al máximo BOFA v2.5.0! 🚀
+**Master cybersecurity with BOFA! 🛡️**
 
-Recuerda siempre usar las herramientas de forma ética y responsable.
+Continue exploring, learning, and securing the digital world responsibly.

@@ -2,8 +2,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ScriptConfig, ExecutionHistory } from '@/types/script';
 import { scriptConfigs, getScriptsByCategory, getAllScripts } from '@/utils/scriptLoader';
+import { APP_CONFIG } from '@/config/app';
+import { toast } from 'sonner';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = APP_CONFIG.api.baseUrl;
+
+// Authentication state
+let currentToken: string | null = null;
+let currentUser: any = null;
+
+// Get auth headers
+const getAuthHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(currentToken && { 'Authorization': `Bearer ${currentToken}` })
+});
 
 // Types
 export interface Module {
@@ -240,6 +252,128 @@ const mockStudyLessons: StudyLesson[] = [
   }
 ];
 
+// Database simulada para autenticación funcional
+const mockUsers = [
+  {
+    id: 1,
+    username: 'admin',
+    password: 'admin123', // En producción sería hasheada
+    role: 'admin',
+    fullName: 'Administrador BOFA',
+    email: 'admin@bofa.local',
+    permissions: ['all']
+  },
+  {
+    id: 2,
+    username: 'redteam',
+    password: 'red123',
+    role: 'red_team',
+    fullName: 'Red Team Operator',
+    email: 'red@bofa.local',
+    permissions: ['execute_red', 'view_history', 'manage_labs']
+  },
+  {
+    id: 3,
+    username: 'blueteam',
+    password: 'blue123',
+    role: 'blue_team',
+    fullName: 'Blue Team Analyst',
+    email: 'blue@bofa.local',
+    permissions: ['execute_blue', 'view_history', 'view_reports']
+  }
+];
+
+// JWT mock para funcionamiento real
+const generateMockJWT = (user: any) => {
+  const header = btoa(JSON.stringify({ typ: 'JWT', alg: 'HS256' }));
+  const payload = btoa(JSON.stringify({ 
+    sub: user.id,
+    username: user.username,
+    role: user.role,
+    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 horas
+  }));
+  const signature = btoa(`mock_signature_${user.id}`);
+  return `${header}.${payload}.${signature}`;
+};
+
+// Authentication service - Completamente funcional
+export const authService = {
+  login: async (username: string, password: string) => {
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    // 1) Intento real contra API
+    try {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        currentToken = data.access_token;
+        currentUser = data.user;
+        localStorage.setItem('bofa_token', currentToken);
+        localStorage.setItem('bofa_user', JSON.stringify(currentUser));
+        toast.success(`¡Bienvenido/a ${currentUser.username}! (API real)`);
+        return { access_token: currentToken, token_type: 'bearer', user: currentUser };
+      }
+    } catch (e) {
+      // Continuamos a fallback
+    }
+
+    // 2) Fallback mock completamente funcional
+    try {
+      const user = mockUsers.find(u => u.username === username && u.password === password);
+      if (!user) throw new Error('Credenciales inválidas');
+
+      const access_token = generateMockJWT(user);
+      const userData = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        fullName: user.fullName,
+        email: user.email,
+        permissions: user.permissions
+      };
+
+      currentToken = access_token;
+      currentUser = userData;
+      localStorage.setItem('bofa_token', currentToken);
+      localStorage.setItem('bofa_user', JSON.stringify(currentUser));
+      toast.success(`¡Bienvenido/a ${userData.fullName}! (modo demo)`);
+      return { access_token, token_type: 'bearer', user: userData };
+    } catch (error) {
+      console.error('❌ LOGIN ERROR:', error);
+      toast.error(error instanceof Error ? error.message : 'Error de autenticación');
+      throw error;
+    }
+  },
+
+  logout: () => {
+    currentToken = null;
+    currentUser = null;
+    localStorage.removeItem('bofa_token');
+    localStorage.removeItem('bofa_user');
+    toast.info('Sesión cerrada');
+  },
+
+  getCurrentUser: () => currentUser,
+  isAuthenticated: () => !!currentToken,
+  initializeAuth: () => {
+    const token = localStorage.getItem('bofa_token');
+    const user = localStorage.getItem('bofa_user');
+    if (token && user) {
+      currentToken = token;
+      try { currentUser = JSON.parse(user); } catch { localStorage.removeItem('bofa_token'); localStorage.removeItem('bofa_user'); }
+    }
+  }
+};
+
+// Initialize auth on load
+authService.initializeAuth();
+
 // API Functions with comprehensive error handling and offline support
 export const apiService = {
   // Scripts and Modules
@@ -247,7 +381,7 @@ export const apiService = {
     try {
       const response = await fetch(`${API_BASE}/modules`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
       });
       
@@ -265,65 +399,115 @@ export const apiService = {
   },
 
   getScriptsByModule: async (module: string): Promise<ScriptConfig[]> => {
+    const normalize = (scripts: any[]): ScriptConfig[] => {
+      return scripts.map((s: any) => {
+        const paramsArray = s.parameters || [];
+        const paramMap = Array.isArray(paramsArray)
+          ? paramsArray.reduce((acc: any, p: any) => {
+              acc[p.name] = {
+                type: (p.type === 'float' ? 'number' : p.type) || 'string',
+                description: p.description || '',
+                required: !!p.required,
+                default: p.default,
+                options: p.options,
+                min: p.min,
+                max: p.max,
+                example: p.example,
+              };
+              return acc;
+            }, {})
+          : (paramsArray || {});
+        const filePath = s.file_path as string | undefined;
+        const slugFromPath = filePath ? filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : undefined;
+        return {
+          name: slugFromPath || (s.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? 'script'),
+          display_name: s.display_name || s.name,
+          description: s.description || '',
+          category: module,
+          author: s.author || 'Unknown',
+          version: s.version || '1.0',
+          last_updated: s.last_updated || new Date().toISOString().slice(0,10),
+          risk_level: s.risk_level,
+          impact_level: s.impact_level,
+          educational_value: s.educational_value,
+          tags: s.tags || [],
+          parameters: paramMap,
+        } as ScriptConfig;
+      });
+    };
+
     try {
       const response = await fetch(`${API_BASE}/modules/${module}/scripts`, {
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const data = await response.json();
       console.log(`✅ API: Scripts for ${module} loaded from server`);
-      return data;
+      return normalize(data);
     } catch (error) {
       console.warn(`⚠️ API: Using offline scripts for ${module}`);
       return getScriptsByCategory(module);
     }
   },
 
-  executeScript: async (data: {
-    module: string;
-    script: string;
-    parameters: Record<string, string>;
-  }): Promise<ExecutionResult> => {
+  // Ejecución real con control manual (start/poll/stop)
+  startExecution: async (data: { module: string; script: string; parameters: Record<string, string>; }): Promise<{ execution_id: string }> => {
+    if (!authService.isAuthenticated()) throw new Error('Debe autenticarse para ejecutar scripts');
     try {
       const response = await fetch(`${API_BASE}/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(APP_CONFIG.api.timeout)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const result = await response.json();
-      console.log(`✅ API: Script ${data.script} executed on server`);
-      return result;
+      return { execution_id: result.execution_id };
     } catch (error) {
-      console.warn(`⚠️ API: Simulating execution of ${data.script}`);
-      
+      console.warn(`⚠️ API: Simulando inicio de ejecución de ${data.script}`);
+      return { execution_id: `mock-${Date.now()}` };
+    }
+  },
+
+  getExecutionStatus: async (execution_id: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE}/execute/${execution_id}`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(APP_CONFIG.api.timeout)
+      });
+      if (!response.ok) throw new Error('API not available');
+      return await response.json();
+    } catch (error) {
+      // Fallback: devolver finalizado con éxito
       return {
-        id: `exec-${Date.now()}`,
-        module: data.module,
-        script: data.script,
-        parameters: data.parameters,
-        timestamp: new Date().toISOString(),
-        status: Math.random() > 0.8 ? 'warning' : 'success',
-        execution_time: `${(Math.random() * 15 + 2).toFixed(1)}s`,
-        output: `Script ${data.script} ejecutado correctamente con parámetros: ${JSON.stringify(data.parameters)}`
+        id: execution_id,
+        status: 'success',
+        output: 'Ejecución completada (simulada)'
       };
     }
   },
 
-  // History
+  stopExecution: async (execution_id: string): Promise<void> => {
+    try {
+      await fetch(`${API_BASE}/execute/${execution_id}/stop`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(5000)
+      });
+    } catch (error) {
+      // ignore
+    }
+  },
+
+  // Historial
   getExecutionHistory: async (): Promise<ExecutionResult[]> => {
     try {
       const response = await fetch(`${API_BASE}/history`, {
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const data = await response.json();
       console.log('✅ API: History loaded from server');
       return data;
@@ -337,11 +521,10 @@ export const apiService = {
   getLabs: async (): Promise<Lab[]> => {
     try {
       const response = await fetch(`${API_BASE}/labs`, {
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const data = await response.json();
       console.log('✅ API: Labs loaded from server');
       return data;
@@ -355,20 +538,16 @@ export const apiService = {
     try {
       const response = await fetch(`${API_BASE}/labs/${labId}/start`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(10000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const result = await response.json();
       console.log(`✅ API: Lab ${labId} started on server`);
       return result;
     } catch (error) {
       console.warn(`⚠️ API: Simulating lab ${labId} start`);
-      return {
-        status: 'success',
-        message: `Lab ${labId} iniciado exitosamente (simulado)`
-      };
+      return { status: 'success', message: `Lab ${labId} iniciado exitosamente (simulado)` };
     }
   },
 
@@ -376,20 +555,16 @@ export const apiService = {
     try {
       const response = await fetch(`${API_BASE}/labs/${labId}/stop`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(10000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const result = await response.json();
       console.log(`✅ API: Lab ${labId} stopped on server`);
       return result;
     } catch (error) {
       console.warn(`⚠️ API: Simulating lab ${labId} stop`);
-      return {
-        status: 'success',
-        message: `Lab ${labId} detenido exitosamente (simulado)`
-      };
+      return { status: 'success', message: `Lab ${labId} detenido exitosamente (simulado)` };
     }
   },
 
@@ -397,11 +572,10 @@ export const apiService = {
   getStudyLessons: async (): Promise<StudyLesson[]> => {
     try {
       const response = await fetch(`${API_BASE}/study/lessons`, {
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const data = await response.json();
       console.log('✅ API: Study lessons loaded from server');
       return data;
@@ -415,28 +589,25 @@ export const apiService = {
     try {
       const response = await fetch(`${API_BASE}/study/lessons/${lessonId}/progress`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...getAuthHeaders() },
         body: JSON.stringify({ progress }),
         signal: AbortSignal.timeout(5000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       console.log(`✅ API: Progress updated for lesson ${lessonId}`);
     } catch (error) {
       console.warn(`⚠️ API: Progress update simulated for lesson ${lessonId}`);
     }
   },
 
-  // Reports and Analytics
+// Reports and Analytics
   getDashboardStats: async (): Promise<Record<string, any>> => {
     try {
       const response = await fetch(`${API_BASE}/dashboard/stats`, {
+        headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
       });
-      
       if (!response.ok) throw new Error('API not available');
-      
       const data = await response.json();
       console.log('✅ API: Dashboard stats loaded from server');
       return data;
@@ -451,6 +622,42 @@ export const apiService = {
         last_scan: new Date().toISOString()
       };
     }
+  },
+
+  // Scripts Library
+  getScriptCatalog: async (): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/scripts/catalog`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!response.ok) throw new Error('API not available');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      // Fallback: build minimal catalog from local YAML loader (sin código)
+      const scripts = getAllScripts();
+      return scripts.map(s => ({
+        id: s.name,
+        name: s.display_name || s.name,
+        description: s.description,
+        category: s.category,
+        author: s.author,
+        version: s.version,
+        last_updated: s.last_updated,
+        usage: s.usage_examples?.[0],
+        has_code: false
+      }));
+    }
+  },
+
+  getScriptCode: async (moduleId: string, scriptName: string): Promise<{ filename: string; language: string; content: string; lines: number; size: number; } > => {
+    const response = await fetch(`${API_BASE}/scripts/${moduleId}/${scriptName}/code`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener el código del script');
+    return await response.json();
   }
 };
 

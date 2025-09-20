@@ -1,375 +1,229 @@
+# 📦 BOFA v2.5.1 Installation Guide
 
-# 📦 Guía de Instalación BOFA v2.5.0
+Complete installation guide for BOFA Extended Systems v2.5.1 - Professional Cybersecurity Platform
 
-Esta guía te llevará paso a paso a través del proceso de instalación de BOFA Extended Systems v2.5.0.
+## 🔧 Prerequisites
 
-## 📋 Prerrequisitos
-
-### Sistema Operativo
+### Operating Systems
 - **Linux**: Ubuntu 20.04+, Debian 11+, CentOS 8+, Arch Linux
-- **macOS**: 10.15+ (Catalina o superior)
-- **Windows**: 10/11 con WSL2 (recomendado) o nativo
+- **macOS**: macOS 11.0+ (Big Sur or later)
+- **Windows**: Windows 10/11 with WSL2 (recommended) or native Windows
 
-### Software Requerido
-- **Docker**: 20.10+ y Docker Compose 2.0+
-- **Node.js**: 18.0+ con npm 8+
-- **Python**: 3.8+ con pip
-- **Git**: 2.30+
+### Required Software
+- **Docker**: Version 20.10+ and Docker Compose v2.0+
+- **Node.js**: Version 18.0+ (for web interface)
+- **Python**: Version 3.8+ (for CLI tools)
+- **Git**: Latest version for repository cloning
 
-### Hardware Mínimo
-- **RAM**: 4GB (8GB recomendado)
-- **Almacenamiento**: 10GB libres
-- **Procesador**: x64 compatible
-- **Red**: Conexión a internet para dependencias
+### Minimum Hardware
+- **RAM**: 4GB (8GB recommended for labs)
+- **Storage**: 10GB free space (20GB for full lab environments)
+- **Processor**: x64 architecture, 2+ cores
+- **Network**: Internet connection for initial setup
 
-## 🚀 Instalación con Docker (Recomendado)
+## 🐳 Method 1: Docker Installation (Recommended)
 
-### 1. Preparar el Entorno
+### Step 1: System Preparation
 ```bash
-# Actualizar sistema (Ubuntu/Debian)
+# Update system packages
+# Ubuntu/Debian
 sudo apt update && sudo apt upgrade -y
 
-# Instalar Docker y Docker Compose
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-newgrp docker
+# CentOS/RHEL/Fedora  
+sudo dnf update -y
 
-# Verificar instalación
-docker --version
-docker-compose --version
+# macOS (with Homebrew)
+brew update && brew upgrade
 ```
 
-### 2. Clonar el Repositorio
-```bash
-# Clonar desde GitHub
-git clone https://github.com/descambiado/BOFA.git
-cd BOFA
-
-# Verificar archivos
-ls -la
-```
-
-### 3. Configurar Variables de Entorno
-```bash
-# Copiar archivo de configuración ejemplo
-cp .env.example .env
-
-# Editar configuración (nano, vim, o tu editor favorito)
-nano .env
-```
-
-### 4. Iniciar con Docker Compose
-```bash
-# Construir e iniciar todos los servicios
-docker-compose up --build -d
-
-# Verificar que todo esté funcionando
-docker-compose ps
-```
-
-### 5. Acceder a la Aplicación
-- **Interfaz Web**: http://localhost:3000
-- **API**: http://localhost:8000
-- **Documentación API**: http://localhost:8000/docs
-
-## 🛠️ Instalación Manual (Desarrollo)
-
-### 1. Preparar Dependencias del Sistema
+### Step 2: Docker Installation
 ```bash
 # Ubuntu/Debian
-sudo apt install -y python3 python3-pip nodejs npm git curl wget
+sudo apt install docker.io docker-compose-plugin -y
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
 
-# macOS (con Homebrew)
-brew install python3 node npm git
+# CentOS/RHEL/Fedora
+sudo dnf install docker docker-compose -y
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
 
-# Windows (con Chocolatey)
-choco install python3 nodejs npm git
+# macOS - Install Docker Desktop
+# Download from: https://docs.docker.com/desktop/mac/install/
+
+# Windows - Install Docker Desktop with WSL2
+# Download from: https://docs.docker.com/desktop/windows/install/
 ```
 
-### 2. Configurar Frontend
+### Step 3: Clone and Deploy BOFA
 ```bash
-# Instalar dependencias de Node.js
-npm install
+# Clone the repository
+git clone https://github.com/descambiado/BOFA
+cd BOFA
 
-# Construir para producción (opcional)
-npm run build
+# Create environment file (optional)
+cp .env.template .env
+# Edit .env with your preferred settings
 
-# Iniciar servidor de desarrollo
-npm run dev
-```
-
-### 3. Configurar Backend (Opcional)
-```bash
-# Crear entorno virtual de Python
-python3 -m venv venv
-source venv/bin/activate  # Linux/macOS
-# venv\Scripts\activate   # Windows
-
-# Instalar dependencias de Python
-pip install -r requirements.txt
-
-# Iniciar API backend (si está disponible)
-python -m uvicorn api.main:app --reload
-```
-
-## 🔧 Configuración Avanzada
-
-### Variables de Entorno (.env)
-```bash
-# Configuración de la aplicación
-VITE_APP_NAME=BOFA
-VITE_APP_VERSION=2.5.0
-VITE_API_URL=http://localhost:8000
-
-# Base de datos (PostgreSQL)
-DATABASE_URL=postgresql://bofa:bofa123@localhost:5432/bofa_db
-
-# APIs Externas (opcional)
-SHODAN_API_KEY=tu_clave_shodan_aqui
-VIRUSTOTAL_API_KEY=tu_clave_virustotal_aqui
-HIBP_API_KEY=tu_clave_hibp_aqui
-
-# Seguridad
-JWT_SECRET=tu_jwt_secret_muy_seguro_aqui
-ENCRYPTION_KEY=tu_clave_cifrado_32_caracteres
-
-# Configuración de logs
-LOG_LEVEL=INFO
-LOG_FILE=/var/log/bofa/app.log
-
-# Docker específico
-COMPOSE_PROJECT_NAME=bofa
-COMPOSE_HTTP_TIMEOUT=300
-```
-
-### Configuración de Puertos
-```yaml
-# docker-compose.yml - Puertos personalizados
-services:
-  frontend:
-    ports:
-      - "3000:3000"  # Cambiar puerto si es necesario
-  
-  api:
-    ports:
-      - "8000:8000"  # Puerto de la API
-  
-  database:
-    ports:
-      - "5432:5432"  # PostgreSQL
-```
-
-## 🧪 Configuración de Laboratorios
-
-### 1. Laboratorios Docker
-```bash
-# Iniciar laboratorio específico
-docker-compose -f labs/web-security/docker-compose.yml up -d
-
-# Ver laboratorios disponibles
-ls labs/
-```
-
-### 2. Configuración de Red para Labs
-```bash
-# Crear red dedicada para laboratorios
-docker network create bofa-labs
-
-# Configurar rango de IPs
-docker network create --driver bridge \
-  --subnet=172.20.0.0/16 \
-  --ip-range=172.20.240.0/20 \
-  bofa-labs
-```
-
-## 🔐 Configuración de Seguridad
-
-### 1. Certificados SSL (Producción)
-```bash
-# Instalar Let's Encrypt
-sudo apt install certbot
-
-# Generar certificados
-sudo certbot certonly --standalone -d tu-dominio.com
-
-# Configurar renovación automática
-echo "0 3 * * * certbot renew --quiet" | sudo crontab -
-```
-
-### 2. Firewall y Seguridad
-```bash
-# Configurar UFW (Ubuntu)
-sudo ufw enable
-sudo ufw allow 22/tcp    # SSH
-sudo ufw allow 80/tcp    # HTTP
-sudo ufw allow 443/tcp   # HTTPS
-sudo ufw allow 3000/tcp  # BOFA Frontend
-sudo ufw allow 8000/tcp  # BOFA API
-
-# Solo permitir conexiones locales para desarrollo
-sudo ufw allow from 127.0.0.1 to any port 3000
-sudo ufw allow from 127.0.0.1 to any port 8000
-```
-
-## 📊 Configuración de Monitoreo
-
-### 1. Logs Centralizados
-```bash
-# Crear directorio de logs
-sudo mkdir -p /var/log/bofa
-sudo chown $USER:$USER /var/log/bofa
-
-# Configurar rotación de logs
-sudo nano /etc/logrotate.d/bofa
-```
-
-### 2. Contenido de logrotate.d/bofa
-```
-/var/log/bofa/*.log {
-    daily
-    missingok
-    rotate 52
-    compress
-    delaycompress
-    notifempty
-    create 644 bofa bofa
-    postrotate
-        systemctl reload bofa || true
-    endscript
-}
-```
-
-## 🔄 Actualizaciones y Mantenimiento
-
-### 1. Actualizar BOFA
-```bash
-# Detener servicios
-docker-compose down
-
-# Actualizar código
-git pull origin main
-
-# Reconstruir y reiniciar
+# Deploy BOFA platform (lightweight by default)
 docker-compose up --build -d
 
-# Verificar logs
-docker-compose logs -f
+# Verify deployment
+docker-compose ps
+docker-compose logs -f frontend api
 ```
 
-### 2. Backup y Restauración
-```bash
-# Backup de base de datos
-docker-compose exec postgres pg_dump -U bofa bofa_db > backup_$(date +%Y%m%d).sql
+### Step 4: Access the Platform
+- **Web Interface**: http://localhost:3000
+- **API Documentation**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
 
-# Backup de configuración
-tar -czf bofa_config_$(date +%Y%m%d).tar.gz .env docker-compose.yml
+### Default Credentials
+```
+Username: admin
+Password: admin123
 
-# Restaurar base de datos
-docker-compose exec -T postgres psql -U bofa bofa_db < backup_20250120.sql
+Username: redteam  
+Password: red123
+
+Username: blueteam
+Password: blue123
 ```
 
-## 🐛 Solución de Problemas Comunes
+## 💻 Method 2: Local Development Installation
 
-### 1. Error de Puertos Ocupados
+### Step 1: Install Dependencies
 ```bash
-# Verificar qué está usando el puerto
-sudo lsof -i :3000
-sudo lsof -i :8000
+# Node.js (via NodeSource - Ubuntu/Debian)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
 
-# Cambiar puertos en docker-compose.yml
-nano docker-compose.yml
+# Python 3.8+ (Ubuntu/Debian)
+sudo apt install python3 python3-pip python3-venv -y
+
+# macOS
+brew install node python3
+
+# Windows (use Chocolatey or manual installation)
+# Node.js: https://nodejs.org/en/download/
+# Python: https://python.org/downloads/
 ```
 
-### 2. Problemas de Permisos Docker
+### Step 2: Setup Frontend
 ```bash
-# Agregar usuario al grupo docker
+# Clone repository
+git clone https://github.com/descambiado/BOFA
+cd BOFA
+
+# Install frontend dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Access web interface: http://localhost:5173
+```
+
+### Step 3: Setup CLI Tools (Optional)
+```bash
+# Create Python virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Test CLI
+python3 cli/bofa_cli.py
+# Or use the convenience script
+./bofa.sh
+```
+
+## 🧪 Optional Features
+
+### Enable Labs
+```bash
+# Start web security lab
+docker-compose --profile labs up web-security-lab -d
+
+# Start all labs
+docker-compose --profile labs up -d
+```
+
+### Enable Monitoring
+```bash
+# Start monitoring stack (Grafana + Prometheus)
+docker-compose --profile monitoring up -d
+
+# Access Grafana: http://localhost:3001 (admin/bofa123)
+```
+
+### Enable Advanced Database
+```bash
+# Use PostgreSQL instead of SQLite
+docker-compose --profile database up -d
+```
+
+## ✅ Installation Verification
+
+### Verify Web Interface
+```bash
+# Check frontend
+curl -f http://localhost:3000 || echo "Frontend not accessible"
+
+# Check API
+curl -f http://localhost:8000/health || echo "API not accessible"
+
+# Check authentication
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}' || echo "Auth not working"
+```
+
+### Verify CLI Tools
+```bash
+# Test CLI
+python3 cli/bofa_cli.py --help || echo "CLI not working"
+
+# Test script execution
+python3 scripts/blue/ai_threat_hunter.py --help || echo "Scripts not accessible"
+```
+
+## 🔧 Troubleshooting
+
+### Port Conflicts
+```bash
+# Check what's using port 3000
+sudo netstat -tulpn | grep :3000
+
+# Change ports in docker-compose.yml if needed
+```
+
+### Docker Permission Issues
+```bash
+# Add user to docker group
 sudo usermod -aG docker $USER
-newgrp docker
-
-# Reiniciar servicios Docker
-sudo systemctl restart docker
+newgrp docker  # Or logout and login again
 ```
 
-### 3. Problemas de Memoria
+### Memory Issues
 ```bash
-# Verificar uso de memoria
-free -h
-docker system df
+# Clean up Docker resources
+docker system prune -f
 
-# Limpiar contenedores no utilizados
-docker system prune -a
+# Increase Docker memory (Docker Desktop)
+# Settings > Resources > Advanced > Memory
 ```
 
-### 4. Problemas de Red
-```bash
-# Verificar conectividad de contenedores
-docker network ls
-docker network inspect bofa_default
+## 📞 Support
 
-# Reiniciar red Docker
-docker-compose down
-docker network prune
-docker-compose up -d
-```
-
-## ✅ Verificación de Instalación
-
-### 1. Lista de Comprobación
-- [ ] Docker y Docker Compose instalados
-- [ ] Repositorio clonado correctamente
-- [ ] Variables de entorno configuradas
-- [ ] Servicios iniciados correctamente
-- [ ] Frontend accesible en http://localhost:3000
-- [ ] API respondiendo en http://localhost:8000/docs
-- [ ] Base de datos conectada
-- [ ] Logs sin errores críticos
-
-### 2. Tests de Funcionalidad
-```bash
-# Verificar API
-curl http://localhost:8000/health
-
-# Verificar frontend
-curl http://localhost:3000
-
-# Verificar base de datos
-docker-compose exec postgres psql -U bofa -c "SELECT version();"
-```
-
-### 3. Scripts de Verificación
-```bash
-# Ejecutar script de prueba básico
-python3 scripts/test/basic_test.py
-
-# Verificar módulos principales
-./verify_installation.sh
-```
-
-## 📞 Soporte de Instalación
-
-Si encuentras problemas durante la instalación:
-
-1. **Consulta la documentación**: [docs.bofa.dev](https://docs.bofa.dev)
-2. **Revisa los issues**: [GitHub Issues](https://github.com/descambiado/BOFA/issues)
-3. **Únete al Discord**: [Comunidad BOFA](https://discord.gg/bofa)
-4. **Contacta al desarrollador**: david@descambiado.com
-
-## 📝 Notas Adicionales
-
-### Instalación en Producción
-- Usa certificados SSL válidos
-- Configura firewall apropiadamente
-- Implementa backup automatizado
-- Monitorea logs regularmente
-- Mantén el sistema actualizado
-
-### Instalación para Desarrollo
-- Usa modo de desarrollo (`npm run dev`)
-- Habilita hot-reload
-- Configura debugger
-- Instala herramientas de desarrollo adicionales
+For issues, consult:
+- **GitHub Issues**: [Report Problems](https://github.com/descambiado/BOFA/issues)
+- **Documentation**: [Usage Guide](USAGE.md)
+- **Email**: david@descambiado.com
 
 ---
 
-¡Felicidades! 🎉 Ahora tienes BOFA v2.5.0 completamente instalado y funcionando.
+**Installation complete! 🎉**
+
+Access your BOFA platform at http://localhost:3000
