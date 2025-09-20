@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { ScriptExecutionConsole } from "@/components/ScriptExecutionConsole";
 import { ReportExporter } from "@/components/ReportExporter";
 import { ActionButton } from "@/components/UI/ActionButton";
 import { ScriptConfig, ScriptParameter } from "@/types/script";
+import { apiService } from "@/services/api";
 
 interface ScriptExecutorProps {
   module: string;
@@ -24,6 +25,7 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
   const [parameters, setParameters] = useState<{ [key: string]: string }>({});
   const [showAlert, setShowAlert] = useState(true);
   const [executionResult, setExecutionResult] = useState<any>(null);
+  const [executionId, setExecutionId] = useState<string | null>(null);
 
   const handleParameterChange = (paramName: string, value: string) => {
     setParameters(prev => ({
@@ -32,38 +34,60 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
     }));
   };
 
-  const handleExecute = () => {
+  // Poll execution status when running
+  useEffect(() => {
+    if (!isRunning || !executionId) return;
+    const interval = setInterval(async () => {
+      try {
+        const status = await apiService.getExecutionStatus(executionId);
+        if (["success", "error", "cancelled", "completed", "finished"].includes(status.status)) {
+          setIsRunning(false);
+          setExecutionResult({
+            script: script.name,
+            module,
+            parameters,
+            output: status.output || status.error || 'Sin salida',
+            timestamp: new Date().toISOString(),
+            executionTime: status.execution_time ? `${status.execution_time}s` : undefined,
+            status: status.status,
+          });
+          setExecutionId(null);
+          if (onExecutionComplete) onExecutionComplete();
+          clearInterval(interval);
+        }
+      } catch (e) {
+        // ignore polling errors
+      }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isRunning, executionId, script.name, module, parameters, onExecutionComplete]);
+
+  const handleExecute = async () => {
     if (script.category === "red" && showAlert) {
       const confirmed = window.confirm(
         "⚠️ Esta es una herramienta ofensiva. ¿Confirmas que tienes autorización para ejecutarla en este entorno?"
       );
       if (!confirmed) return;
     }
-    
-    setIsRunning(true);
-    
-    // Simular ejecución y guardar resultado
-    setTimeout(() => {
-      const result = {
+
+    try {
+      setIsRunning(true);
+      setExecutionResult(null);
+      const { execution_id } = await apiService.startExecution({
+        module,
         script: script.name,
-        module: module,
-        parameters: parameters,
-        output: generateScriptOutput(script),
-        timestamp: new Date().toISOString(),
-        executionTime: (Math.random() * 5 + 1).toFixed(1) + "s",
-        status: "success"
-      };
-      
-      setExecutionResult(result);
+        parameters,
+      });
+      setExecutionId(execution_id);
+    } catch (e) {
       setIsRunning(false);
-      
-      if (onExecutionComplete) {
-        onExecutionComplete();
-      }
-    }, 3000);
+    }
   };
 
-  const handleStop = () => {
+  const handleStop = async () => {
+    if (executionId) {
+      try { await apiService.stopExecution(executionId); } catch {}
+    }
     setIsRunning(false);
   };
 

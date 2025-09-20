@@ -129,22 +129,44 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white p-6">
+    <div className="relative min-h-screen p-6 animate-fade-in">
       <div className="container mx-auto max-w-7xl">
         {/* Banner de Bienvenida */}
         <div className="mb-8">
-          <div className="bg-gradient-to-r from-cyan-600 to-purple-600 rounded-lg p-6 mb-6">
-            <h1 className="text-3xl font-bold text-white mb-2">
-              ¡Bienvenido a BOFA 2.5.0! 🚀
-            </h1>
-            <p className="text-cyan-100 text-lg">
-              La plataforma de ciberseguridad más avanzada con tecnologías 2025
-            </p>
-            <div className="flex flex-wrap gap-2 mt-4">
-              <Badge className="bg-white/20 text-white">AI/ML Integration</Badge>
-              <Badge className="bg-white/20 text-white">Post-Quantum Ready</Badge>
-              <Badge className="bg-white/20 text-white">Zero Trust Validation</Badge>
-              <Badge className="bg-white/20 text-white">Supply Chain Security</Badge>
+          <div className="bofa-card-dark bg-gradient-cyber rounded-xl p-8 mb-6 hover-glow border-primary/20 relative overflow-hidden">
+            {/* Animated Background Pattern */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute w-32 h-32 bg-white rounded-full -top-16 -right-16 animate-float"></div>
+              <div className="absolute w-20 h-20 bg-white rounded-full -bottom-10 -left-10 animate-bounce-slow"></div>
+            </div>
+            
+            <div className="relative z-10">
+              <h1 className="text-4xl font-bold text-white mb-3 font-cyber">
+                ¡Bienvenido a BOFA v2.5.1! 🚀
+              </h1>
+              <p className="text-white/90 text-xl mb-4">
+                La plataforma de ciberseguridad más avanzada con tecnologías 2025
+              </p>
+              <p className="text-white/70 text-sm mb-6">
+                Desarrollado por @descambiado • Neural Security Edge
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
+                  🤖 AI/ML Integration
+                </Badge>
+                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
+                  🔮 Post-Quantum Ready
+                </Badge>
+                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
+                  🛡️ Zero Trust Validation
+                </Badge>
+                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
+                  🔗 Supply Chain Security
+                </Badge>
+                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
+                  🧠 Neural Edge Computing
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
@@ -166,7 +188,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Acceso Rápido */}
           <div className="lg:col-span-2">
-            <Card className="bg-gray-800/50 border-gray-700">
+            <Card className="bofa-card-dark border-primary/20 hover-glow">
               <CardHeader>
                 <CardTitle className="text-cyan-400">🚀 Acceso Rápido</CardTitle>
                 <CardDescription>Herramientas principales de BOFA</CardDescription>
@@ -215,7 +237,7 @@ const Dashboard = () => {
           </div>
 
           {/* Actividad Reciente */}
-          <Card className="bg-gray-800/50 border-gray-700">
+          <Card className="bofa-card-dark border-primary/20 hover-glow">
             <CardHeader>
               <CardTitle className="text-cyan-400">📊 Actividad Reciente</CardTitle>
             </CardHeader>
@@ -240,23 +262,27 @@ const Dashboard = () => {
         </div>
 
         {/* Novedades 2025 */}
-        <Card className="bg-gray-800/50 border-gray-700 mb-8">
+        <Card className="bofa-card-dark border-primary/20 hover-glow mb-8">
           <CardHeader>
-            <CardTitle className="text-cyan-400">✨ Novedades 2025</CardTitle>
-            <CardDescription>Las últimas incorporaciones tecnológicas</CardDescription>
+            <CardTitle className="text-primary">✨ Novedades Neural Security Edge</CardTitle>
+            <CardDescription>Las últimas incorporaciones tecnológicas revolucionarias</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {newFeatures2025.map((feature, index) => (
-                <div key={index} className="p-4 bg-gradient-to-br from-gray-700/50 to-gray-800/50 rounded-lg border border-gray-600 hover:border-cyan-400 transition-all">
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-semibold text-white">{feature.title}</h4>
-                    <Badge className="bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-xs">
+                <div key={index} className="p-4 bofa-card-dark border-primary/10 hover-lift hover:border-primary/30 transition-all duration-300 group">
+                  <div className="flex items-start justify-between mb-3">
+                    <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {feature.title}
+                    </h4>
+                    <Badge className="bg-gradient-cyber text-white text-xs animate-pulse">
                       NUEVO
                     </Badge>
                   </div>
-                  <p className="text-sm text-gray-300 mb-3">{feature.description}</p>
-                  <Badge variant="outline" className="text-xs border-gray-500 text-gray-400">
+                  <p className="text-sm text-muted-foreground mb-3 group-hover:text-foreground transition-colors">
+                    {feature.description}
+                  </p>
+                  <Badge variant="outline" className="text-xs border-primary/30 text-primary">
                     {feature.category}
                   </Badge>
                 </div>
@@ -266,20 +292,31 @@ const Dashboard = () => {
         </Card>
 
         {/* Footer del Dashboard */}
-        <Card className="bg-gray-800/50 border-gray-700">
+        <Card className="bofa-card-dark border-primary/20 hover-glow">
           <CardContent className="p-6 text-center">
             <div className="flex items-center justify-center space-x-2 mb-4">
-              <Zap className="w-5 h-5 text-cyan-400" />
-              <span className="text-cyan-400 font-semibold">BOFA Extended Systems v2.5.0</span>
+              <Zap className="w-6 h-6 text-primary animate-glow" />
+              <span className="text-primary font-bold text-lg">BOFA Neural Security Edge v2.5.1</span>
             </div>
-            <p className="text-gray-400 text-sm">
-              Desarrollado por @descambiado • Plataforma integral de ciberseguridad con tecnologías 2025
+            <p className="text-muted-foreground text-sm mb-4">
+              Desarrollado por @descambiado • La plataforma de ciberseguridad más avanzada del universo
             </p>
-            <div className="flex justify-center space-x-4 mt-4 text-xs text-gray-500">
-              <span>🤖 AI/ML Ready</span>
-              <span>🔮 Post-Quantum</span>
-              <span>☁️ Cloud Native</span>
-              <span>🛡️ Zero Trust</span>
+            <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                🤖 <span className="text-primary">AI/ML Ready</span>
+              </span>
+              <span className="flex items-center gap-1">
+                🔮 <span className="text-secondary">Post-Quantum</span>
+              </span>
+              <span className="flex items-center gap-1">
+                ☁️ <span className="text-accent">Cloud Native</span>
+              </span>
+              <span className="flex items-center gap-1">
+                🛡️ <span className="text-success">Zero Trust</span>
+              </span>
+              <span className="flex items-center gap-1">
+                🧠 <span className="text-warning">Neural Edge</span>
+              </span>
             </div>
           </CardContent>
         </Card>

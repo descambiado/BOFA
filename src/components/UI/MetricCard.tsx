@@ -13,22 +13,24 @@ interface MetricCardProps {
 
 export const MetricCard = ({ title, value, change, trend, icon }: MetricCardProps) => {
   return (
-    <Card className="bg-gray-800/50 border-gray-700">
+    <Card className="bofa-card-dark border-primary/20 hover-glow hover-lift group">
       <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-cyan-400">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-primary group-hover:scale-110 transition-transform duration-200">
             {icon}
           </div>
-          <div className={`flex items-center space-x-1 text-sm ${
-            trend === 'up' ? 'text-green-400' : 'text-red-400'
+          <div className={`flex items-center space-x-1 text-sm font-semibold ${
+            trend === 'up' ? 'text-success' : 'text-destructive'
           }`}>
             {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             <span>{change}</span>
           </div>
         </div>
-        <div className="space-y-1">
-          <h3 className="text-2xl font-bold text-white">{value}</h3>
-          <p className="text-gray-400 text-sm">{title}</p>
+        <div className="space-y-2">
+          <h3 className="text-3xl font-bold text-foreground group-hover:text-primary transition-colors duration-200">
+            {value}
+          </h3>
+          <p className="text-muted-foreground text-sm font-medium">{title}</p>
         </div>
       </CardContent>
     </Card>

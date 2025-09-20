@@ -6,89 +6,135 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* BOFA 2025 Design System - @descambiado */
+    
+    /* Light Theme Colors */
+    --background: 220 15% 98%;
+    --foreground: 220 15% 10%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 220 15% 100%;
+    --card-foreground: 220 15% 10%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 15% 100%;
+    --popover-foreground: 220 15% 10%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 188 95% 52%;        /* Cyan Primary */
+    --primary-foreground: 220 15% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 271 81% 56%;      /* Purple Secondary */
+    --secondary-foreground: 220 15% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 13% 91%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 142 76% 36%;         /* Green Accent */
+    --accent-foreground: 220 15% 98%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 188 95% 52%;
 
-    --radius: 0.5rem;
+    --warning: 48 96% 53%;         /* Yellow Warning */
+    --warning-foreground: 220 15% 10%;
 
-    --sidebar-background: 0 0% 98%;
+    --success: 142 76% 36%;        /* Green Success */
+    --success-foreground: 220 15% 98%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --info: 217 91% 60%;           /* Blue Info */
+    --info-foreground: 220 15% 98%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Custom BOFA Colors */
+    --bofa-cyber: 188 95% 52%;     /* Cyber Blue */
+    --bofa-hack: 142 76% 36%;      /* Hacker Green */
+    --bofa-danger: 0 84% 60%;      /* Danger Red */
+    --bofa-gold: 43 96% 56%;       /* Gold */
+    --bofa-purple: 271 81% 56%;    /* Purple */
+    --bofa-dark: 220 27% 8%;       /* Dark Background */
+    --bofa-darker: 220 39% 5%;     /* Darker Background */
+    
+    /* Gradients */
+    --gradient-cyber: linear-gradient(135deg, 188 95% 52%, 271 81% 56%);
+    --gradient-hack: linear-gradient(135deg, 142 76% 36%, 188 95% 52%);
+    --gradient-danger: linear-gradient(135deg, 0 84% 60%, 271 81% 56%);
+    --gradient-dark: linear-gradient(135deg, 220 27% 8%, 220 39% 5%);
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    /* Shadows */
+    --shadow-cyber: 0 10px 30px -5px hsla(188, 95%, 52%, 0.3);
+    --shadow-hack: 0 10px 30px -5px hsla(142, 76%, 36%, 0.3);
+    --shadow-dark: 0 20px 50px -10px hsla(220, 39%, 5%, 0.8);
+    --shadow-glow: 0 0 40px hsla(188, 95%, 52%, 0.4);
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --radius: 0.75rem;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
+    --sidebar-background: 220 15% 98%;
+    --sidebar-foreground: 220 15% 15%;
+    --sidebar-primary: 188 95% 52%;
+    --sidebar-primary-foreground: 220 15% 98%;
+    --sidebar-accent: 220 13% 95%;
+    --sidebar-accent-foreground: 220 15% 15%;
     --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 188 95% 52%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark Theme - BOFA Professional */
+    --background: 220 27% 8%;      /* Deep Dark */
+    --foreground: 220 15% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 220 20% 10%;           /* Card Dark */
+    --card-foreground: 220 15% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 220 20% 10%;
+    --popover-foreground: 220 15% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 188 95% 52%;        /* Cyber Blue */
+    --primary-foreground: 220 27% 8%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 271 81% 56%;      /* Purple */
+    --secondary-foreground: 220 15% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 220 20% 15%;
+    --muted-foreground: 220 15% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 142 76% 36%;         /* Green */
+    --accent-foreground: 220 15% 95%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 220 15% 95%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 220 20% 15%;
+    --input: 220 20% 15%;
+    --ring: 188 95% 52%;
+
+    --warning: 48 96% 53%;
+    --warning-foreground: 220 27% 8%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 220 15% 95%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 220 15% 95%;
+
+    /* Dark Custom Colors Enhanced */
+    --bofa-cyber: 188 95% 60%;     /* Brighter in dark */
+    --bofa-hack: 142 76% 45%;      /* Brighter green */
+    --bofa-danger: 0 84% 65%;      /* Brighter red */
+    --bofa-gold: 43 96% 60%;       /* Brighter gold */
+    --bofa-purple: 271 81% 65%;    /* Brighter purple */
+    --bofa-dark: 220 39% 5%;       /* Darker background */
+    --bofa-darker: 220 50% 3%;     /* Even darker */
+
+    --sidebar-background: 220 27% 8%;
+    --sidebar-foreground: 220 15% 95%;
+    --sidebar-primary: 188 95% 52%;
+    --sidebar-primary-foreground: 220 27% 8%;
+    --sidebar-accent: 220 20% 12%;
+    --sidebar-accent-foreground: 220 15% 95%;
+    --sidebar-border: 220 20% 15%;
+    --sidebar-ring: 188 95% 52%;
   }
 }
 
@@ -99,5 +145,233 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/80;
+  }
+}
+
+@layer components {
+  /* BOFA Design System Components */
+  
+  .bofa-card {
+    @apply bg-card border border-border rounded-lg shadow-sm;
+  }
+
+  .bofa-card-dark {
+    @apply bg-card/50 border border-border/50 backdrop-blur-sm;
+  }
+
+  .bofa-button-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+    @apply transition-all duration-200 transform hover:scale-105;
+    @apply shadow-md hover:shadow-lg;
+  }
+
+  .bofa-button-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/90;
+    @apply transition-all duration-200 transform hover:scale-105;
+  }
+
+  .bofa-button-success {
+    @apply bg-success text-success-foreground hover:bg-success/90;
+    @apply transition-all duration-200 transform hover:scale-105;
+  }
+
+  .bofa-button-danger {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+    @apply transition-all duration-200 transform hover:scale-105;
+  }
+
+  .bofa-gradient-cyber {
+    background: linear-gradient(135deg, hsl(var(--bofa-cyber)), hsl(var(--bofa-purple)));
+  }
+
+  .bofa-gradient-hack {
+    background: linear-gradient(135deg, hsl(var(--bofa-hack)), hsl(var(--bofa-cyber)));
+  }
+
+  .bofa-gradient-danger {
+    background: linear-gradient(135deg, hsl(var(--bofa-danger)), hsl(var(--bofa-purple)));
+  }
+
+  .bofa-gradient-dark {
+    background: linear-gradient(135deg, hsl(var(--bofa-dark)), hsl(var(--bofa-darker)));
+  }
+
+  .bofa-glow {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+
+  .bofa-glow-hover {
+    @apply transition-all duration-300;
+  }
+
+  .bofa-glow-hover:hover {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.5);
+  }
+
+  .bofa-glass {
+    @apply backdrop-blur-md bg-white/10 border border-white/20;
+  }
+
+  .bofa-glass-dark {
+    @apply backdrop-blur-md bg-black/20 border border-white/10;
+  }
+
+  /* Status indicators */
+  .status-running {
+    @apply bg-success text-success-foreground;
+  }
+
+  .status-stopped {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  .status-error {
+    @apply bg-destructive text-destructive-foreground;
+  }
+
+  .status-warning {
+    @apply bg-warning text-warning-foreground;
+  }
+
+  .status-starting {
+    @apply bg-info text-info-foreground animate-pulse;
+  }
+
+  /* Risk levels */
+  .risk-high {
+    @apply bg-destructive text-destructive-foreground;
+  }
+
+  .risk-medium {
+    @apply bg-warning text-warning-foreground;
+  }
+
+  .risk-low {
+    @apply bg-success text-success-foreground;
+  }
+
+  /* Module categories */
+  .module-red {
+    @apply border-destructive/50 bg-destructive/10;
+  }
+
+  .module-blue {
+    @apply border-primary/50 bg-primary/10;
+  }
+
+  .module-purple {
+    @apply border-secondary/50 bg-secondary/10;
+  }
+
+  .module-green {
+    @apply border-success/50 bg-success/10;
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    @apply transition-all duration-200 hover:transform hover:scale-105 hover:shadow-lg;
+  }
+
+  .hover-glow {
+    @apply transition-all duration-300;
+  }
+
+  .hover-glow:hover {
+    @apply shadow-lg;
+    box-shadow: 0 10px 30px hsl(var(--primary) / 0.3);
+  }
+
+  /* Text effects */
+  .text-cyber {
+    @apply text-primary font-bold;
+    text-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+  }
+
+  .text-hack {
+    @apply text-success font-bold;
+    text-shadow: 0 0 10px hsl(var(--success) / 0.5);
+  }
+
+  .text-danger {
+    @apply text-destructive font-bold;
+    text-shadow: 0 0 10px hsl(var(--destructive) / 0.5);
+  }
+
+  /* Loading animations */
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.5s steps(5, end) infinite;
+  }
+
+  @keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60% { content: '...'; }
+    80%, 100% { content: '....'; }
+  }
+}
+
+@layer utilities {
+  /* Custom utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-gradient-cyber {
+    background: linear-gradient(135deg, hsl(var(--bofa-cyber)), hsl(var(--bofa-purple)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-hack {
+    background: linear-gradient(135deg, hsl(var(--bofa-hack)), hsl(var(--bofa-cyber)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .animation-pause {
+    animation-play-state: paused;
+  }
+
+  .filter-none {
+    filter: none;
+  }
+
+  .filter-blur-sm {
+    filter: blur(4px);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

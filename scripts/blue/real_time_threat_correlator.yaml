@@ -1,0 +1,71 @@
+name: "Real-Time Threat Correlator"
+description: "Advanced threat intelligence correlation engine with ML-powered analysis and attack pattern recognition"
+author: "BOFA Security Team"
+version: "2.5.1"
+category: "blue"
+difficulty: "expert"
+estimated_time: "25-40 minutes"
+
+features:
+  - "🔗 Real-Time Event Correlation"
+  - "🧠 ML-Powered Pattern Recognition"
+  - "🎯 MITRE ATT&CK Integration"
+  - "📡 Multi-Source Threat Intelligence"
+  - "⚡ Automated Threat Detection"
+  - "📊 Advanced Analytics Engine"
+  - "🚨 Intelligent Alert Generation"
+  - "💡 Actionable Recommendations"
+
+requirements:
+  - "Python 3.8+"
+  - "aiohttp, numpy"
+  - "Advanced SIEM knowledge"
+  - "Threat intelligence understanding"
+  - "Network security expertise"
+  - "MITRE ATT&CK familiarity"
+
+parameters:
+  - name: "mode"
+    description: "Operation mode for correlation analysis"
+    required: true
+    default: "demo"
+    type: "select"
+    options: ["demo", "file", "realtime"]
+  
+  - name: "input_file"
+    description: "Input file with security events (for file mode)"
+    required: false
+    default: ""
+    type: "string"
+  
+  - name: "threshold"
+    description: "ML correlation threshold (0.0-1.0)"
+    required: false
+    default: "0.75"
+    type: "select"
+    options: ["0.5", "0.6", "0.7", "0.75", "0.8", "0.9"]
+  
+  - name: "window"
+    description: "Time window for correlation (seconds)"
+    required: false
+    default: "300"
+    type: "select"
+    options: ["60", "300", "600", "1800", "3600"]
+
+usage_examples:
+  - "python real_time_threat_correlator.py --mode demo --threshold 0.8"
+  - "python real_time_threat_correlator.py --mode file --input-file security_events.log"
+  - "python real_time_threat_correlator.py --mode realtime --window 600"
+  - "python real_time_threat_correlator.py --mode demo --threshold 0.6 --output correlation_report.json"
+
+tags:
+  - "threat-correlation"
+  - "real-time-analysis"
+  - "machine-learning"
+  - "threat-intelligence"
+  - "attack-patterns"
+  - "mitre-attack"
+  - "siem-enhancement"
+  - "automated-detection"
+  - "2025-analytics"
+  - "blue-team"
