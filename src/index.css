@@ -179,7 +179,7 @@
   }
 
   .bofa-card-dark {
-    @apply bg-card/50 border border-border/50 backdrop-blur-sm;
+    @apply bg-card/50 border border-border/50;
   }
 
   .bofa-button-primary {
@@ -232,11 +232,11 @@
   }
 
   .bofa-glass {
-    @apply backdrop-blur-md bg-white/10 border border-white/20;
+    @apply bg-card/80 border border-border/50;
   }
 
   .bofa-glass-dark {
-    @apply backdrop-blur-md bg-black/20 border border-white/10;
+    @apply bg-card/30 border border-border/30;
   }
 
   /* Status indicators */
