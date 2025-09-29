@@ -88,24 +88,22 @@ export const AppHeader = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-700 bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-gray-900/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90">
       <div className="container mx-auto flex h-16 items-center px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center space-x-2">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-purple-500 rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <Shield className="w-8 h-8 text-primary" />
             <div className="flex flex-col">
-              <span className="font-bold text-white text-lg">{APP_CONFIG.name}</span>
-              <span className="text-xs text-cyan-400 font-semibold">v{APP_CONFIG.version}</span>
+              <span className="font-bold text-foreground text-lg">{APP_CONFIG.name}</span>
+              <span className="text-xs text-primary font-semibold">v{APP_CONFIG.version}</span>
             </div>
           </div>
         </Link>
 
         {/* Versión Badge */}
         <div className="ml-4">
-          <Badge className="bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-xs animate-pulse">
+          <Badge className="bg-primary text-primary-foreground text-xs">
             <Zap className="w-3 h-3 mr-1" />
             {APP_CONFIG.codename.toUpperCase()}
           </Badge>
@@ -121,8 +119,8 @@ export const AppHeader = () => {
                 to={item.href}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActive(item.href)
-                    ? "bg-cyan-600 text-white"
-                    : "text-gray-300 hover:text-white hover:bg-gray-700"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -141,8 +139,8 @@ export const AppHeader = () => {
           {currentUser && (
             <div className="flex items-center space-x-2">
               <User className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-white">{currentUser.fullName}</span>
-              <Badge className={`text-xs text-white ${getRoleColor(currentUser.role)}`}>
+              <span className="text-sm font-medium text-foreground">{currentUser.fullName}</span>
+              <Badge className="text-xs bg-secondary text-secondary-foreground">
                 {currentUser.role.toUpperCase()}
               </Badge>
             </div>
@@ -152,21 +150,21 @@ export const AppHeader = () => {
           <div className="flex items-center space-x-2 text-sm">
             {apiStatus === 'online' ? (
               <>
-                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                <Wifi className="w-4 h-4 text-emerald-400" />
-                <span className="text-emerald-400 font-medium">Sistema Online</span>
+                <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                <Wifi className="w-4 h-4 text-success" />
+                <span className="text-success font-medium">Sistema Online</span>
               </>
             ) : apiStatus === 'offline' ? (
               <>
-                <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                <WifiOff className="w-4 h-4 text-red-400" />
-                <span className="text-red-400 font-medium">Sistema Offline</span>
+                <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
+                <WifiOff className="w-4 h-4 text-destructive" />
+                <span className="text-destructive font-medium">Sistema Offline</span>
               </>
             ) : (
               <>
-                <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                <Server className="w-4 h-4 text-yellow-400" />
-                <span className="text-yellow-400 font-medium">Conectando...</span>
+                <div className="w-2 h-2 bg-warning rounded-full animate-pulse"></div>
+                <Server className="w-4 h-4 text-warning" />
+                <span className="text-warning font-medium">Conectando...</span>
               </>
             )}
           </div>
@@ -176,7 +174,7 @@ export const AppHeader = () => {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="text-gray-300 hover:text-red-400 hover:bg-gray-700"
+              className="text-muted-foreground hover:text-destructive hover:bg-muted"
               onClick={handleLogout}
               title="Cerrar sesión"
             >
@@ -202,7 +200,7 @@ export const AppHeader = () => {
 
       {/* Mobile Navigation */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-700 bg-gray-900">
+        <div className="md:hidden border-t border-border bg-background">
           <nav className="px-6 py-4 space-y-2">
             {navigation.map((item) => {
               const Icon = item.icon;
@@ -212,8 +210,8 @@ export const AppHeader = () => {
                   to={item.href}
                   className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(item.href)
-                      ? "bg-cyan-600 text-white"
-                      : "text-gray-300 hover:text-white hover:bg-gray-700"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >

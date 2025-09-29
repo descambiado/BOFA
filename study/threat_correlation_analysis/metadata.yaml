@@ -1,0 +1,222 @@
+name: "threat_correlation_analysis"
+display_name: "Threat Correlation Analysis"
+description: "Técnicas avanzadas de correlación de amenazas para detección de ataques complejos y campaigns persistentes"
+category: "Blue Team Operations"
+subcategory: "Threat Analysis"
+author: "@descambiado"
+version: "2.5.1"
+last_updated: "2025-01-20"
+
+difficulty: "Expert"
+estimated_time: "180 minutes"
+prerequisites:
+  - "SIEM/SOC operations experience"
+  - "Security event analysis fundamentals"
+  - "MITRE ATT&CK framework knowledge"
+  - "Python scripting skills"
+  - "Network security principles"
+
+educational_value: 10
+points: 200
+
+tags:
+  - "threat-correlation"
+  - "blue-team"
+  - "siem-analysis"
+  - "pattern-recognition"
+  - "incident-response"
+  - "mitre-attack"
+  - "behavioral-analytics"
+  - "expert-level"
+
+learning_objectives:
+  - "Master multi-dimensional threat correlation techniques"
+  - "Implement real-time threat detection systems"
+  - "Develop custom correlation rules and algorithms"
+  - "Perform advanced attack chain reconstruction"
+  - "Optimize correlation performance and accuracy"
+  - "Integrate threat intelligence with correlation"
+  - "Conduct sophisticated behavioral analysis"
+
+risk_level: "LOW"
+impact_level: "HIGH"
+
+requirements:
+  - "Python 3.8+ with data science libraries"
+  - "Access to security event logs"
+  - "SIEM or log analysis platform"
+  - "Threat intelligence feeds (optional)"
+  - "BOFA Blue Team toolkit"
+
+features:
+  - "Real-time event correlation engine"
+  - "MITRE ATT&CK technique mapping"
+  - "Advanced pattern recognition algorithms"
+  - "Machine learning integration capabilities"
+  - "Threat intelligence enrichment"
+  - "Custom rule development framework"
+  - "Performance optimization tools"
+  - "Attack timeline reconstruction"
+
+usage_examples:
+  - "SOC analyst threat hunting operations"
+  - "Incident response and forensics"
+  - "Advanced persistent threat (APT) detection"
+  - "Insider threat analysis"
+  - "Security operations center optimization"
+  - "Threat intelligence analysis"
+
+warnings:
+  - "Requires significant computational resources"
+  - "May generate high volume of alerts during tuning"
+  - "Requires access to production security logs"
+  - "Complex correlation rules need careful validation"
+
+mitre_attack:
+  tactic: "Detection"
+  technique: "Analytics and Correlation"
+
+execution:
+  timeout: 7200  # 120 minutes
+  memory_limit: "2GB"
+  cpu_limit: "75%"
+
+output:
+  format: "structured_analysis"
+  fields:
+    - "correlated_threat_patterns"
+    - "attack_chain_reconstruction"
+    - "confidence_scores"
+    - "risk_assessments"
+    - "actionable_recommendations"
+    - "false_positive_analysis"
+    - "performance_metrics"
+
+lab_integration:
+  siem_environment: true
+  threat_simulation: true
+  log_analysis_platform: true
+  threat_intelligence_feeds: true
+
+assessment:
+  hands_on_exercises: 8
+  case_study_analysis: 4
+  correlation_rule_development: 3
+  performance_optimization: 2
+  certification_eligible: true
+  expert_validation_required: true
+
+related_scripts:
+  - "real_time_threat_correlator.py"
+  - "siem_alert_simulator.py"
+  - "ai_threat_hunter.py"
+  - "log_timeline_builder.py"
+  - "ioc_matcher.py"
+  - "zero_trust_validator.py"
+
+tools_integration:
+  primary:
+    - "Real-Time Threat Correlator"
+    - "SIEM Alert Simulator" 
+    - "AI Threat Hunter"
+  secondary:
+    - "Log Timeline Builder"
+    - "IOC Matcher"
+    - "Behavioral Analytics Engine"
+  external:
+    - "Splunk/ELK Integration"
+    - "MISP Platform"
+    - "Threat Intelligence Platforms"
+
+skill_progression:
+  beginner:
+    - "Basic log analysis"
+    - "Simple correlation rules"
+    - "Event timeline understanding"
+  intermediate:
+    - "Multi-source correlation"
+    - "MITRE ATT&CK mapping"
+    - "Pattern recognition"
+  advanced:
+    - "Complex attack chain analysis"
+    - "Behavioral anomaly detection"
+    - "ML-assisted correlation"
+  expert:
+    - "Custom algorithm development"
+    - "Performance optimization"
+    - "Threat intelligence integration"
+
+performance_metrics:
+  detection_accuracy: "target: >90%"
+  false_positive_rate: "target: <5%"
+  correlation_speed: "target: <100ms per event"
+  memory_efficiency: "target: <2GB for 1M events"
+  pattern_coverage: "target: >95% of MITRE techniques"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Threats Detected"
+      field: "threats_detected_count"
+      chart_type: "counter"
+    - type: "metric"
+      title: "Correlation Accuracy"
+      field: "correlation_accuracy"
+      chart_type: "gauge"
+      min: 0
+      max: 100
+    - type: "chart"
+      title: "Attack Phase Distribution"
+      field: "mitre_techniques_detected"
+      chart_type: "bar"
+    - type: "metric"
+      title: "False Positive Rate"
+      field: "false_positive_rate"
+      chart_type: "gauge"
+      min: 0
+      max: 20
+    - type: "timeline"
+      title: "Attack Timeline"
+      field: "attack_events_timeline"
+      chart_type: "timeline"
+    - type: "chart"
+      title: "Risk Level Distribution"
+      field: "risk_levels"
+      chart_type: "pie"
+
+certification:
+  eligible: true
+  level: "Expert"
+  requirements:
+    - "Complete all practical exercises"
+    - "Develop custom correlation rules"
+    - "Demonstrate attack chain reconstruction"
+    - "Achieve >90% detection accuracy"
+    - "Present case study analysis"
+
+resources:
+  documentation:
+    - "NIST SP 800-61: Incident Handling Guide"
+    - "SANS SEC504: Incident Handling"
+    - "MITRE ATT&CK Framework"
+    - "SIEM Best Practices Guide"
+  research_papers:
+    - "Advanced Correlation Techniques for Cyber Threat Detection"
+    - "Machine Learning in Security Operations Centers"
+    - "Behavioral Analytics for Insider Threat Detection"
+  industry_standards:
+    - "ISO 27035: Incident Management"
+    - "NIST Cybersecurity Framework"
+    - "SANS Incident Response Process"
+
+continuing_education:
+  next_topics:
+    - "Advanced Machine Learning in Security"
+    - "Threat Intelligence Analysis and Production"
+    - "Advanced Incident Response and Forensics"
+    - "Security Orchestration and Automation"
+  recommended_certifications:
+    - "GCTI - GIAC Cyber Threat Intelligence"
+    - "GCFA - GIAC Certified Forensic Analyst"
+    - "GNFA - GIAC Network Forensic Analyst"
