@@ -5,7 +5,7 @@ BOFA Extended Systems v2.5.1 - Main API
 Fast API backend for cybersecurity platform with real functionality
 """
 
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Form
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -14,6 +14,8 @@ import uvicorn
 import os
 import sys
 import logging
+import asyncio
+import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import yaml
@@ -24,6 +26,8 @@ from database import db
 from auth import AuthManager, Roles, check_permission
 from script_executor import ScriptExecutor
 from lab_manager import LabManager
+from execution_queue import execution_queue
+from websocket_manager import ws_manager
 
 # Configure logging
 logging.basicConfig(
@@ -55,6 +59,9 @@ app.add_middleware(
 )
 
 # Initialize services
+from api.execution_queue import execution_queue
+from api.websocket_manager import ws_manager
+
 auth_manager = AuthManager(db)
 script_executor = ScriptExecutor(db)
 lab_manager = LabManager(db)
@@ -371,12 +378,28 @@ async def get_script_code(module_id: str, script_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading code: {e}")
 
+@app.websocket("/ws/execute/{execution_id}")
+async def websocket_execution(websocket: WebSocket, execution_id: str):
+    """WebSocket endpoint for real-time script execution output"""
+    await ws_manager.connect(websocket, execution_id)
+    try:
+        while True:
+            # Keep connection alive and receive any client messages
+            data = await websocket.receive_text()
+            # Echo back for heartbeat
+            await websocket.send_text(json_lib.dumps({"type": "pong"}))
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(websocket, execution_id)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await ws_manager.disconnect(websocket, execution_id)
+
 @app.post("/execute")
 async def execute_script(
     request: ExecuteScriptRequest,
     current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)
 ):
-    """Execute a script with real execution"""
+    """Execute a script with real execution and queue management"""
     if not check_permission(current_user, "execute_scripts"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
@@ -387,38 +410,140 @@ async def execute_script(
     if not module or not script:
         raise HTTPException(status_code=400, detail="Module and script are required")
     
-    # Start script execution
-    execution_id = script_executor.execute_script(
-        current_user['user_id'], 
-        module, 
-        script, 
+    # Generate execution ID
+    import uuid
+    execution_id = str(uuid.uuid4())
+    
+    # Add to queue
+    queue_item = await execution_queue.add_to_queue(
+        execution_id,
+        current_user['user_id'],
+        module,
+        script,
         parameters
     )
     
-    logger.info(f"🔧 Started execution {execution_id}: {module}/{script} by {current_user['username']}")
+    # Start processing queue in background
+    asyncio.create_task(process_execution_queue())
+    
+    logger.info(f"📋 Queued execution {execution_id}: {module}/{script} by {current_user['username']}")
     
     return {
         "execution_id": execution_id,
-        "status": "started",
-        "message": f"Script {script} execution started",
+        "status": "queued",
+        "position": queue_item['position'],
+        "message": f"Script {script} added to queue",
         "timestamp": datetime.now().isoformat()
     }
+
+async def process_execution_queue():
+    """Background task to process execution queue"""
+    while True:
+        item = await execution_queue.get_next()
+        if not item:
+            break
+        
+        execution_id = item['execution_id']
+        try:
+            # Notify start
+            await ws_manager.send_status(execution_id, 'running', {
+                'message': 'Execution started'
+            })
+            
+            # Execute script
+            logger.info(f"🚀 Starting execution: {execution_id}")
+            
+            # Stream output via WebSocket
+            await execute_script_with_streaming(
+                execution_id,
+                item['user_id'],
+                item['module'],
+                item['script'],
+                item['parameters']
+            )
+            
+        except Exception as e:
+            logger.error(f"Execution error: {e}")
+            await execution_queue.mark_failed(execution_id, str(e))
+            await ws_manager.send_status(execution_id, 'error', {
+                'error': str(e)
+            })
+
+async def execute_script_with_streaming(execution_id: str, user_id: int, module: str, script: str, parameters: Dict[str, Any]):
+    """Execute script and stream output via WebSocket"""
+    import subprocess
+    import asyncio
+    from pathlib import Path
+    
+    script_file = Path(f"/app/scripts/{module}/{script}.py")
+    if not script_file.exists():
+        raise FileNotFoundError(f"Script not found: {script_file}")
+    
+    # Build command
+    cmd = ["python3", str(script_file)]
+    for key, value in parameters.items():
+        cmd.extend([f"--{key}", str(value)])
+    
+    # Start process
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    
+    # Stream stdout
+    async def stream_output(stream, output_type):
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            text = line.decode().strip()
+            if text:
+                await ws_manager.send_output(execution_id, output_type, text)
+    
+    # Stream both stdout and stderr
+    await asyncio.gather(
+        stream_output(process.stdout, 'stdout'),
+        stream_output(process.stderr, 'stderr')
+    )
+    
+    # Wait for completion
+    await process.wait()
+    
+    result = {
+        'exit_code': process.returncode,
+        'status': 'success' if process.returncode == 0 else 'error'
+    }
+    
+    await execution_queue.mark_completed(execution_id, result)
+    await ws_manager.send_completed(execution_id, result)
 
 @app.get("/execute/{execution_id}")
 async def get_execution_status(
     execution_id: str,
     current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)
 ):
-    """Get execution status"""
-    execution = script_executor.get_execution_status(execution_id)
-    if not execution:
-        raise HTTPException(status_code=404, detail="Execution not found")
+    """Get execution status from queue"""
+    status = await execution_queue.get_status(execution_id)
+    if not status:
+        # Fallback to old executor
+        execution = script_executor.get_execution_status(execution_id)
+        if not execution:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        return execution
     
     # Check if user owns this execution or is admin
-    if execution['user_id'] != current_user['user_id'] and current_user['role'] != 'admin':
+    if status['user_id'] != current_user['user_id'] and current_user['role'] != 'admin':
         raise HTTPException(status_code=403, detail="Access denied")
     
-    return execution
+    return status
+
+@app.get("/queue/info")
+async def get_queue_info(
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)
+):
+    """Get execution queue information"""
+    return await execution_queue.get_queue_info()
 
 @app.post("/execute/{execution_id}/stop")
 async def stop_execution(

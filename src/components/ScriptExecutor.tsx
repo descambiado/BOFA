@@ -440,7 +440,11 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
 
           {/* Panel de consola */}
           <div>
-            <ScriptExecutionConsole script={script} isRunning={isRunning} />
+          <ScriptExecutionConsole 
+            script={script} 
+            isRunning={isRunning}
+            executionId={executionId}
+          />
           </div>
         </div>
       </div>

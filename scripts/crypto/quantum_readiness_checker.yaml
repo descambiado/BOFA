@@ -1,0 +1,82 @@
+name: "quantum_readiness_checker"
+display_name: "Quantum Readiness Checker"
+description: "Verifica preparación criptográfica para la era post-quantum"
+category: "crypto"
+subcategory: "post_quantum"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["quantum", "post-quantum-crypto", "pqc", "cryptography", "nist", "migration"]
+
+requirements:
+  - "python3"
+  - "re"
+  - "json"
+
+parameters:
+  directory:
+    type: "directory"
+    description: "Directorio de código a analizar"
+    required: true
+    default: "./"
+  
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+features:
+  - "🔐 Auditoría de algoritmos criptográficos"
+  - "⚛️ Detección de crypto vulnerable a quantum"
+  - "📊 Quantum Readiness Score"
+  - "🗺️ Plan de migración PQC"
+  - "📋 Recomendaciones NIST"
+  - "🔄 Algoritmos de reemplazo (CRYSTALS-Kyber, Dilithium)"
+  - "⏱️ Timeline de migración"
+  - "🎯 Priorización por riesgo"
+
+vulnerable_algorithms:
+  - "RSA (all key sizes)"
+  - "DSA"
+  - "ECDSA / ECDH"
+  - "Diffie-Hellman"
+
+recommended_pqc:
+  - "CRYSTALS-Kyber (Key Encapsulation)"
+  - "CRYSTALS-Dilithium (Digital Signatures)"
+  - "SPHINCS+ (Hash-based Signatures)"
+  - "FALCON (Alternative signatures)"
+
+execution:
+  timeout: 180
+  memory_limit: "256MB"
+  cpu_limit: "1"
+
+output:
+  format: "structured"
+  fields:
+    - "scan_info"
+    - "summary"
+    - "findings"
+    - "migration_plan"
+    - "recommendations"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Quantum Readiness Score"
+      field: "summary.readiness_score"
+      min: 0
+      max: 100
+    - type: "chart"
+      title: "Algoritmos Vulnerables"
+      field: "migration_plan.algorithms_to_replace"
+      chart_type: "bar"
+    - type: "list"
+      title: "Plan de Migración"
+      field: "recommendations"
