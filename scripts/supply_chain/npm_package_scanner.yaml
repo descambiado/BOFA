@@ -1,0 +1,77 @@
+name: "npm_package_scanner"
+display_name: "NPM Package Scanner"
+description: "Escanea paquetes NPM en busca de vulnerabilidades y problemas de seguridad"
+category: "supply_chain"
+subcategory: "dependencies"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["npm", "nodejs", "supply-chain", "vulnerabilities", "typosquatting", "dependencies"]
+
+requirements:
+  - "python3"
+  - "npm (optional)"
+  - "json"
+
+parameters:
+  file:
+    type: "file"
+    description: "Ruta al archivo package.json"
+    required: true
+    default: "package.json"
+    accepted_types: [".json"]
+  
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+features:
+  - "📦 Análisis de package.json y package-lock.json"
+  - "🔍 Detección de vulnerabilidades conocidas"
+  - "🎭 Detección de typosquatting"
+  - "⚠️ Identificación de patrones sospechosos"
+  - "🔄 Integración con npm audit"
+  - "📊 Scoring de riesgo por paquete"
+  - "💡 Recomendaciones de actualización"
+  - "🎯 Verificación de integridad"
+
+detection_capabilities:
+  - "Known CVEs in packages"
+  - "Typosquatting detection"
+  - "Suspicious package names"
+  - "Malicious patterns"
+  - "Outdated dependencies"
+  - "Excessive permissions"
+
+execution:
+  timeout: 120
+  memory_limit: "256MB"
+  cpu_limit: "1"
+
+output:
+  format: "structured"
+  fields:
+    - "scan_info"
+    - "summary"
+    - "findings"
+    - "npm_audit"
+    - "recommendations"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Paquetes Vulnerables"
+      field: "summary.packages_analyzed"
+    - type: "chart"
+      title: "Vulnerabilidades por Severidad"
+      field: "summary.vulnerabilities_by_severity"
+      chart_type: "bar"
+    - type: "list"
+      title: "Recomendaciones"
+      field: "recommendations"

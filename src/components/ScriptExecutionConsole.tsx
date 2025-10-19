@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Copy, Download, Terminal, Activity } from "lucide-react";
 import { toast } from "sonner";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface Script {
   name: string;
@@ -14,40 +15,42 @@ interface Script {
 interface ScriptExecutionConsoleProps {
   script: Script;
   isRunning: boolean;
+  executionId: string | null;
 }
 
-export const ScriptExecutionConsole = ({ script, isRunning }: ScriptExecutionConsoleProps) => {
+export const ScriptExecutionConsole = ({ script, isRunning, executionId }: ScriptExecutionConsoleProps) => {
   const [output, setOutput] = useState<string[]>([]);
   const [executionTime, setExecutionTime] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout>();
 
+  // WebSocket integration for real-time output
+  const { messages, isConnected } = useWebSocket(executionId, {
+    onMessage: (message) => {
+      if (message.type === 'stdout' || message.type === 'stderr') {
+        setOutput(prev => [...prev, message.data]);
+      } else if (message.type === 'status') {
+        const status = JSON.parse(message.data);
+        setOutput(prev => [...prev, `[STATUS] ${status.status}: ${status.details?.message || ''}`]);
+      } else if (message.type === 'completed') {
+        const result = JSON.parse(message.data);
+        setOutput(prev => [...prev, `[COMPLETED] Exit code: ${result.exit_code}`]);
+      }
+    }
+  });
+
   useEffect(() => {
     if (isRunning) {
-      // Limpiar output anterior
+      // Clear previous output
       setOutput([]);
       setExecutionTime(0);
       
-      // Simular output en tiempo real
-      const messages = getScriptMessages(script);
-      let messageIndex = 0;
-      
-      const outputInterval = setInterval(() => {
-        if (messageIndex < messages.length) {
-          setOutput(prev => [...prev, messages[messageIndex]]);
-          messageIndex++;
-        } else {
-          clearInterval(outputInterval);
-        }
-      }, 200);
-      
-      // Timer para tiempo de ejecución
+      // Timer for execution time
       intervalRef.current = setInterval(() => {
         setExecutionTime(prev => prev + 0.1);
       }, 100);
       
       return () => {
-        clearInterval(outputInterval);
         if (intervalRef.current) clearInterval(intervalRef.current);
       };
     } else {
@@ -55,7 +58,7 @@ export const ScriptExecutionConsole = ({ script, isRunning }: ScriptExecutionCon
         clearInterval(intervalRef.current);
       }
     }
-  }, [isRunning, script]);
+  }, [isRunning]);
 
   useEffect(() => {
     // Auto-scroll al final
@@ -63,88 +66,6 @@ export const ScriptExecutionConsole = ({ script, isRunning }: ScriptExecutionCon
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [output]);
-
-  const getScriptMessages = (script: Script): string[] => {
-    const baseMessages = [
-      `[INFO] Inicializando ${script.name}...`,
-      `[INFO] Verificando dependencias...`,
-      `[SUCCESS] Dependencias verificadas`,
-      `[INFO] Cargando configuración...`
-    ];
-
-    const categoryMessages = {
-      red: [
-        `[WARNING] Ejecutando herramienta ofensiva`,
-        `[INFO] Verificando permisos de ataque...`,
-        `[INFO] Iniciando escaneo de objetivos...`,
-        `[SCAN] Detectando servicios activos...`,
-        `[FOUND] Puerto 22/tcp abierto (SSH)`,
-        `[FOUND] Puerto 80/tcp abierto (HTTP)`,
-        `[FOUND] Puerto 443/tcp abierto (HTTPS)`,
-        `[EXPLOIT] Probando vectores de ataque...`,
-        `[SUCCESS] Vulnerabilidad identificada`,
-        `[INFO] Generando reporte de penetración...`
-      ],
-      blue: [
-        `[INFO] Iniciando análisis defensivo...`,
-        `[ANALYSIS] Procesando logs de seguridad...`,
-        `[DETECTION] Analizando patrones de amenazas...`,
-        `[FOUND] 3 alertas de seguridad detectadas`,
-        `[ANALYSIS] Correlacionando eventos...`,
-        `[ML] Ejecutando modelo de detección...`,
-        `[ANOMALY] Comportamiento anómalo detectado`,
-        `[THREAT] Amenaza clasificada como ALTA`,
-        `[INFO] Generando recomendaciones...`,
-        `[SUCCESS] Análisis completado`
-      ],
-      purple: [
-        `[INFO] Iniciando ejercicio Purple Team...`,
-        `[COORDINATION] Sincronizando Red y Blue Team...`,
-        `[ATTACK] Simulando ataque coordinado...`,
-        `[DEFENSE] Activando contramedidas...`,
-        `[ANALYSIS] Evaluando efectividad defensiva...`,
-        `[METRICS] Calculando métricas de detección...`,
-        `[IMPROVEMENT] Identificando áreas de mejora...`,
-        `[SUCCESS] Ejercicio completado exitosamente`
-      ],
-      forensics: [
-        `[FORENSICS] Iniciando análisis forense...`,
-        `[EVIDENCE] Preservando cadena de custodia...`,
-        `[ANALYSIS] Analizando artefactos digitales...`,
-        `[TIMELINE] Construyendo línea temporal...`,
-        `[HASH] Verificando integridad de evidencia...`,
-        `[RECOVERY] Recuperando datos eliminados...`,
-        `[CORRELATION] Correlacionando evidencias...`,
-        `[REPORT] Generando reporte forense...`,
-        `[SUCCESS] Análisis forense completado`
-      ],
-      osint: [
-        `[OSINT] Iniciando recopilación de inteligencia...`,
-        `[SEARCH] Buscando en fuentes abiertas...`,
-        `[SOCIAL] Analizando redes sociales...`,
-        `[DOMAIN] Enumerando subdominios...`,
-        `[EMAIL] Verificando direcciones de correo...`,
-        `[LEAK] Buscando en bases de datos filtradas...`,
-        `[CORRELATION] Correlacionando información...`,
-        `[REPORT] Compilando inteligencia...`,
-        `[SUCCESS] Recopilación OSINT completada`
-      ]
-    };
-
-    const scriptSpecificMessages = categoryMessages[script.category as keyof typeof categoryMessages] || [
-      `[INFO] Ejecutando proceso principal...`,
-      `[PROCESSING] Analizando datos...`,
-      `[SUCCESS] Operación completada`
-    ];
-
-    const endMessages = [
-      `[INFO] Finalizando ejecución...`,
-      `[SUCCESS] Script ejecutado exitosamente`,
-      `[INFO] Tiempo total: ${executionTime.toFixed(1)}s`
-    ];
-
-    return [...baseMessages, ...scriptSpecificMessages, ...endMessages];
-  };
 
   const copyOutput = () => {
     const fullOutput = output.join('\n');
@@ -176,7 +97,9 @@ export const ScriptExecutionConsole = ({ script, isRunning }: ScriptExecutionCon
             {isRunning && (
               <div className="flex items-center space-x-2">
                 <Activity className="w-4 h-4 text-green-400 animate-pulse" />
-                <span className="text-green-400 text-sm">Ejecutando...</span>
+                <span className="text-green-400 text-sm">
+                  {isConnected ? 'Ejecutando (Live)' : 'Conectando...'}
+                </span>
               </div>
             )}
           </div>

@@ -1,0 +1,75 @@
+name: "identity_trust_analyzer"
+display_name: "Identity Trust Analyzer"
+description: "Analiza niveles de confianza en identidades y patrones de acceso"
+category: "zero_trust"
+subcategory: "identity"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["zero-trust", "identity", "iam", "mfa", "access-control", "trust-score"]
+
+requirements:
+  - "python3"
+  - "json"
+
+parameters:
+  file:
+    type: "file"
+    description: "Archivo de logs de autenticación (JSON)"
+    required: false
+    accepted_types: [".json", ".log"]
+  
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+features:
+  - "🔐 Análisis de niveles de confianza"
+  - "👤 Scoring de riesgo por identidad"
+  - "🔑 Validación de MFA"
+  - "⚠️ Detección de cuentas sobre-privilegiadas"
+  - "📊 Análisis de patrones de acceso"
+  - "🚨 Alertas de identidades de alto riesgo"
+  - "💡 Recomendaciones específicas"
+  - "🎯 Device posture checking"
+
+trust_factors:
+  - "MFA enablement"
+  - "Password age and complexity"
+  - "Failed login attempts"
+  - "Privilege level"
+  - "Access patterns"
+  - "Device posture"
+  - "Location consistency"
+
+execution:
+  timeout: 60
+  memory_limit: "256MB"
+  cpu_limit: "1"
+
+output:
+  format: "structured"
+  fields:
+    - "scan_info"
+    - "summary"
+    - "identities"
+    - "recommendations"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Trust Score Promedio"
+      field: "summary.avg_trust_score"
+    - type: "chart"
+      title: "Identidades por Nivel de Riesgo"
+      field: "summary"
+      chart_type: "pie"
+    - type: "list"
+      title: "Recomendaciones"
+      field: "recommendations"

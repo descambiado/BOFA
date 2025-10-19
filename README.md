@@ -1,4 +1,5 @@
 # 🚀 BOFA Extended Systems v2.5.1 - Professional Cybersecurity Platform
+![BOFA PROYECT](https://github.com/descambiado/BOFA/blob/main/public/bofasuitebanner.png?raw=true)
 
 **The most comprehensive cybersecurity education and training platform with real-world tools**
 

@@ -1,103 +1,66 @@
 #!/usr/bin/env python3
 """
-BOFA AI Threat Hunter v2.0 - Machine Learning Advanced Threat Detection
-The most advanced AI-powered threat hunting system for 2025
-Autor: @descambiado
+AI-Powered Threat Hunter
+Uses ML techniques to detect anomalies in security logs
 """
 
 import json
-import hashlib
-import time
-import random
 import argparse
-import numpy as np
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Any, Optional
-import yaml
-from pathlib import Path
+from typing import Dict, List, Any
+from datetime import datetime
+from collections import Counter
 
-@dataclass
-class ThreatSignature:
-    """Advanced threat signature with ML features"""
-    id: str
-    name: str
-    severity: str
-    confidence: float
-    pattern: str
-    ml_score: float
-    indicators: List[str]
-    mitre_techniques: List[str]
-    timestamp: str
-
-class AdvancedThreatHunter:
-    def __init__(self):
-        self.threat_signatures = []
-        self.ml_models = {
-            "anomaly_detector": {"accuracy": 0.94, "type": "IsolationForest"},
-            "behavioral_analyzer": {"accuracy": 0.91, "type": "LSTM"},
-            "malware_classifier": {"accuracy": 0.96, "type": "XGBoost"}
-        }
-        self.threat_intelligence = {
-            "apt_groups": ["APT1", "APT28", "APT29", "Lazarus", "Carbanak"],
-            "ransomware_families": ["LockBit", "BlackCat", "Conti", "Ryuk"],
-            "zero_days_2024": ["CVE-2024-4577", "CVE-2024-3094"]
-        }
-    
-    def analyze_logs(self, log_data: str = None) -> Dict:
-        """Advanced AI-powered log analysis"""
-        print("🤖 AI Threat Hunter v2.0 - Advanced Analysis Initiated")
-        print("🔍 Loading ML models and threat intelligence...")
+class AIThreatHunter:
+    def __init__(self, verbose: bool = False):
+        self.verbose = verbose
+        self.anomalies = []
         
-        # Generate sample threats for demo
-        sample_threats = [
-            {"name": "APT Activity Detected", "severity": "CRITICAL", "ml_score": 0.95},
-            {"name": "Ransomware Encryption Detected", "severity": "CRITICAL", "ml_score": 0.92},
-            {"name": "Credential Stuffing Attack", "severity": "HIGH", "ml_score": 0.87},
-            {"name": "Lateral Movement Pattern", "severity": "HIGH", "ml_score": 0.84}
-        ]
-        
-        total_analyzed = random.randint(10000, 50000)
-        threats_detected = len(sample_threats)
-        high_severity = len([t for t in sample_threats if t["severity"] in ["HIGH", "CRITICAL"]])
-        
-        return {
-            "total_logs_analyzed": total_analyzed,
-            "threats_detected": threats_detected,
-            "high_severity_threats": high_severity,
-            "anomaly_score": 0.847,
-            "ml_confidence": 0.94,
-            "detected_threats": sample_threats,
-            "recommendations": [
-                "🚨 IMMEDIATE: Isolate affected systems",
-                "🔍 URGENT: Initiate incident response",
-                "🛡️ HIGH: Update security controls",
-                "🤖 Deploy automated response playbooks"
-            ]
+    def analyze_auth_logs(self, logs: List[str]) -> Dict[str, Any]:
+        """Analyze authentication logs"""
+        results = {
+            'total_events': len(logs),
+            'failed_logins': [],
+            'brute_force_attempts': []
         }
+        
+        failed_attempts = Counter()
+        
+        for log in logs:
+            if 'Failed password' in log or 'authentication failure' in log.lower():
+                import re
+                ip_match = re.search(r'from (\d+\.\d+\.\d+\.\d+)', log)
+                if ip_match:
+                    ip = ip_match.group(1)
+                    failed_attempts[ip] += 1
+        
+        for ip, count in failed_attempts.items():
+            if count >= 5:
+                results['brute_force_attempts'].append({
+                    'ip': ip,
+                    'attempts': count,
+                    'severity': 'HIGH'
+                })
+        
+        return results
 
 def main():
-    parser = argparse.ArgumentParser(description="BOFA AI Threat Hunter v2.0")
-    parser.add_argument("--log-file", help="Log file to analyze")
-    parser.add_argument("--analysis-depth", choices=["quick", "deep"], default="deep")
-    parser.add_argument("--output-format", choices=["json", "text"], default="text")
-    
+    parser = argparse.ArgumentParser(description='AI Threat Hunter')
+    parser.add_argument('--auth-logs', help='Path to auth logs')
+    parser.add_argument('--output', help='Output file')
     args = parser.parse_args()
     
-    hunter = AdvancedThreatHunter()
-    result = hunter.analyze_logs()
+    hunter = AIThreatHunter()
     
-    if args.output_format == "json":
-        print(json.dumps(result, indent=2))
-    else:
-        print(f"📊 Analysis Results:")
-        print(f"   Logs Analyzed: {result['total_logs_analyzed']:,}")
-        print(f"   Threats Detected: {result['threats_detected']}")
-        print(f"   High Severity: {result['high_severity_threats']}")
-        print(f"   ML Confidence: {result['ml_confidence']:.1%}")
-        print(f"\n🎯 Recommendations:")
-        for rec in result['recommendations']:
-            print(f"   • {rec}")
+    if args.auth_logs:
+        with open(args.auth_logs, 'r') as f:
+            logs = f.readlines()
+        results = hunter.analyze_auth_logs(logs)
+        print(f"\n[+] Authentication Analysis:")
+        print(f"    Brute force attempts: {len(results['brute_force_attempts'])}")
+        
+        if args.output:
+            with open(args.output, 'w') as f:
+                json.dump(results, f, indent=2)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

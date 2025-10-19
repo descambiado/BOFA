@@ -1,9 +1,10 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/UI/ActionButton";
 import { MetricCard } from "@/components/UI/MetricCard";
+import { useDashboardStats } from "@/services/api";
 import { 
   Shield, 
   Terminal, 
@@ -26,37 +27,38 @@ import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { data: stats, isLoading } = useDashboardStats();
 
-  const quickStats = [
+  const quickStats = stats ? [
     {
       title: "Scripts Ejecutados",
-      value: "127",
+      value: stats.executions?.total_executions?.toString() || "0",
       change: "+12%",
       trend: "up" as const,
       icon: <Terminal className="w-5 h-5" />
     },
     {
-      title: "Amenazas Detectadas",
-      value: "8",
-      change: "-23%",
-      trend: "down" as const,
-      icon: <Shield className="w-5 h-5" />
+      title: "Ejecuciones Exitosas",
+      value: stats.executions?.successful?.toString() || "0",
+      change: stats.executions?.success_rate ? `${stats.executions.success_rate}%` : "0%",
+      trend: "up" as const,
+      icon: <CheckCircle className="w-5 h-5" />
     },
     {
       title: "Labs Activos",
-      value: "3",
+      value: stats.docker?.active_labs?.toString() || "0",
       change: "+1",
       trend: "up" as const,
       icon: <Activity className="w-5 h-5" />
     },
     {
-      title: "Nivel de Seguridad",
-      value: "94%",
-      change: "+5%",
-      trend: "up" as const,
-      icon: <CheckCircle className="w-5 h-5" />
+      title: "Uso de CPU",
+      value: `${stats.system?.cpu_percent || 0}%`,
+      change: stats.system?.cpu_percent > 70 ? "Alto" : "Normal",
+      trend: stats.system?.cpu_percent > 70 ? "down" as const : "up" as const,
+      icon: <Shield className="w-5 h-5" />
     }
-  ];
+  ] : [];
 
   const recentActivities = [
     {

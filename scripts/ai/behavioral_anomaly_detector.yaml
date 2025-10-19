@@ -1,0 +1,83 @@
+name: "behavioral_anomaly_detector"
+display_name: "Behavioral Anomaly Detector"
+description: "Detecta anomalías de comportamiento usando técnicas de Machine Learning"
+category: "ai"
+subcategory: "anomaly_detection"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["ai", "ml", "anomaly-detection", "behavioral-analysis", "ueba", "threat-hunting"]
+
+requirements:
+  - "python3"
+  - "json"
+
+parameters:
+  file:
+    type: "file"
+    description: "Archivo de logs (formato JSONL)"
+    required: false
+    accepted_types: [".log", ".jsonl", ".json"]
+  
+  sensitivity:
+    type: "number"
+    description: "Sensibilidad del detector (0.0-1.0)"
+    required: false
+    default: 0.7
+    min: 0.0
+    max: 1.0
+  
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+features:
+  - "🧠 Análisis ML de comportamiento"
+  - "📊 Baseline behavior profiling"
+  - "🔍 Detección de outliers"
+  - "⏰ Análisis temporal de accesos"
+  - "🌐 Detección de IPs anómalas"
+  - "🎯 Scoring de anomalías"
+  - "⚠️ Clasificación por severidad"
+  - "💡 Clustering de eventos sospechosos"
+
+detection_capabilities:
+  - "Unusual login times"
+  - "Anomalous IP addresses"
+  - "Excessive failed attempts"
+  - "Unusual session durations"
+  - "Abnormal action patterns"
+  - "Privilege escalation attempts"
+
+execution:
+  timeout: 120
+  memory_limit: "512MB"
+  cpu_limit: "2"
+
+output:
+  format: "structured"
+  fields:
+    - "scan_info"
+    - "summary"
+    - "baseline_profile"
+    - "anomalies"
+    - "recommendations"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Anomalías Detectadas"
+      field: "summary.total_anomalies"
+    - type: "chart"
+      title: "Anomalías por Severidad"
+      field: "summary.anomalies_by_severity"
+      chart_type: "donut"
+    - type: "list"
+      title: "Top Anomalías"
+      field: "anomalies"

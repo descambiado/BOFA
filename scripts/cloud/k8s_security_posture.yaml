@@ -1,0 +1,78 @@
+name: "k8s_security_posture"
+display_name: "Kubernetes Security Posture"
+description: "Análisis completo de postura de seguridad Kubernetes basado en CIS Benchmark"
+category: "cloud"
+subcategory: "kubernetes"
+author: "@descambiado"
+version: "1.0"
+last_updated: "2025-01-20"
+risk_level: "LOW"
+impact_level: "LOW"
+educational_value: 5
+tags: ["kubernetes", "k8s", "cloud-native", "cis-benchmark", "security-posture", "containers"]
+
+requirements:
+  - "python3"
+  - "kubectl"
+  - "json"
+  - "Kubernetes cluster access"
+
+parameters:
+  namespace:
+    type: "string"
+    description: "Namespace de Kubernetes a analizar"
+    required: false
+    default: "default"
+  
+  verbose:
+    type: "boolean"
+    description: "Modo verbose"
+    required: false
+    default: false
+
+features:
+  - "☸️ Escaneo CIS Kubernetes Benchmark"
+  - "🔒 Detección de misconfigurations críticas"
+  - "👥 Análisis de RBAC y permisos"
+  - "🔐 Pod Security Standards checker"
+  - "🌐 Validación de NetworkPolicies"
+  - "🐳 Container security best practices"
+  - "📊 Security posture scoring"
+  - "💡 Remediaciones específicas"
+
+security_checks:
+  - "Privileged containers"
+  - "hostNetwork, hostPID, hostIPC usage"
+  - "hostPath volumes"
+  - "Running as root"
+  - "NetworkPolicy presence"
+  - "RBAC over-permissions"
+  - "Service account automount"
+  - "Capabilities and seccomp"
+
+execution:
+  timeout: 180
+  memory_limit: "256MB"
+  cpu_limit: "1"
+
+output:
+  format: "structured"
+  fields:
+    - "scan_info"
+    - "summary"
+    - "findings"
+    - "recommendations"
+
+dashboard:
+  enabled: true
+  widgets:
+    - type: "metric"
+      title: "Checks Fallidos"
+      field: "summary.failed"
+    - type: "chart"
+      title: "Fallos por Severidad"
+      field: "summary.failures_by_severity"
+      chart_type: "donut"
+    - type: "list"
+      title: "Recomendaciones Prioritarias"
+      field: "recommendations"
