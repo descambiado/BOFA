@@ -847,7 +847,7 @@ def load_config():
 
 def main():
     parser = argparse.ArgumentParser(description="BOFA Quantum Network Infiltrator v2.0")
-    parser.add_argument("target", help="Target network (IP or CIDR)")
+    parser.add_argument("--target", required=True, help="Target network (IP or CIDR)")
     parser.add_argument("--ports", default="1-1024", help="Port range (e.g., 1-1024)")
     parser.add_argument("--stealth", action="store_true", help="Enable stealth mode")
     parser.add_argument("--threads", type=int, default=10, help="Number of threads")

@@ -1,4 +1,4 @@
-# BOFA Extended Systems v2.5.0 - Python Project Configuration
+# BOFA Extended Systems v2.6.0 - Python Project Configuration
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bofa-extended-systems"
-version = "2.5.0"
+version = "2.6.0"
 description = "Advanced Cybersecurity Operations Framework"
 readme = "README.md"
 license = {file = "LICENSE"}

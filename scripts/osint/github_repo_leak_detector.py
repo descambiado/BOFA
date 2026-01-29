@@ -394,18 +394,19 @@ services:
 
 def main():
     parser = argparse.ArgumentParser(description="GitHub Repository Leak Detector")
-    parser.add_argument("queries", nargs="+", help="Términos de búsqueda")
+    parser.add_argument("--queries", required=True, help="Términos de búsqueda (separados por espacios)")
     parser.add_argument("--token", help="Token de GitHub API (opcional)")
     parser.add_argument("--max-repos", type=int, default=5, help="Máximo repos por búsqueda")
     parser.add_argument("--output", help="Archivo de salida JSON")
     parser.add_argument("-v", "--verbose", action="store_true", help="Modo verbose")
     
     args = parser.parse_args()
+    queries_list = args.queries.split()
     
     detector = GitHubLeakDetector(args.token, args.verbose)
     
     try:
-        success = detector.run(args.queries, args.max_repos)
+        success = detector.run(queries_list, args.max_repos)
         
         if success and detector.leaks_found:
             detector.export_results(args.output)

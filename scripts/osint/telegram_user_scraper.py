@@ -254,7 +254,7 @@ class TelegramUserScraper:
 
 def main():
     parser = argparse.ArgumentParser(description="Telegram User Scraper (OSINT)")
-    parser.add_argument("group", help="Identificador del grupo (@username, URL, o username)")
+    parser.add_argument("--group", required=True, help="Identificador del grupo (@username, URL, o username)")
     parser.add_argument("--api-id", help="API ID de Telegram (para implementación real)")
     parser.add_argument("--api-hash", help="API Hash de Telegram (para implementación real)")
     parser.add_argument("--phone", help="Número de teléfono (para implementación real)")

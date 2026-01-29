@@ -1,0 +1,25 @@
+# Configuración del módulo de ejemplo con parámetros
+# Este archivo YAML define los parámetros que el script acepta
+
+name: example_params
+description: "Módulo de ejemplo que demuestra cómo recibir y validar parámetros"
+author: "@descambiado"
+version: "1.0.0"
+
+# Especificación de parámetros
+# Nota: El campo 'type' es solo para documentación.
+# La validación real de tipos se hace en el script Python con argparse.
+parameters:
+  target:
+    required: true
+    description: "Target a procesar (requerido, tipo: str)"
+  
+  timeout:
+    required: false
+    default: 30
+    description: "Timeout en segundos (tipo: int)"
+  
+  verbose:
+    required: false
+    default: false
+    description: "Modo verbose (tipo: bool, flag)"

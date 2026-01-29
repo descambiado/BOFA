@@ -49,7 +49,7 @@ environment:
   - "Respetar términos de servicio de Telegram"
 
 example_usage: |
-  python telegram_user_scraper.py @crypto_signals --export json -v
+  python telegram_user_scraper.py --group @crypto_signals --export json -v
 
 mitre_attack:
   tactic: "Collection"

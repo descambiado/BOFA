@@ -14,16 +14,15 @@ usage_type: "osint"
 
 parameters:
   emails:
-    type: "array"
-    description: "Lista de emails a verificar"
+    type: string
+    description: "Emails a verificar (separados por espacios)"
     required: true
-    example: ["test@example.com", "user@domain.org"]
   output:
-    type: "string"
+    type: string
     description: "Archivo de salida JSON"
     required: false
   verbose:
-    type: "boolean"
+    type: boolean
     description: "Modo verbose"
     required: false
     default: false
@@ -39,7 +38,7 @@ environment:
   - "Respetar rate limits de APIs públicas"
 
 example_usage: |
-  python public_email_validator.py test@example.com user@domain.org --output results.json -v
+  python public_email_validator.py --emails "test@example.com user@domain.org" --output results.json -v
 
 mitre_attack:
   tactic: "Reconnaissance"

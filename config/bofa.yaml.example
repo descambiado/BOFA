@@ -1,0 +1,22 @@
+# Configuración de BOFA
+# Copia este archivo a bofa.yaml y ajusta según tus necesidades
+
+# Configuración de logging
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: text  # json o text
+  file: bofa.log  # Archivo de log (opcional, relativo a logs/)
+
+# Configuración de ejecución
+execution:
+  max_concurrent: 5  # Máximo de ejecuciones concurrentes
+  timeout: 3600  # Timeout en segundos
+
+# Configuración de módulos
+modules:
+  auto_discover: true  # Descubrir módulos automáticamente
+
+# Configuración de seguridad
+security:
+  sandbox_enabled: true  # Habilitar sandbox para ejecución
+  require_authorization: false  # Requerir autorización para ejecutar scripts

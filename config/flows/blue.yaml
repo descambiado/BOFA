@@ -1,0 +1,14 @@
+# BOFA Flow: Blue
+# Secuencia de scripts blue team (detección / simulación de alertas).
+# Opcional: inyectar {target} si algún script lo usa.
+
+name: blue
+description: "Blue team: simulación de alertas SIEM y correlación"
+steps:
+  - module: blue
+    script: siem_alert_simulator
+    parameters:
+      count: 3
+  - module: examples
+    script: example_info
+    parameters: {}

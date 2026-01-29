@@ -1,6 +1,41 @@
 
 # 📦 BOFA – CHANGELOG
 
+## v2.6.0 – Core finalization, BOFA Flow, verificación (2026-01-29)
+
+### Objetivo
+Llevar el core a estado **production-ready open-source**: estable, limpio, verificable y extensible sin tocar el core.
+
+### Core y contratos
+- **Validador de scripts**: tipos en YAML (`string`, `int`, `bool`) mapeados a tipos Python en `core/utils/script_validator.py`.
+- **Module loader**: `parameters` en YAML aceptados como lista `[{name, ...}]` o dict; normalización automática en `core/utils/module_loader.py`.
+- **Documentación**: contrato core–módulos en `docs/MODULE_CONTRACT.md`; compatibilidad argumentos `--key` (no posicionales).
+
+### Migración de scripts
+- **Exploit, red, osint**: scripts con argumentos posicionales migrados a `--key` (ej. `--target`, `--mode`, `--queries`); YAML alineados.
+- **Blue, recon**: `web_discover`, `log_guardian`, `defense_break_replicator` (modo `--yes`), etc.
+- **Cross-platform**: `bypass_uac_tool` con import condicional de `winreg`; salida limpia en Linux.
+
+### BOFA Flow (herramienta novedosa)
+- **Flujos**: `config/flows/` con `demo`, `recon`, `blue`; placeholder `{target}` inyectado por el runner.
+- **Flow runner**: `flows/flow_runner.py` — `list_flows()`, `run_flow(flow_id, target)`; informes Markdown en `reports/`.
+- **CLI**: opción **F** (Flujos) en el menú; listar flujos, pedir target, ejecutar y mostrar ruta del informe.
+
+### Verificación
+- **tools/verify_bofa.py**: modo rápido (flujo demo + ejemplos) y modo `--full` (todos los scripts con params seguros).
+- **Resultado**: 0 fallos en `--full`; scripts que necesitan params o son largos se marcan/omiten sin contar como fallo.
+- **Documentación**: `tools/README.md`; enlace en README principal (“Saber que todo funciona”).
+
+### Documentación
+- **docs/NEXT_STEPS_AND_ROADMAP.md**: estado actual, respuestas, roadmap e implementación Fase 1+2.
+- **flows/README.md**, **docs/MODULE_CONTRACT.md**: uso de flujos y contrato de módulos.
+
+### Restricciones respetadas
+- Sin SaaS, auth, pagos, cloud, IA/LLM.
+- Core sin cambios de firma; flows y CLI son consumidores del core.
+
+---
+
 ## v2.5.0 – Sistema Completo Profesional + Arquitectura Robusta (2025-01-06)
 
 ### 🎯 **LANZAMIENTO MAYOR - PRODUCCIÓN READY**
