@@ -6,7 +6,18 @@ description: "Herramienta de descubrimiento de subdominios y servicios web"
 version: "1.0"
 last_updated: "2025-06-16"
 tags: ["subdomain", "web discovery", "reconnaissance", "http", "https"]
-usage: "python3 web_discover.py -d example.com -t 10 --threads 50"
+usage: "python3 web_discover.py --url https://example.com [--output out.json]"
+
+parameters:
+  url:
+    type: string
+    description: "URL objetivo"
+    required: true
+  output:
+    type: string
+    description: "Archivo de salida (JSON)"
+    required: false
+
 dependencies:
   - requests
   - socket

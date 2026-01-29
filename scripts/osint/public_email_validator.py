@@ -287,16 +287,17 @@ class PublicEmailValidator:
 
 def main():
     parser = argparse.ArgumentParser(description="Public Email Validator & Breach Checker")
-    parser.add_argument("emails", nargs="+", help="Email(s) a verificar")
+    parser.add_argument("--emails", required=True, help="Email(s) a verificar (separados por espacios)")
     parser.add_argument("--output", help="Archivo de salida JSON")
     parser.add_argument("-v", "--verbose", action="store_true", help="Modo verbose")
     
     args = parser.parse_args()
+    emails_list = args.emails.split()
     
     validator = PublicEmailValidator(args.verbose)
     
     try:
-        success = validator.run(args.emails)
+        success = validator.run(emails_list)
         
         if success and validator.results:
             validator.export_results(args.output)

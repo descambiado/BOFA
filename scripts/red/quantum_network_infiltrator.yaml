@@ -19,44 +19,34 @@ requirements:
   - "ipaddress"
 
 parameters:
-  target_network:
-    type: "string"
+  target:
+    type: string
     description: "Target network (IP or CIDR notation)"
     required: true
-    example: "192.168.1.0/24"
-  
-  port_range:
-    type: "string"
-    description: "Port range to scan"
+  ports:
+    type: string
+    description: "Port range to scan (e.g. 1-1024)"
     required: false
     default: "1-1024"
-    example: "1-65535"
-  
-  stealth_mode:
-    type: "boolean"
-    description: "Enable quantum stealth techniques"
+  stealth:
+    type: boolean
+    description: "Enable stealth mode"
     required: false
-    default: true
-  
-  max_threads:
-    type: "integer"
-    description: "Maximum concurrent threads"
+    default: false
+  threads:
+    type: integer
+    description: "Number of threads"
     required: false
     default: 10
-    min: 1
-    max: 100
-  
-  output_format:
-    type: "select"
-    description: "Output format"
-    required: false
-    options: ["text", "json", "html"]
-    default: "text"
-  
-  output_file:
-    type: "string"
+  output:
+    type: string
     description: "Output file path"
     required: false
+  format:
+    type: string
+    description: "Output format (text, json, html)"
+    required: false
+    default: "text"
 
 features:
   - "🔬 Quantum port superposition scanning"
@@ -144,9 +134,9 @@ technical_specifications:
   false_positive_rate: "0.1%"
 
 usage_examples:
-  - "python3 quantum_network_infiltrator.py 192.168.1.0/24 --stealth --ports 1-65535"
-  - "python3 quantum_network_infiltrator.py 10.0.0.1 --threads 50 --format json"
-  - "python3 quantum_network_infiltrator.py target.com --output infiltration_report.html"
+  - "python3 quantum_network_infiltrator.py --target 192.168.1.0/24 --stealth --ports 1-65535"
+  - "python3 quantum_network_infiltrator.py --target 10.0.0.1 --threads 50 --format json"
+  - "python3 quantum_network_infiltrator.py --target target.com --output infiltration_report.html"
 
 learning_objectives:
   - "Master quantum-inspired scanning techniques"

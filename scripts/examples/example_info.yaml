@@ -1,0 +1,10 @@
+# Configuración del módulo de ejemplo simple
+# Este archivo YAML es opcional pero recomendado
+
+name: example_info
+description: "Módulo de ejemplo simple que muestra información básica del entorno BOFA"
+author: "@descambiado"
+version: "1.0.0"
+
+# Este script no requiere parámetros
+parameters: {}

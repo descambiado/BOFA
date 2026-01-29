@@ -410,6 +410,8 @@ def main():
                        help='Generate honeytokens only')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Verbose output')
+    parser.add_argument('--yes', action='store_true',
+                       help='Non-interactive: skip confirmation prompt')
     
     args = parser.parse_args()
     
@@ -427,10 +429,14 @@ def main():
     print(f"   • Use only in authorized testing environments")
     print(f"   • Monitor your SIEM/EDR systems during execution")
     
-    confirm = input(f"\n🚀 Start simulation? (y/N): ")
-    if confirm.lower() != 'y':
-        print("Simulation cancelled.")
-        return 0
+    if not args.yes:
+        try:
+            confirm = input(f"\n🚀 Start simulation? (y/N): ")
+        except EOFError:
+            confirm = "n"
+        if confirm.lower() != 'y':
+            print("Simulation cancelled.")
+            return 0
         
     try:    
         if args.honeytokens:

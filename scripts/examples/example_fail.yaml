@@ -1,0 +1,15 @@
+# Configuración del módulo de ejemplo que falla controladamente
+# Este módulo demuestra el manejo apropiado de errores
+
+name: example_fail
+description: "Módulo de ejemplo que demuestra cómo fallar de forma controlada y proporcionar información útil"
+author: "@descambiado"
+version: "1.0.0"
+
+# Especificación de parámetros
+# Nota: El campo 'type' es solo para documentación.
+# La validación real de tipos se hace en el script Python con argparse.
+parameters:
+  mode:
+    required: true
+    description: "Modo de ejecución: 'success' (éxito), 'error' (error de ejecución), o 'validation' (error de validación, tipo: str)"

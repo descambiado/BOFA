@@ -14,26 +14,25 @@ usage_type: "osint"
 
 parameters:
   queries:
-    type: "array"
-    description: "Términos de búsqueda para repositorios"
+    type: string
+    description: "Términos de búsqueda (separados por espacios)"
     required: true
-    example: ["api key", "password", "config"]
   token:
-    type: "string"
-    description: "Token de GitHub API (opcional, aumenta rate limit)"
+    type: string
+    description: "Token de GitHub API (opcional)"
     required: false
   max_repos:
-    type: "integer"
+    type: integer
     description: "Máximo repositorios por búsqueda"
     required: false
     default: 5
     max: 20
   output:
-    type: "string"
+    type: string
     description: "Archivo de salida JSON"
     required: false
   verbose:
-    type: "boolean"
+    type: boolean
     description: "Modo verbose"
     required: false
     default: false
@@ -48,7 +47,7 @@ environment:
   - "Respetar rate limits de GitHub API"
 
 example_usage: |
-  python github_repo_leak_detector.py "api key" "password" --max-repos 10 --output leaks.json -v
+  python github_repo_leak_detector.py --queries "api key password config" --max-repos 10 --output leaks.json -v
 
 mitre_attack:
   tactic: "Collection"

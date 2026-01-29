@@ -1,9 +1,34 @@
-# 🚀 BOFA Extended Systems v2.5.1 - Professional Cybersecurity Platform
-![BOFA PROYECT](https://github.com/descambiado/BOFA/blob/main/public/bofasuitebanner.png?raw=true)
+# 🚀 BOFA — Cybersecurity Operations Framework Advanced
 
-**The most comprehensive cybersecurity education and training platform with real-world tools**
+![BOFA](https://github.com/descambiado/BOFA/blob/main/public/bofasuitebanner.png?raw=true)
 
-BOFA (Cybersecurity Operations Framework Advanced) is a complete cybersecurity suite that combines educational web interface with 200+ real CLI tools, providing hands-on experience with cutting-edge security technologies including AI/ML, post-quantum cryptography, and advanced threat detection.
+**Framework open-source de ciberseguridad con core estable, CLI profesional y módulos descubiertos automáticamente.** Plataforma educativa y de herramientas reales (200+ scripts), con interfaz web, API y CLI lista para usar.
+
+---
+
+## ⚡ BOFA en 30 segundos
+
+```bash
+git clone https://github.com/descambiado/BOFA
+cd BOFA
+pip install -r requirements.txt
+./bofa.sh
+```
+
+Menú interactivo, módulos descubiertos por el core, sin configuración extra. **¿Quieres crear tu propio módulo?** → [Tu primer módulo en 5 minutos](docs/QUICK_START_FIRST_MODULE.md) (sin tocar el core).
+
+| Qué quieres | Enlace |
+|-------------|--------|
+| **Todo en una página** | [BOFA en una página](docs/BOFA_AT_A_GLANCE.md) |
+| **Usar la CLI** | `./bofa.sh` o [CLI](cli/README.md) |
+| **Crear un módulo** | [Tu primer módulo en 5 min](docs/QUICK_START_FIRST_MODULE.md) |
+| **Entender el core** | [Arquitectura](docs/CORE_ARCHITECTURE.md) · [Contrato módulos](docs/MODULE_CONTRACT.md) |
+| **Estado y próximos pasos** | [Roadmap y respuestas](docs/NEXT_STEPS_AND_ROADMAP.md) |
+| **Ejecutar un flujo** | [BOFA Flows](flows/README.md) (opción F en CLI) |
+| **Saber que todo funciona** | `python3 tools/verify_bofa.py` — [tools/README.md](tools/README.md) |
+| **Copiar un ejemplo** | [Módulos de ejemplo](scripts/examples/README.md) |
+
+---
 
 ## ✨ Key Features
 
@@ -80,29 +105,40 @@ pip install -r requirements.txt
 
 ## 📚 Documentation
 
-- **[Installation Guide](docs/INSTALLATION.md)** - Complete setup instructions
-- **[Usage Guide](docs/USAGE.md)** - How to use the platform effectively  
-- **[CLI Reference](cli/README.md)** - Command-line interface documentation
-- **[API Documentation](api/README.md)** - Backend API reference
-- **[Scripts Reference](scripts/README.md)** - Complete tools documentation
-- **[Labs Guide](labs/README.md)** - Docker lab environments
+### Core & CLI (framework estable)
+- **[Tu primer módulo en 5 min](docs/QUICK_START_FIRST_MODULE.md)** — Crear un módulo sin tocar el core
+- **[Arquitectura del Core](docs/CORE_ARCHITECTURE.md)** — Engine, config, logger, errors, utils
+- **[Uso del Core](docs/CORE_USAGE.md)** — API del engine, configuración, logging
+- **[Contrato Core–Módulos](docs/MODULE_CONTRACT.md)** — Qué espera el core de un módulo
+- **[CLI](cli/README.md)** — Interfaz de línea de comandos (capa sobre el core)
+- **[Módulos de ejemplo](scripts/examples/README.md)** — example_info, example_params, example_fail
+
+### Plataforma
+- **[Installation](docs/INSTALLATION.md)** — Instalación completa
+- **[Usage](docs/USAGE.md)** — Uso de la plataforma
+- **[API](api/README.md)** — Backend API
+- **[Scripts](scripts/README.md)** — Documentación de herramientas
+- **[Labs](labs/README.md)** — Entornos Docker
 
 ## 🔧 Architecture
 
-### Web System (Educational)
+### Core (estable, sin dependencias de UI)
+- **Engine**: Descubre módulos en `scripts/`, valida y ejecuta scripts.
+- **Config**: Variables de entorno + `config/bofa.yaml` + valores por defecto.
+- **Logger**: Logging estructurado (JSON/texto), niveles estándar.
+- **Errors**: Excepciones claras (`BOFAError`, `ModuleNotFoundError`, etc.) con detalles para debugging.
+- **Utils**: Carga de módulos, validación de scripts, rutas.
+
+La **CLI** es solo una capa de presentación sobre el core; toda la lógica está en el core.
+
+### Web & API (plataforma educativa)
 - **Frontend**: React 18 + TypeScript + Tailwind CSS
-- **Backend**: Python FastAPI + SQLite (lightweight)
+- **Backend**: Python FastAPI + SQLite
 - **Purpose**: Learning, browsing, and understanding security tools
 
-### CLI System (Professional)
-- **Scripts**: Python 3.8+ with cross-platform compatibility
-- **Purpose**: Real security operations and testing
-- **Features**: Automated tool execution, report generation
-
-### Labs System (Practical)  
+### Labs
 - **Infrastructure**: Docker + Docker Compose
 - **Purpose**: Hands-on security practice environments
-- **Isolation**: Secure sandboxed testing environments
 
 ## 🛡️ Security & Ethics
 
@@ -207,11 +243,11 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 <div align="center">
 
-**🚀 BOFA Extended Systems v2.5.1**
+**🚀 BOFA Extended Systems v2.6.0**
 
 *Professional Cybersecurity Education & Training Platform*
 
-[![Version](https://img.shields.io/badge/version-2.5.1-brightgreen.svg)](https://github.com/descambiado/BOFA)
+[![Version](https://img.shields.io/badge/version-2.6.0-brightgreen.svg)](https://github.com/descambiado/BOFA)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
 [![React](https://img.shields.io/badge/react-18+-blue.svg)](https://reactjs.org)

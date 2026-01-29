@@ -1,0 +1,17 @@
+# BOFA Flow: Recon
+# Ejecuta una secuencia de scripts de reconocimiento con un target común.
+# El placeholder {target} se sustituye por el valor proporcionado al ejecutar el flujo.
+
+name: recon
+description: "Reconocimiento web y descubrimiento sobre un target"
+steps:
+  - module: recon
+    script: web_discover
+    parameters:
+      url: "{target}"
+  - module: examples
+    script: example_params
+    parameters:
+      target: "{target}"
+      timeout: 10
+      verbose: true

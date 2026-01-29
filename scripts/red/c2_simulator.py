@@ -290,7 +290,7 @@ class C2Client:
 
 def main():
     parser = argparse.ArgumentParser(description="C2 Simulator (Educational)")
-    parser.add_argument("mode", choices=["server", "client"], help="Modo de operación")
+    parser.add_argument("--mode", required=True, choices=["server", "client"], help="Modo de operación")
     parser.add_argument("-H", "--host", default="127.0.0.1", help="Host del servidor")
     parser.add_argument("-p", "--port", type=int, default=8080, help="Puerto del servidor")
     parser.add_argument("-o", "--output", help="Directorio de salida")

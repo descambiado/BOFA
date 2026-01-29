@@ -1,0 +1,16 @@
+# BOFA Flow: Demo
+# Flujo mínimo con módulos de ejemplo (sin dependencias de red).
+# Útil para verificar que el flow runner funciona.
+
+name: demo
+description: "Demo con módulos de ejemplo (example_info + example_params)"
+steps:
+  - module: examples
+    script: example_info
+    parameters: {}
+  - module: examples
+    script: example_params
+    parameters:
+      target: "{target}"
+      timeout: 5
+      verbose: true

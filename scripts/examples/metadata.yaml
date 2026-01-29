@@ -1,0 +1,6 @@
+# Metadata del módulo de ejemplos
+# Este archivo es opcional pero recomendado para documentar el módulo
+
+description: "Módulos de ejemplo oficiales de BOFA. Sirven como referencia para crear nuevos módulos."
+author: "@descambiado"
+version: "1.0.0"

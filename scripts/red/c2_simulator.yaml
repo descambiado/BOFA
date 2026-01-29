@@ -11,29 +11,30 @@ educational_value: 5
 countermeasures: ["Network Monitoring", "Behavioral Analysis", "C2 Detection Rules"]
 
 parameters:
-  - name: mode
-    type: choice
-    choices: ["server", "client"]
+  mode:
+    type: string
+    description: "Modo de operación (server o client)"
     required: true
-    description: "Modo de operación (servidor o cliente)"
-  - name: host
+  host:
     type: string
-    default: "127.0.0.1"
     description: "IP del servidor C2"
-  - name: port
-    type: integer
-    default: 8080
-    description: "Puerto del servidor C2"
-  - name: output
-    type: string
     required: false
+    default: "127.0.0.1"
+  port:
+    type: integer
+    description: "Puerto del servidor C2"
+    required: false
+    default: 8080
+  output:
+    type: string
     description: "Directorio de salida para logs"
+    required: false
 
 dependencies: []
 
 usage_examples:
-  - "python3 c2_simulator.py server -p 8080"
-  - "python3 c2_simulator.py client -H 192.168.1.100 -p 8080"
+  - "python3 c2_simulator.py --mode server -p 8080"
+  - "python3 c2_simulator.py --mode client -H 192.168.1.100 -p 8080"
 
 learning_objectives:
   - "Comprender arquitectura de C2"

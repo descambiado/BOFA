@@ -1,5 +1,16 @@
-
 # 📚 Documentación BOFA
+
+## 🚀 Empieza aquí
+
+| Documento | Para qué |
+|-----------|----------|
+| **[BOFA en una página](BOFA_AT_A_GLANCE.md)** | Todo lo esencial en un solo lugar |
+| **[Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md)** | Crear un módulo sin tocar el core |
+| **[Arquitectura del Core](CORE_ARCHITECTURE.md)** | Cómo está hecho el framework |
+| **[Uso del Core](CORE_USAGE.md)** | API del engine, config, logging |
+| **[Contrato Core–Módulos](MODULE_CONTRACT.md)** | Qué espera el core de un módulo |
+| **[Errores y Logging](ERRORS_AND_LOGGING.md)** | Cómo son los errores y el logging |
+| **[Módulos de ejemplo](../scripts/examples/README.md)** | example_info, example_params, example_fail |
 
 ## Índice
 1. [Instalación](#instalación)
@@ -114,14 +125,15 @@ Herramientas de análisis:
 4. Añade tests si es necesario
 5. Envía un pull request
 
-### Añadir Nuevos Scripts
+### Añadir nuevos módulos o scripts
 
-Para añadir un nuevo script:
+**No hace falta tocar el core.** El core descubre automáticamente todo lo que está en `scripts/<nombre_modulo>/`.
 
-1. Colócalo en la carpeta del módulo correspondiente
-2. Añade la documentación
-3. Actualiza la configuración del módulo
-4. Añade tests si es aplicable
+1. Crea la carpeta `scripts/mi_modulo/`
+2. Añade tu script `.py` y opcionalmente su `.yaml`
+3. Ejecuta `./bofa.sh` o usa el engine: el módulo aparecerá solo
+
+Guía paso a paso: [Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md). Referencia: [Módulos de ejemplo](../scripts/examples/README.md).
 
 ## Soporte
 

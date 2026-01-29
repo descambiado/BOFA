@@ -10,8 +10,12 @@ import sys
 import argparse
 import json
 import subprocess
-import winreg
 from datetime import datetime
+
+try:
+    import winreg
+except ImportError:
+    winreg = None  # Windows only; en Linux el script informa y sale
 
 class UACBypassSimulator:
     def __init__(self):
@@ -204,6 +208,9 @@ class UACBypassSimulator:
         return report_file
 
 def main():
+    if winreg is None:
+        print("[INFO] Este script requiere Windows (módulo winreg). En Linux se omite.")
+        sys.exit(0)
     parser = argparse.ArgumentParser(description="UAC Bypass Simulator (Educational)")
     parser.add_argument("-t", "--technique", choices=["fodhelper", "sdclt", "eventvwr", "all"],
                        default="all", help="Técnica a simular")
