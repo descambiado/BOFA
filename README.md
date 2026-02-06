@@ -1,12 +1,12 @@
-# 🚀 BOFA — Cybersecurity Operations Framework Advanced
+# BOFA - Cybersecurity Operations Framework Advanced
 
 ![BOFA](https://github.com/descambiado/BOFA/blob/main/public/bofasuitebanner.png?raw=true)
 
-**Framework open-source de ciberseguridad con core estable, CLI profesional y módulos descubiertos automáticamente.** Plataforma educativa y de herramientas reales (200+ scripts), con interfaz web, API y CLI lista para usar.
+Framework open-source de ciberseguridad con core estable, CLI profesional y modulos descubiertos automaticamente. Por [@descambiado](https://github.com/descambiado). Plataforma educativa y herramientas reales (66+ scripts, 19 modulos, 7 flujos), CLI, API y servidor MCP para uso con LLM.
 
 ---
 
-## ⚡ BOFA en 30 segundos
+## BOFA en 30 segundos
 
 ```bash
 git clone https://github.com/descambiado/BOFA
@@ -15,7 +15,9 @@ pip install -r requirements.txt
 ./bofa.sh
 ```
 
-Menú interactivo, módulos descubiertos por el core, sin configuración extra. **¿Quieres crear tu propio módulo?** → [Tu primer módulo en 5 minutos](docs/QUICK_START_FIRST_MODULE.md) (sin tocar el core).
+Opcional (integración con Cursor u otros clientes MCP): `pip install .[mcp]` — ver [Integración MCP](docs/MCP_CURSOR_INTEGRATION.md).
+
+Menu interactivo, modulos descubiertos por el core, sin configuracion extra. Crear modulo propio: [Tu primer modulo en 5 minutos](docs/QUICK_START_FIRST_MODULE.md) (sin tocar el core).
 
 | Qué quieres | Enlace |
 |-------------|--------|
@@ -23,23 +25,28 @@ Menú interactivo, módulos descubiertos por el core, sin configuración extra. 
 | **Usar la CLI** | `./bofa.sh` o [CLI](cli/README.md) |
 | **Crear un módulo** | [Tu primer módulo en 5 min](docs/QUICK_START_FIRST_MODULE.md) |
 | **Entender el core** | [Arquitectura](docs/CORE_ARCHITECTURE.md) · [Contrato módulos](docs/MODULE_CONTRACT.md) |
-| **Estado y próximos pasos** | [Roadmap y respuestas](docs/NEXT_STEPS_AND_ROADMAP.md) |
+| **Estado actual** | [STATUS](docs/STATUS.md) |
+| **Indice de documentacion** | [DOCUMENTATION_INDEX](docs/DOCUMENTATION_INDEX.md) |
+| **Zero-day y reporte** | [ZERO_DAY_AND_REPORTING](docs/ZERO_DAY_AND_REPORTING.md) |
+| **Roadmap y próximos pasos** | [NEXT_STEPS_AND_ROADMAP](docs/NEXT_STEPS_AND_ROADMAP.md) |
 | **Ejecutar un flujo** | [BOFA Flows](flows/README.md) (opción F en CLI) |
 | **Saber que todo funciona** | `python3 tools/verify_bofa.py` — [tools/README.md](tools/README.md) |
+| **IA + ciberseguridad (LLM con BOFA)** | [LLM + BOFA para ciberseguridad](docs/LLM_CYBERSECURITY.md) |
+| **Usar BOFA desde Cursor (MCP)** | [Integración MCP con Cursor](docs/MCP_CURSOR_INTEGRATION.md) — [mcp/README.md](mcp/README.md) |
 | **Copiar un ejemplo** | [Módulos de ejemplo](scripts/examples/README.md) |
 
 ---
 
-## ✨ Key Features
+## Caracteristicas
 
-### 🌐 **Educational Web Platform**
+### Plataforma web educativa
 - **Interactive Script Library**: Browse and learn from 200+ security tools
 - **Code Viewer**: Professional syntax highlighting for all scripts
 - **Real-time Dashboard**: Monitor your security operations
 - **Study Materials**: Comprehensive cybersecurity lessons and CTF challenges
 - **Progress Tracking**: Track your learning journey and skill development
 
-### 🛠️ **Real CLI Tools (200+ Scripts)**
+### CLI y herramientas (66+ scripts)
 - **Red Team**: 35+ offensive security tools and techniques
 - **Blue Team**: 28+ defensive tools with AI-powered threat detection  
 - **Purple Team**: 20+ coordinated exercise tools with ML integration
@@ -48,14 +55,14 @@ Menú interactivo, módulos descubiertos por el core, sin configuración extra. 
 - **Social Engineering**: 12+ awareness and training tools
 - **Study & Research**: Educational CTF and training tools
 
-### 🔬 **Innovation Labs**
+### Labs
 - **Docker-based Labs**: 8 comprehensive security environments
 - **Real Vulnerability Testing**: Hands-on practice with safe environments  
 - **Cloud Native Security**: Kubernetes and container security testing
 - **IoT/OT Security**: Industrial protocol and device testing
 - **Mobile Security**: Android application security analysis
 
-## 🎯 Professional Use Cases
+## Casos de uso
 
 - **Security Training**: Corporate cybersecurity education programs
 - **Penetration Testing**: Real-world security assessment tools
@@ -64,7 +71,7 @@ Menú interactivo, módulos descubiertos por el core, sin configuración extra. 
 - **CTF Competitions**: Educational capture-the-flag scenarios
 - **Academic Programs**: University cybersecurity curriculum support
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Docker (Recommended)
 ```bash
@@ -103,7 +110,7 @@ pip install -r requirements.txt
 ./bofa.sh  # Interactive CLI menu
 ```
 
-## 📚 Documentation
+## Documentacion
 
 ### Core & CLI (framework estable)
 - **[Tu primer módulo en 5 min](docs/QUICK_START_FIRST_MODULE.md)** — Crear un módulo sin tocar el core
@@ -120,7 +127,7 @@ pip install -r requirements.txt
 - **[Scripts](scripts/README.md)** — Documentación de herramientas
 - **[Labs](labs/README.md)** — Entornos Docker
 
-## 🔧 Architecture
+## Arquitectura
 
 ### Core (estable, sin dependencias de UI)
 - **Engine**: Descubre módulos en `scripts/`, valida y ejecuta scripts.
@@ -140,13 +147,11 @@ La **CLI** es solo una capa de presentación sobre el core; toda la lógica est�
 - **Infrastructure**: Docker + Docker Compose
 - **Purpose**: Hands-on security practice environments
 
-## 🛡️ Security & Ethics
+## Seguridad y uso responsable
 
-### Responsible Use
-- ✅ **Educational**: Designed for learning and security improvement
-- ✅ **Authorized Testing**: Only on systems you own or have permission to test
-- ✅ **Professional Development**: Enhance cybersecurity skills responsibly
-- ❌ **Malicious Use**: Strictly prohibited against unauthorized systems
+- [OK] Uso educativo y autorizado (sistemas propios o con permiso).
+- [OK] Pruebas y desarrollo profesional.
+- [NO] Uso malicioso o no autorizado.
 
 ### Security Features
 - **Sandboxed Execution**: Safe isolated script execution
@@ -154,7 +159,7 @@ La **CLI** es solo una capa de presentación sobre el core; toda la lógica est�
 - **Access Control**: Role-based permissions system
 - **Data Encryption**: Secure storage of sensitive information
 
-## 📊 Platform Statistics
+## Numeros (referencia)
 
 - **200+ Real Security Tools** across 7 specialized modules
 - **50+ Innovative 2025 Techniques** with cutting-edge technology
@@ -164,7 +169,7 @@ La **CLI** es solo una capa de presentación sobre el core; toda la lógica est�
 - **Modern Web Interface** with professional code viewing
 - **Complete Documentation** for all tools and techniques
 
-## 🎓 Educational Value
+## Valor educativo
 
 ### For Students
 - Learn from real security tools used by professionals
@@ -184,7 +189,7 @@ La **CLI** es solo una capa de presentación sobre el core; toda la lógica est�
 - Student progress tracking and assessment tools
 - Real-world security scenarios and case studies
 
-## 🤝 Contributing
+## Contribuir
 
 We welcome contributions from the cybersecurity community:
 
@@ -194,14 +199,9 @@ We welcome contributions from the cybersecurity community:
 4. **Test** thoroughly in multiple environments
 5. **Submit** a pull request with detailed description
 
-### Contribution Types
-- 🐛 Bug fixes and improvements
-- ✨ New security tools and techniques
-- 📚 Documentation and tutorials
-- 🧪 New lab environments and scenarios
-- 🎨 UI/UX enhancements
+Tipos: correcciones, nuevas herramientas, documentacion, labs, mejoras de interfaz.
 
-## 📞 Support & Community
+## Soporte
 
 ### Getting Help
 - **Documentation**: Comprehensive guides for all features
@@ -214,18 +214,11 @@ We welcome contributions from the cybersecurity community:
 - **Consulting**: Security assessment and implementation guidance
 - **Custom Development**: Tailored security tools and solutions
 
-## 📄 License
+## Licencia
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+MIT License. Ver [LICENSE](LICENSE). Uso comercial, modificacion y distribucion permitidos. Sin garantia.
 
-### Usage Rights
-- ✅ Commercial use permitted
-- ✅ Modification and distribution allowed
-- ✅ Private use encouraged
-- ⚠️ No warranty provided
-- ⚠️ Limited liability
-
-## 🙏 Acknowledgments
+## Agradecimientos
 
 ### Technologies
 - **Frontend**: React, TypeScript, Tailwind CSS, Vite
@@ -241,18 +234,4 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-<div align="center">
-
-**🚀 BOFA Extended Systems v2.6.0**
-
-*Professional Cybersecurity Education & Training Platform*
-
-[![Version](https://img.shields.io/badge/version-2.6.0-brightgreen.svg)](https://github.com/descambiado/BOFA)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
-[![React](https://img.shields.io/badge/react-18+-blue.svg)](https://reactjs.org)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://docker.com)
-
-**Developed with ❤️ by [@descambiado](https://github.com/descambiado)**
-
-</div>
+BOFA v2.6.0 - [@descambiado](https://github.com/descambiado) | [LICENSE](LICENSE) | Python 3.8+

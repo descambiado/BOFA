@@ -1,7 +1,88 @@
+# BOFA - CHANGELOG
 
-# 📦 BOFA – CHANGELOG
+Por descambiado. Cambios notables por version.
 
-## v2.6.0 – Core finalization, BOFA Flow, verificación (2026-01-29)
+---
+
+## v2.6.0 (continuacion 3) - Orquestacion para la IA, encadenamiento (2026-02)
+
+### MCP: descubrir y combinar
+- **bofa_capabilities()**: devuelve flows (when/combine_with), scripts_with_json, chain_examples. La IA puede llamar primero para saber que combinar.
+- **bofa_suggest_tools(goal)**: dado un objetivo en texto (ej. "recon web", "vulnerabilidades web_framework"), devuelve suggested_flows y suggested_scripts con razon.
+- Descripciones MCP actualizadas: list_flows (incl. full_recon, vuln_triage), run_flow (parsear stdout_preview), execute_script (json: true para encadenar).
+
+### Flujo full_recon ampliado
+- **config/flows/full_recon.yaml**: 4 pasos con mismo target: web_discover(url), http_headers(url, json), robots_txt(url, json), cve_lookup(limit 5). Combina recon + web + vulnerability.
+
+### Documentacion
+- **docs/ORCHESTRATION_AND_CHAINING.md**: orquestacion y encadenamiento: herramientas MCP para combinar, flujos que encadenan, scripts con salida JSON, ejemplos para la IA.
+- **docs/LLM_CYBERSECURITY.md**: tabla de herramientas con capabilities y suggest_tools; referencia a ORCHESTRATION_AND_CHAINING.
+- **docs/DOCUMENTATION_INDEX.md**: enlace a ORCHESTRATION_AND_CHAINING.
+
+### Verificacion
+- **tools/verify_bofa.py**: run_mcp_check incluye bofa_capabilities() y bofa_suggest_tools("recon web") cuando mcp esta instalado.
+
+### Numeros
+- 8 herramientas MCP (list_modules, list_scripts, script_info, execute_script, list_flows, run_flow, capabilities, suggest_tools).
+
+---
+
+## v2.6.0 (continuacion 4) - Web security review y analizador de cabeceras (2026-02)
+
+### Modulo web
+- **scripts/web/security_headers_analyzer.py** + .yaml: analiza cabeceras HTTP (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, cookies Secure/HttpOnly/SameSite) y genera resumen de seguridad. Soporta json: true para salida parseable (IA/flows).
+
+### Flujos
+- **config/flows/web_security_review.yaml**: flujo centrado en seguridad web para una URL. Pasos: recon/http_headers(url, json), web/security_headers_analyzer(url, json), web/robots_txt(url, json).
+- **config/flows/full_recon.yaml** (recordatorio): ya combinaba web_discover, http_headers, robots_txt y cve_lookup sobre la misma URL.
+
+### Verificacion
+- **tools/verify_bofa.py**: SKIP_FULL incluye web/security_headers_analyzer (dependencia de red).
+- `python3 tools/verify_bofa.py --full`: 68 scripts, 33 OK, 28 need params, 7 omitidos, 0 fallos.
+
+### Documentacion
+- **docs/STATUS.md** y **docs/DOCUMENTATION_INDEX.md**: numeros actualizados (68 scripts, 20 modulos, 9 flujos).
+- **docs/ORCHESTRATION_AND_CHAINING.md**: añadido flujo web_security_review y script web/security_headers_analyzer en la tabla de scripts con salida JSON.
+
+---
+
+## v2.6.0 (continuacion 2) - Modulo web, flujo vuln_triage, CVE, ASCII (2026-02)
+
+### Modulo web
+- **scripts/web/robots_txt.py** + .yaml: obtiene robots.txt de una URL. Recon web, sin emojis. Omitido en verify --full (network-dependent).
+
+### Flujos y vulnerabilidades
+- **config/flows/vuln_triage.yaml**: consulta CVE por producto (target) y exporta a reports/vuln_triage_{target}.json. Pasos: cve_lookup(product={target}, limit 15), cve_export(output, limit 20, product={target}).
+- **scripts/vulnerability/cve_data.yaml**: 4 entradas nuevas (CVE-2024-0006/0007, CVE-2023-0005, CVE-2025-0004).
+
+### Calidad
+- **scripts/blue/log_guardian.py**: emojis sustituidos por ASCII ([*], [HIGH], [MED], [OK]).
+- **tools/verify_bofa.py**: SKIP_FULL incluye web/robots_txt.
+
+### Numeros
+- 20 modulos, 67 scripts, 8 flujos. Verificacion --full: 33 OK, 28 need params, 6 omitidos, 0 fallos.
+
+---
+
+## v2.6.0 (continuacion) - Documentacion, zero-day, reporting, ASCII (2026-02)
+
+### Documentacion
+- **Normalizacion ASCII**: README, STATUS, BOFA_AT_A_GLANCE, docs: sin emojis en headers/tablas; checkmarks sustituidos por [OK]; flechas por ->. Tono tecnico y directo.
+- **Autor**: "Por descambiado" / "@descambiado" en STATUS, BOFA_AT_A_GLANCE, ZERO_DAY_AND_REPORTING, LLM_CYBERSECURITY, docs/README.
+- **Indice**: docs/DOCUMENTATION_INDEX.md con lista de todos los documentos y descripcion breve. Enlace desde STATUS.
+
+### Zero-day y reporte
+- **docs/ZERO_DAY_AND_REPORTING.md**: que hace BOFA en flujo zero-day (recon, vuln intel, exploit tools); no encuentra zero-days automaticamente; soporte para reportar.
+- **Modulo reporting**: scripts/reporting/report_finding.py + .yaml. Genera informe de hallazgo (titulo, descripcion, severidad, pasos, impacto, mitigacion) en Markdown o JSON para disclosure a vendor/CERT. Verificacion --full OK.
+
+### Arsenal y flujos (sesiones previas)
+- Modulos: vulnerability (cve_lookup, cve_export), reporting (report_finding). Recon (http_headers), exploit (payload_encoder), forensics (hash_calculator).
+- Flujos: web_recon, pentest_basic, vulnerability_scan, full_recon.
+- 66 scripts, 19 modulos, 7 flujos. Verificacion: python3 tools/verify_bofa.py --full -> TODO OK.
+
+---
+
+## v2.6.0 - Core finalization, BOFA Flow, verificacion (2026-01-29)
 
 ### Objetivo
 Llevar el core a estado **production-ready open-source**: estable, limpio, verificable y extensible sin tocar el core.

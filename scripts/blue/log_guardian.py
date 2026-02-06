@@ -30,7 +30,7 @@ class LogGuardian:
         
     def analyze_log_file(self, filepath: str) -> Dict[str, Any]:
         """Analyze a log file for security threats"""
-        print(f"🔍 Analyzing: {filepath}")
+        print(f"[*] Analyzing: {filepath}")
         
         detections = defaultdict(list)
         ip_activity = defaultdict(int)
@@ -58,7 +58,7 @@ class LogGuardian:
                         detections[threat_type].append(detection)
                         
                         if self.verbose:
-                            severity_icon = "🔴" if detection['severity'] == "HIGH" else "🟡"
+                            severity_icon = "[HIGH]" if detection['severity'] == "HIGH" else "[MED]"
                             print(f"{severity_icon} Line {line_num}: {threat_type} detected")
             
             suspicious_ips = {ip: count for ip, count in ip_activity.items() if count >= 5}
@@ -86,14 +86,14 @@ class LogGuardian:
         """Generate security report"""
         report = []
         report.append("\n" + "="*60)
-        report.append("🛡️  LOG GUARDIAN SECURITY REPORT")
+        report.append("[*] LOG GUARDIAN SECURITY REPORT")
         report.append("="*60)
-        report.append(f"\n📄 File: {results.get('file', 'N/A')}")
-        report.append(f"📊 Total Lines: {results.get('total_lines', 0)}")
+        report.append(f"\nFile: {results.get('file', 'N/A')}")
+        report.append(f"Total Lines: {results.get('total_lines', 0)}")
         
         threat_summary = results.get('threat_summary', {})
         if threat_summary:
-            report.append("\n🎯 THREAT SUMMARY:")
+            report.append("\nTHREAT SUMMARY:")
             for threat, count in sorted(threat_summary.items(), key=lambda x: x[1], reverse=True):
                 report.append(f"   • {threat}: {count} incidents")
         
@@ -104,6 +104,7 @@ def main():
     parser = argparse.ArgumentParser(description="Log Guardian - Security Log Monitor")
     parser.add_argument('--file', required=True, help='Log file to analyze')
     parser.add_argument('--output', help='Output report file (JSON)')
+    parser.add_argument('--json', action='store_true', help='Print JSON summary to stdout (para IA/flows)')
     parser.add_argument('--verbose', action='store_true', help='Verbose output')
     
     args = parser.parse_args()
@@ -111,12 +112,17 @@ def main():
     guardian = LogGuardian(verbose=args.verbose)
     results = guardian.analyze_log_file(args.file)
     
-    print(guardian.generate_report(results))
+    if args.json:
+        # Salida parseable para IA y flujos
+        print(json.dumps(results, indent=2))
+    else:
+        # Informe humano legible
+        print(guardian.generate_report(results))
     
     if args.output:
         with open(args.output, 'w') as f:
             json.dump(results, f, indent=2)
-        print(f"💾 Report saved: {args.output}")
+        print(f"[OK] Report saved: {args.output}")
 
 if __name__ == '__main__':
     main()

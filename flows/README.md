@@ -16,7 +16,7 @@ Ejecución de secuencias predefinidas de scripts con un target común e informe 
 
 ## Definición de flujos
 
-Los flujos se definen en YAML en `config/flows/`. Por defecto: `demo`, `recon`, `blue`. Ejemplo:
+Los flujos se definen en YAML en `config/flows/`. Disponibles: `demo`, `recon`, `blue`, `web_recon`, `pentest_basic`, `vulnerability_scan`, `full_recon`. Orquestables por un LLM vía MCP. Ejemplo:
 
 ```yaml
 name: recon

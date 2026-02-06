@@ -9,6 +9,7 @@ Ejecutar desde la raíz del proyecto: python3 tools/verify_bofa.py [--full]
 Modos:
   --quick (default): Ejecuta flujo demo + módulos de ejemplo. Rápido, confirma que lo esencial funciona.
   --full: Lista todos los módulos/scripts, valida cada uno y ejecuta los que aceptan params vacíos o tienen params seguros.
+  --mcp: Si está instalado el paquete mcp, comprueba que las herramientas MCP (bofa_list_modules, etc.) responden. Opcional.
 """
 
 import sys
@@ -39,6 +40,16 @@ def _safe_params(temp_log_path=None):
         ("exploit", "reverse_shell_generator"): {"ip": "127.0.0.1", "port": 9999},
         ("exploit", "ai_payload_mutator"): {"payload": "print('test')"},
         ("osint", "social_profile_mapper"): {"username": "verify_test"},
+        ("exploit", "payload_encoder"): {"payload": "test"},
+        ("vulnerability", "cve_export"): {"output": "/tmp/cve_export_verify.json"},
+        ("forensics", "hash_calculator"): {"input": "verify_test"},
+        ("reporting", "report_finding"): {
+            "title": "Verify test",
+            "description": "Test run",
+            "severity": "info",
+            "steps": "1. Run verify 2. Check output",
+            "output": "/tmp/finding_verify.md",
+        },
     }
     return p
 
@@ -75,11 +86,43 @@ def run_quick():
     return results
 
 
+def run_mcp_check():
+    """Si mcp está instalado, comprueba que las herramientas MCP responden. Si no, (skipped, None)."""
+    try:
+        import mcp.server.fastmcp  # noqa: F401
+    except ImportError:
+        return ("MCP tools", "skipped", "mcp not installed (pip install .[mcp])")
+    try:
+        from mcp.bofa_mcp import bofa_list_modules, bofa_list_flows, bofa_capabilities, bofa_suggest_tools
+    except Exception as e:
+        return ("MCP tools", False, str(e))
+    try:
+        out = bofa_list_modules()
+        if "error" in out:
+            return ("MCP bofa_list_modules", False, out[:200])
+        out2 = bofa_list_flows()
+        if "error" in out2:
+            return ("MCP bofa_list_flows", False, out2[:200])
+        out3 = bofa_capabilities()
+        if "error" in out3:
+            return ("MCP bofa_capabilities", False, out3[:200])
+        out4 = bofa_suggest_tools("recon web")
+        if "error" in out4 and "goal is required" not in out4:
+            return ("MCP bofa_suggest_tools", False, out4[:200])
+        return ("MCP tools", True, None)
+    except Exception as e:
+        return ("MCP tools", False, str(e))
+
+
 # Scripts que no se ejecutan en --full (interactivos, muy largos o con dependencias de entorno)
 SKIP_FULL = {
     "purple/threat_emulator",  # timeout 20s; simulación larga
     "osint/multi_vector_osint",  # exit 1 sin params en entorno de verificación
     "recon/reverse_dns_flood",   # exit 1 sin target/red en entorno de verificación
+    "osint/social_profile_mapper",  # timeout 20s; peticiones de red/API
+    "recon/http_headers",  # requiere servidor escuchando en la URL (network-dependent)
+    "web/robots_txt",      # requiere URL accesible (network-dependent)
+    "web/security_headers_analyzer",  # requiere URL accesible (network-dependent)
 }
 
 
@@ -139,6 +182,7 @@ def run_full():
 
 def main():
     full = "--full" in sys.argv
+    mcp_check = "--mcp" in sys.argv
     print("BOFA Verification")
     print("=" * 60)
     print(f"Modo: {'full (todos los scripts)' if full else 'quick (flujo demo + ejemplos)'}")
@@ -173,17 +217,28 @@ def main():
             print("\n(Omitidos: scripts de larga duración o con dependencias de entorno; no cuentan como fallo)")
     else:
         results = run_quick()
-        ok_count = sum(1 for _, ok, _ in results if ok)
+        if mcp_check:
+            mcp_result = run_mcp_check()
+            results.append(mcp_result)
+        ok_count = sum(1 for _, ok, _ in results if ok is True)
+        skip_count = sum(1 for _, ok, _ in results if ok == "skipped")
         total = len(results)
         print(f"Comprobaciones: {total}")
         print(f"  OK: {ok_count}")
+        if skip_count:
+            print(f"  Omitidos: {skip_count}")
         print()
         for name, ok, err in results:
-            symbol = "OK" if ok else "FAIL"
+            if ok == "skipped":
+                symbol = "SKIP"
+            else:
+                symbol = "OK" if ok else "FAIL"
             print(f"  [{symbol}] {name}")
-            if not ok and err:
+            if not ok and err and ok != "skipped":
                 print(f"       {str(err)[:300]}")
-        success = ok_count == total
+            if ok == "skipped" and err:
+                print(f"       {str(err)[:200]}")
+        success = not any(ok is False for _, ok, _ in results)
 
     print()
     print("=" * 60)

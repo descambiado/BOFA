@@ -4,10 +4,10 @@
 
 La versión está unificada en:
 
-- `pyproject.toml` → `version = "2.6.0"`
-- `cli/bofa_cli.py` → `VERSION = "2.6.0"`
-- `README.md` → badge y título v2.6.0
-- `CHANGELOG.md` → entrada `## v2.6.0`
+- `pyproject.toml` -> `version = "2.6.0"`
+- `cli/bofa_cli.py` -> `VERSION = "2.6.0"`
+- `README.md` -> badge y titulo v2.6.0
+- `CHANGELOG.md` -> entrada `## v2.6.0`
 
 ## Commit y push (recomendado)
 

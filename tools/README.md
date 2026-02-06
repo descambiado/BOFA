@@ -11,5 +11,6 @@ python3 tools/verify_bofa.py
 
 - **Modo rápido (por defecto)**: Ejecuta el flujo demo y los módulos de ejemplo. Si termina con "Resultado: TODO OK", lo esencial funciona.
 - **Modo completo**: `python3 tools/verify_bofa.py --full` — lista todos los módulos/scripts, valida y ejecuta los que aceptan parámetros vacíos o tienen parámetros seguros. Los que necesitan parámetros no se ejecutan (se marcan como "Necesitan parámetros"). Algunos se omiten por ser de larga duración o con dependencias de entorno (no cuentan como fallo).
+- **Comprobar MCP (opcional)**: `python3 tools/verify_bofa.py --mcp` — además del modo rápido, comprueba que las herramientas MCP responden si tienes instalado `pip install .[mcp]`. Si no tienes MCP instalado, se marca como "SKIP" y no cuenta como fallo.
 
 Código de salida: 0 = todo OK, 1 = hay fallos (revisar la salida).

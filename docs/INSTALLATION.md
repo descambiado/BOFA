@@ -141,6 +141,14 @@ python3 cli/bofa_cli.py
 
 ## 🧪 Optional Features
 
+### Integración MCP (Cursor y otros clientes)
+Para usar BOFA como backend de herramientas desde Cursor u otros clientes MCP:
+```bash
+pip install .[mcp]
+python3 mcp/bofa_mcp.py   # arranca el servidor (stdio)
+```
+Configuración: copia `.cursor/mcp.json.example` a `.cursor/mcp.json` y sustituye `ABSOLUTE_PATH_TO_BOFA` por la ruta real. Ver [MCP_CURSOR_INTEGRATION.md](MCP_CURSOR_INTEGRATION.md).
+
 ### Enable Labs
 ```bash
 # Start web security lab
@@ -164,7 +172,7 @@ docker-compose --profile monitoring up -d
 docker-compose --profile database up -d
 ```
 
-## ✅ Installation Verification
+## Verificacion de instalacion
 
 ### Verify Web Interface
 ```bash

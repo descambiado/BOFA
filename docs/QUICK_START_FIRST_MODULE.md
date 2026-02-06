@@ -1,4 +1,4 @@
-# 🚀 Tu primer módulo BOFA en 5 minutos
+# Tu primer modulo BOFA en 5 minutos
 
 Crear un módulo nuevo **no requiere tocar el core**. Solo sigue esta guía.
 
@@ -105,7 +105,7 @@ Vuelve a probar con el core o la CLI; el módulo se descubre solo.
 
 ---
 
-## ✅ Checklist
+## Checklist
 
 - [ ] Carpeta en `scripts/<nombre_modulo>/`
 - [ ] Archivo `.py` ejecutable (`python3 script.py` funciona)
