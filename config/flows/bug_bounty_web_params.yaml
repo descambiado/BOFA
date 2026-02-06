@@ -1,0 +1,24 @@
+name: bug_bounty_web_params
+description: "Bug bounty web centrado en cabeceras y descubrimiento de parametros (http_headers, security_headers_analyzer, robots_txt, param_finder)"
+steps:
+  - module: recon
+    script: http_headers
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: security_headers_analyzer
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: robots_txt
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: param_finder
+    parameters:
+      url: "{target}"
+      json: true
+

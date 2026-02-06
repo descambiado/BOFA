@@ -1,0 +1,18 @@
+name: forensics_diff
+description: "Forensics diff: compara dos timelines JSON generados por filesystem_timeline y genera informe de cambios"
+steps:
+  - module: forensics
+    script: timeline_diff
+    parameters:
+      before: "reports/timeline_before.json"
+      after: "reports/timeline_after.json"
+      json: true
+  - module: reporting
+    script: report_finding
+    parameters:
+      title: "Forensics diff timeline"
+      description: "Diferencias entre dos timelines generados por filesystem_timeline (reports/timeline_before.json y reports/timeline_after.json). Revisar secciones added/removed/modified en la salida JSON."
+      severity: "info"
+      steps: "1. Generar timelines con filesystem_timeline (antes/despues). 2. Ejecutar forensics_diff. 3. Revisar cambios criticos en el informe y el JSON."
+      output: "reports/forensics_diff_report.md"
+

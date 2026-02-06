@@ -1,0 +1,33 @@
+name: bug_bounty_web_diff
+description: "Bug bounty web buscando diferencias de respuestas en rutas comunes (web_discover, http_headers, security_headers_analyzer, robots_txt, path_scanner, response_classifier)"
+steps:
+  - module: recon
+    script: web_discover
+    parameters:
+      url: "{target}"
+  - module: recon
+    script: http_headers
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: security_headers_analyzer
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: robots_txt
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: path_scanner
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: response_classifier
+    parameters:
+      url: "{target}"
+      json: true
+

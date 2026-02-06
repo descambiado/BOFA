@@ -1,0 +1,13 @@
+name: log_anomaly_score
+category: blue
+description: "Calcula un score de riesgo a partir de la salida JSON de log_guardian o log_quick_summary"
+parameters:
+  input:
+    type: string
+    description: "Ruta al fichero JSON de entrada (salida de log_guardian --json o log_quick_summary --json)"
+    required: true
+  json:
+    type: bool
+    description: "Si es true, imprime salida JSON parseable (para IA/flows)"
+    required: false
+
