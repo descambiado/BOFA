@@ -1,0 +1,19 @@
+name: security_headers_analyzer
+category: web
+description: "Analiza cabeceras HTTP de una URL (HSTS, CSP, X-Frame-Options, Referrer-Policy, cookies) y genera resumen de seguridad"
+parameters:
+  url:
+    type: string
+    description: "URL objetivo (ej. https://example.com)"
+    required: true
+  timeout:
+    type: integer
+    description: "Timeout en segundos"
+    required: false
+    default: 10
+  json:
+    type: boolean
+    description: "Salida en formato JSON (recomendada para IA/flows)"
+    required: false
+    default: false
+

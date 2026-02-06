@@ -141,9 +141,9 @@ try:
         script_name="log_guardian",
         parameters={"f": "/var/log/auth.log"}
     )
-    print("✅ Script válido")
+    print("[OK] Script valido")
 except ValidationError as e:
-    print(f"❌ Error de validación: {e}")
+    print(f"[NO] Error de validacion: {e}")
 ```
 
 ## Ejemplos Avanzados

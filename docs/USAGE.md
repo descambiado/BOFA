@@ -84,7 +84,7 @@ python3 scripts/purple/autonomous_pentest_agent.py --target web
 python3 scripts/purple/neural_threat_predictor.py --model lstm
 ```
 
-#### 🔍 OSINT Tools (18+ scripts)
+#### OSINT Tools (18+ scripts)
 Intelligence gathering and analysis:
 ```bash
 # Multi-source intelligence

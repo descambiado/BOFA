@@ -1,0 +1,23 @@
+# BOFA Flow: Web Security Review
+# Revision de seguridad web centrada en cabeceras y robots.txt.
+# Target = URL base. Orquestable por LLM.
+
+name: web_security_review
+description: "Revision de seguridad web: http_headers, security_headers_analyzer y robots_txt sobre una URL"
+steps:
+  - module: recon
+    script: http_headers
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: security_headers_analyzer
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: robots_txt
+    parameters:
+      url: "{target}"
+      json: true
+

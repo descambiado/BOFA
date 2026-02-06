@@ -1,0 +1,10 @@
+# BOFA Flow: Web Recon
+# Reconocimiento web sobre un target (URL). Descubrimiento de servicios y subdominios.
+
+name: web_recon
+description: "Reconocimiento web: descubrimiento de servicios y subdominios sobre una URL"
+steps:
+  - module: recon
+    script: web_discover
+    parameters:
+      url: "{target}"

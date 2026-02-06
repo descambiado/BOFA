@@ -2,6 +2,8 @@
 
 Este documento responde a las preguntas sobre el estado del proyecto BOFA, qué queda por hacer, y cómo seguir desarrollando y diferenciándonos.
 
+**Resumen rápido “cómo vamos”**: ver [STATUS.md](STATUS.md).
+
 ---
 
 ## ¿Te acuerdas qué queríamos hacer después del core?
@@ -22,11 +24,11 @@ Sí. Después de dejar el **core production-ready** (estable, limpio, documentad
 
 | Componente | Estado |
 |------------|--------|
-| **Core** (engine, config, logger, errors, utils) | ✅ Funciona y validado |
-| **CLI** (`./bofa.sh`, `cli/bofa_cli.py`) | ✅ Funciona; usa solo el core |
-| **Módulos de ejemplo** (`examples/`: example_info, example_params, example_fail) | ✅ Funcionan con el core |
-| **Validador de parámetros** | ✅ Corregido: acepta tipos en YAML (`string`, `int`, `bool`) además de tipos Python |
-| **Scripts “reales”** (exploit, red, blue, osint, etc.) | ✅ Migrados a `--key` los que tenían posicionales; core acepta `parameters` en YAML como lista o dict; verificación `tools/verify_bofa.py --full` pasa (0 fallos). |
+| **Core** (engine, config, logger, errors, utils) | [OK] Funciona y validado |
+| **CLI** (`./bofa.sh`, `cli/bofa_cli.py`) | [OK] Funciona; usa solo el core |
+| **Módulos de ejemplo** (`examples/`: example_info, example_params, example_fail) | [OK] Funcionan con el core |
+| **Validador de parámetros** | [OK] Corregido: acepta tipos en YAML (`string`, `int`, `bool`) además de tipos Python |
+| **Scripts “reales”** (exploit, red, blue, osint, etc.) | [OK] Migrados a `--key` los que tenían posicionales; core acepta `parameters` en YAML como lista o dict; verificación `tools/verify_bofa.py --full` pasa (0 fallos). |
 
 **Nota**: El core pasa parámetros como `--key value`. Los scripts deben usar **argumentos opcionales** (`--target`, `--verbose`, etc.). Los ejemplos en `scripts/examples/` son la referencia.
 
@@ -64,6 +66,7 @@ Sí:
 - **Enfoque educativo y operativo**: formación y uso real con la misma base.
 - **Muchas herramientas en un solo marco**: decenas de scripts organizados por categoría (red, blue, purple, osint, etc.).
 - **Local-first, extensible**: pensado para uso local y reutilizable por otras capas (CLI, API, frontend).
+- **Servidor MCP (opcional)**: integración con Cursor y otros clientes MCP para usar BOFA como backend de herramientas desde asistentes de IA; ver [Integración MCP con Cursor](MCP_CURSOR_INTEGRATION.md) y [mcp/README.md](../mcp/README.md).
 
 ---
 
@@ -126,5 +129,9 @@ Con esto se consigue que **todo** sea funcional desde el core/CLI y, a la vez, s
 
 **Verificación (saber que todo funciona)**  
 - Script: `tools/verify_bofa.py`. Modo rápido: `python3 tools/verify_bofa.py`. Modo completo: `--full`. Ver [tools/README.md](../tools/README.md).
+
+**Servidor MCP (integración con Cursor y clientes MCP)**  
+- Servidor MCP en `mcp/bofa_mcp.py` que expone herramientas BOFA (listar módulos/scripts, ejecutar script, listar/ejecutar flujos) sin añadir IA al framework.  
+- Dependencia opcional: `pip install .[mcp]`. Documentación: [MCP_CURSOR_INTEGRATION.md](MCP_CURSOR_INTEGRATION.md), [mcp/README.md](../mcp/README.md).
 
 Si quieres, el siguiente paso concreto puede ser: (A) definir la plantilla de “migración de un script” y aplicarla a 2–3 scripts como ejemplo, o (B) esbozar el estándar de “módulo certificado” y el framework de tests para módulos.

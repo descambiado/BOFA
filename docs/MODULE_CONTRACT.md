@@ -1,4 +1,4 @@
-# 📋 Contrato entre Core y Módulos
+# Contrato entre Core y Modulos
 
 Este documento define explícitamente los contratos entre el core de BOFA y los módulos. Estos contratos garantizan que un módulo nuevo puede crearse **sin modificar el core**.
 
@@ -347,7 +347,7 @@ if __name__ == "__main__":
 
 Este módulo será descubierto y ejecutable automáticamente sin tocar el core.
 
-## 🔍 Validación del Contrato
+## Validacion del Contrato
 
 Para validar que un módulo cumple el contrato:
 

@@ -1,6 +1,8 @@
-# 📚 Documentación BOFA
+# Documentacion BOFA
 
-## 🚀 Empieza aquí
+Por descambiado. Indice de documentacion del framework.
+
+## Empieza aqui
 
 | Documento | Para qué |
 |-----------|----------|
@@ -93,7 +95,7 @@ Herramientas de explotación:
 - Generación de payloads
 - Post-explotación
 
-### 🔍 OSINT
+### OSINT
 Inteligencia de fuentes abiertas:
 - Reconocimiento pasivo
 - Análisis de redes sociales

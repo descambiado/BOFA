@@ -1,0 +1,18 @@
+name: hash_calculator
+category: forensics
+description: "Calcula hash MD5 o SHA256 de una cadena o archivo para análisis forense"
+parameters:
+  input:
+    type: string
+    description: "Cadena a hashear o ruta de archivo si --file"
+    required: true
+  algorithm:
+    type: string
+    description: "Algoritmo: md5 o sha256"
+    required: false
+    default: sha256
+  file:
+    type: boolean
+    description: "Tratar input como ruta de archivo"
+    required: false
+    default: false

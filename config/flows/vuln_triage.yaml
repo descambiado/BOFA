@@ -1,0 +1,18 @@
+# BOFA Flow: Vuln triage
+# Consulta CVE por producto y exporta resultado para triaje.
+# Target se usa como filtro de producto (ej. web_framework).
+
+name: vuln_triage
+description: "Consulta CVE por producto y exporta para triaje (reportes)"
+steps:
+  - module: vulnerability
+    script: cve_lookup
+    parameters:
+      product: "{target}"
+      limit: 15
+  - module: vulnerability
+    script: cve_export
+    parameters:
+      output: "reports/vuln_triage_{target}.json"
+      limit: 20
+      product: "{target}"

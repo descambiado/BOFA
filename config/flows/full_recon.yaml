@@ -1,0 +1,25 @@
+# BOFA Flow: Full Recon
+# Reconocimiento completo: web, cabeceras HTTP, robots.txt y CVE.
+# Target = URL base. Orquestable por LLM; combinar con vuln_triage(product) si quieres CVE por producto.
+
+name: full_recon
+description: "Recon completo: web_discover, http_headers, robots_txt y cve_lookup sobre la misma URL"
+steps:
+  - module: recon
+    script: web_discover
+    parameters:
+      url: "{target}"
+  - module: recon
+    script: http_headers
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: robots_txt
+    parameters:
+      url: "{target}"
+      json: true
+  - module: vulnerability
+    script: cve_lookup
+    parameters:
+      limit: 5

@@ -1,12 +1,12 @@
-# BOFA en una página
+# BOFA en una pagina
 
-Todo lo esencial del framework en un solo lugar.
+Por descambiado. Todo lo esencial del framework en un solo lugar.
 
 ---
 
 ## Qué es BOFA
 
-Framework open-source de ciberseguridad con **core estable**, **CLI profesional** y **módulos descubiertos automáticamente**. Incluye plataforma web educativa, API y 200+ scripts listos para usar.
+Framework open-source de ciberseguridad con core estable, CLI profesional y modulos descubiertos automaticamente. 66+ scripts, 19 modulos, 7 flujos. CLI, API, MCP para LLM.
 
 ---
 
@@ -38,7 +38,7 @@ Un **módulo nuevo** = nueva carpeta en `scripts/`. El core lo descubre solo. No
 1. `mkdir scripts/mi_modulo`
 2. Crea `hola.py` con `def main(): print("Hola"); return 0` y `if __name__ == "__main__": sys.exit(main())`
 3. Opcional: `hola.yaml` con `name`, `description`, `parameters`
-4. `./bofa.sh` → tu módulo aparece. O: `engine.execute_script("mi_modulo", "hola")`
+4. `./bofa.sh` -> tu modulo aparece. O: `engine.execute_script("mi_modulo", "hola")`
 
 Guía completa: [Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md).
 
@@ -46,19 +46,23 @@ Guía completa: [Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md).
 
 ## Documentación clave
 
-| Necesito… | Documento |
+| Necesito... | Documento |
 |-----------|-----------|
+| Indice de documentacion | [DOCUMENTATION_INDEX](DOCUMENTATION_INDEX.md) |
+| Saber en que punto estamos | [Estado actual](STATUS.md) |
 | Crear un módulo | [Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md) |
 | Entender el core | [Arquitectura del Core](CORE_ARCHITECTURE.md) |
 | Usar el engine desde código | [Uso del Core](CORE_USAGE.md) |
-| Contrato módulo ↔ core | [Contrato Core–Módulos](MODULE_CONTRACT.md) |
+| Contrato modulo <-> core | [Contrato Core-Modulos](MODULE_CONTRACT.md) |
+| Checklist módulo certificado | [MODULE_CHECKLIST](MODULE_CHECKLIST.md) |
+| Reportes (flujos y scripts) | [Convención de reportes](REPORTS_CONVENTION.md) |
 | Errores y logging | [Errores y Logging](ERRORS_AND_LOGGING.md) |
 | Copiar un ejemplo | [Módulos de ejemplo](../scripts/examples/README.md) |
 | Usar la CLI | [CLI](../cli/README.md) |
 
 ---
 
-## Criterios de “listo”
+## Criterios de listo
 
 - **Usar BOFA sin el autor**: documentación y ejemplos suficientes.
 - **Que un tercero entienda el README**: valor claro y enlaces a todo.
@@ -68,4 +72,4 @@ Guía completa: [Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md).
 
 ---
 
-*BOFA — Cybersecurity Operations Framework Advanced. [GitHub](https://github.com/descambiado/BOFA)*
+BOFA - Cybersecurity Operations Framework Advanced. Por [@descambiado](https://github.com/descambiado). [GitHub](https://github.com/descambiado/BOFA)

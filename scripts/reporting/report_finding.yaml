@@ -1,0 +1,41 @@
+name: report_finding
+category: reporting
+description: "Genera un informe de hallazgo (vulnerabilidad/zero-day) en Markdown o JSON para disclosure a vendor o CERT"
+parameters:
+  title:
+    type: string
+    description: "Título del hallazgo"
+    required: true
+  description:
+    type: string
+    description: "Descripción de la vulnerabilidad"
+    required: true
+  severity:
+    type: string
+    description: "Severidad: critical, high, medium, low, info"
+    required: true
+  steps:
+    type: string
+    description: "Pasos para reproducir (texto)"
+    required: true
+  impact:
+    type: string
+    description: "Impacto potencial (opcional)"
+    required: false
+  mitigation:
+    type: string
+    description: "Mitigación recomendada (opcional)"
+    required: false
+  references:
+    type: string
+    description: "Referencias (opcional)"
+    required: false
+  output:
+    type: string
+    description: "Ruta de salida (.md o .json)"
+    required: true
+  json:
+    type: boolean
+    description: "Escribir también JSON junto al Markdown"
+    required: false
+    default: false
