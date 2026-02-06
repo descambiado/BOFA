@@ -8,7 +8,7 @@ Por descambiado. Lista de documentos con descripcion breve. Todo en ASCII.
 
 | Doc | Contenido |
 |-----|-----------|
-| [STATUS.md](STATUS.md) | Estado actual: core, CLI, modulos, flujos, MCP, verificacion. Numeros (68 scripts, 20 modulos, 9 flujos). Cerrar proyecto. |
+| [STATUS.md](STATUS.md) | Estado actual: core, CLI, modulos, flujos, MCP, verificacion. Numeros (76 scripts, 20 modulos, 17 flujos). Cerrar proyecto. |
 | [ARSENAL_AND_QUALITY.md](ARSENAL_AND_QUALITY.md) | Scripts: funcionan todos, son reales, novedosos o no, como vamos, seguir desarrollando. Honestidad del arsenal. |
 | [BOFA_AT_A_GLANCE.md](BOFA_AT_A_GLANCE.md) | Resumen en una pagina: que es BOFA, arrancar, 3 capas, crear modulo, enlaces clave. |
 | [README.md](README.md) | Indice de docs, instalacion, CLI, API, web. |

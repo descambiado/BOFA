@@ -1,0 +1,22 @@
+name: response_classifier
+category: web
+description: "Clasifica respuestas HTTP de rutas sobre una URL base y marca las mas desviadas por tamano (salida opcional JSON)"
+parameters:
+  url:
+    type: string
+    description: "URL base (ej. https://example.com)"
+    required: true
+  paths:
+    type: string
+    description: "Lista de rutas separadas por coma (sin barra inicial)"
+    required: false
+  timeout:
+    type: int
+    description: "Timeout en segundos"
+    required: false
+    default: 5
+  json:
+    type: bool
+    description: "Si es true, imprime salida JSON en stdout (para IA/flows)"
+    required: false
+

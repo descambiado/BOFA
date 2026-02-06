@@ -35,6 +35,8 @@ Que un mismo target (URL, producto, dominio) recorra varias herramientas en secu
 | web_security_review | URL | http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json) |
 | bug_bounty_web_light | URL | web_discover(url), http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json) |
 | bug_bounty_web_full | URL | web_discover(url), http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json), path_scanner(url, json) |
+| bug_bounty_web_params | URL | http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json), param_finder(url, json) |
+| bug_bounty_web_diff | URL | web_discover(url), http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json), path_scanner(url, json), response_classifier(url, json) |
 | web_recon | URL | web_discover(url) |
 | vuln_triage | producto | cve_lookup(product=target, limit 15), cve_export(output=reports/vuln_triage_{target}.json, product=target) |
 | vulnerability_scan | (no usa target) | cve_lookup(limit 10), cve_export(output cve_export.json) |
@@ -42,6 +44,7 @@ Que un mismo target (URL, producto, dominio) recorra varias herramientas en secu
 | recon | dominio | pasos de recon |
 | blue | dummy | simulacion blue team |
 | blue_daily | ruta de log | log_guardian(file=target, json=true) y report_finding con informe en reports/blue_daily_target.md |
+| blue_risk_assessment | ruta de log | log_guardian(file=target, json=true, output=reports/blue_risk_target.json), log_anomaly_score(input=reports/blue_risk_target.json, json=true), report_finding informe en reports/blue_risk_assessment_target.md |
 
 Combinar: ejecutar full_recon(URL) y luego vuln_triage(producto) si quieres CVE filtrados por producto. La IA puede extraer "producto" del contexto (ej. web_framework) o del usuario.
 
@@ -57,6 +60,8 @@ Estos scripts aceptan parametro json o devuelven JSON por defecto; la IA puede p
 | web/security_headers_analyzer | json: true | Analisis de HSTS, CSP, X-Frame-Options, Referrer-Policy y cookies; ideal para resumen de seguridad web o alimentar report_finding. |
 | web/robots_txt | json: true | Contenido robots.txt; combinar con http_headers y security_headers_analyzer para mismo dominio. |
 | web/path_scanner | json: true | Rutas comunes encontradas en una URL (admin, login, etc.); util para bug bounty web y para alimentar un informe. |
+| web/param_finder | json: true | Parametros potenciales extraidos de formularios y enlaces de una URL; muy util para bug bounty y para construir payloads. |
+| web/response_classifier | json: true | Clasifica tamanos de respuesta de rutas comunes y marca las mas desviadas; ayuda a detectar rutas ocultas o paneles distintos. |
 | blue/log_guardian | json: true | Resumen de detecciones en un log (detections, threat_summary, suspicious_ips); se puede pasar a report_finding o a un flujo blue. |
 | blue/log_quick_summary | json: true | Contadores basicos de fallos de login, sudo, errores, IPs y usuarios; proporciona vista rapida para informes blue. |
 | vulnerability/cve_lookup | (salida JSON por defecto) | Entradas CVE; filtrar por product/severidad; pasar IDs o resumen a report_finding. |
@@ -65,6 +70,8 @@ Estos scripts aceptan parametro json o devuelven JSON por defecto; la IA puede p
 | forensics/hash_calculator | json: true | Hash MD5/SHA256 de cadena o fichero; salida JSON opcional para usarlo en reportes o comparacion. |
 | forensics/file_metadata | json: true | Metadatos basicos de un fichero (tamano, fechas, permisos); util para informes forenses. |
 | forensics/filesystem_timeline | json: true | Linea de tiempo simple de ficheros en un directorio (mtime, tamano, ruta). |
+| blue/log_anomaly_score | json: true | Calcula un score de riesgo a partir de la salida JSON de log_guardian o log_quick_summary (risk_score, top_ips, top_users, notas). |
+| forensics/timeline_diff | json: true | Compara dos timelines JSON (antes/despues) y devuelve listas de ficheros añadidos, eliminados y modificados. |
 
 Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") -> 2) parsear steps[].stdout_preview del paso cve_lookup -> 3) bofa_execute_script("reporting", "report_finding", parameters_json='{"title":"CVE summary", "description": "...", "severity":"info", "steps":"...", "output":"reports/finding.md"}').
 
@@ -83,6 +90,18 @@ Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") ->
 
 4. **Sugerencia por objetivo**  
    bofa_suggest_tools("recon web y vulnerabilidades para api_gateway") -> suggested_flows: full_recon, vuln_triage; suggested_scripts: recon/http_headers, web/robots_txt, vulnerability/cve_lookup, reporting/report_finding.
+
+5. **Bug bounty web avanzado (parametros y diferencias)**  
+   - Parametros: bofa_run_flow("bug_bounty_web_params", "https://example.com") -> parsear JSON de param_finder.params y generar lista de parametros para fuzzing o payloads.  
+   - Diferencias: bofa_run_flow("bug_bounty_web_diff", "https://example.com") -> usar JSON de path_scanner y response_classifier.interesting para priorizar rutas raras en el informe (report_finding).
+
+6. **Blue avanzado (score de riesgo)**  
+   - Ejecutar bofa_run_flow("blue_risk_assessment", "/var/log/auth.log") -> usar JSON intermedio (reports/blue_risk_*.json) y el paso log_anomaly_score para explicar al usuario por que el riesgo es alto o bajo y que IPs/usuarios son criticos.  
+   - Alternativa manual: ejecutar blue/log_quick_summary --json y luego blue/log_anomaly_score --json para un resumen rapido sin flujo.
+
+7. **Forense avanzado (diff de timelines)**  
+   - Generar dos timelines con forensics/filesystem_timeline --json (antes y despues) y guardarlos en reports/timeline_before.json y reports/timeline_after.json.  
+   - Ejecutar bofa_run_flow("forensics_diff", "dummy") -> usar la salida JSON de timeline_diff (added/removed/modified) y el informe Markdown para resumir cambios sospechosos.
 
 ---
 

@@ -10,8 +10,8 @@ Autor: descambiado. Referencia: en que punto estamos y hacia donde va el framewo
 |------|--------|---------|
 | **Core** | OK Cerrado | Engine, config, logger, errors, module_loader, script_validator. Contrato claro ([MODULE_CONTRACT.md](MODULE_CONTRACT.md)). No se añaden nombres de productos externos en la documentación del framework. |
 | **CLI** | OK Listo | `./bofa.sh` / `cli/bofa_cli.py`. Menú, módulos, scripts, flujos (F). Solo usa el core. |
-| **Modulos y scripts** | OK Operativo | 20 modulos, 72 scripts. Verificacion `tools/verify_bofa.py --full` -> 0 fallos. Paramentos `--key value`, YAML alineado. |
-| **Flujos (BOFA Flow)** | OK Listo | `config/flows/` (demo, recon, blue, web_recon, pentest_basic, vulnerability_scan, full_recon, vuln_triage, web_security_review, bug_bounty_web_light, bug_bounty_web_full, blue_daily, forensics_quick). `flows/flow_runner.py`: list_flows, run_flow, informes Markdown en `reports/`. Orquestables por LLM. |
+| **Modulos y scripts** | OK Operativo | 20 modulos, 76 scripts. Verificacion `tools/verify_bofa.py --full` -> 0 fallos. Paramentos `--key value`, YAML alineado. |
+| **Flujos (BOFA Flow)** | OK Listo | `config/flows/` (demo, recon, blue, web_recon, pentest_basic, vulnerability_scan, full_recon, vuln_triage, web_security_review, bug_bounty_web_light, bug_bounty_web_full, bug_bounty_web_params, bug_bounty_web_diff, blue_daily, blue_risk_assessment, forensics_quick, forensics_diff). `flows/flow_runner.py`: list_flows, run_flow, informes Markdown en `reports/`. Orquestables por LLM. |
 | **Servidor MCP** | OK Listo | `mcp/bofa_mcp.py`. Expone: listar módulos/scripts, info de script, ejecutar script, listar/ejecutar flujos. Transporte stdio. Opcional: `pip install .[mcp]`. |
 | **Verificación** | OK Listo | `python3 tools/verify_bofa.py` (quick), `--full`, `--mcp`. Resultado: TODO OK. |
 | **Documentación** | OK Actualizada | README, BOFA_AT_A_GLANCE, CORE_ARCHITECTURE, MODULE_CONTRACT, MODULE_CHECKLIST, MCP_CURSOR_INTEGRATION, QUICK_START_FIRST_MODULE, NEXT_STEPS_AND_ROADMAP, REPORTS_CONVENTION, LLM_CYBERSECURITY, ZERO_DAY_AND_REPORTING. |
@@ -28,8 +28,8 @@ Autor: descambiado. Referencia: en que punto estamos y hacia donde va el framewo
 | Concepto | BOFA |
 |----------|------|
 | Modulos (categorias) | 20 (examples, exploit, red, blue, purple, osint, recon, web, cloud, ai, malware, forensics, vulnerability, reporting, etc.) |
-| Scripts | 72 |
-| Flujos predefinidos | 13 (demo, recon, blue, web_recon, pentest_basic, vulnerability_scan, full_recon, vuln_triage, web_security_review, bug_bounty_web_light, bug_bounty_web_full, blue_daily, forensics_quick) |
+| Scripts | 76 |
+| Flujos predefinidos | 17 (demo, recon, blue, web_recon, pentest_basic, vulnerability_scan, full_recon, vuln_triage, web_security_review, bug_bounty_web_light, bug_bounty_web_full, bug_bounty_web_params, bug_bounty_web_diff, blue_daily, blue_risk_assessment, forensics_quick, forensics_diff) |
 | Herramientas MCP expuestas | 8 (list_modules, list_scripts, script_info, execute_script, list_flows, run_flow, capabilities, suggest_tools) |
 
 ---

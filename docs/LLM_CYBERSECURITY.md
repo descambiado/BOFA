@@ -56,8 +56,8 @@ El LLM puede especializarse por dominio usando solo ciertos módulos y flujos:
 | **Recon** | recon | recon, web_recon, full_recon | "Reconocimiento web de example.com" -> bofa_run_flow("web_recon", "https://example.com"); "Recon completo (web + CVE)" -> bofa_run_flow("full_recon", "https://example.com") |
 | **Vulnerabilidades** | vulnerability | vulnerability_scan, vuln_triage | "Lista CVE de web_framework" -> bofa_run_flow("vuln_triage", "web_framework"); o cve_lookup con product |
 | **Pentest basico** | recon, exploit | pentest_basic | "Pentest basico de https://example.com" -> bofa_run_flow("pentest_basic", "https://example.com") |
-| **Bug bounty web** | recon, web, vulnerability, reporting | web_recon, full_recon, web_security_review, bug_bounty_web_light, bug_bounty_web_full, vuln_triage | "Mapea superficie de ataque de https://example.com" -> bofa_run_flow("web_security_review", "https://example.com"); "Triaje de CVE para web_framework" -> bofa_run_flow("vuln_triage", "web_framework") |
-| **Blue team** | blue | blue | "Simula alertas SIEM" -> bofa_run_flow("blue", "dummy") |
+| **Bug bounty web** | recon, web, vulnerability, reporting | web_recon, full_recon, web_security_review, bug_bounty_web_light, bug_bounty_web_full, vuln_triage, bug_bounty_web_params, bug_bounty_web_diff | "Mapea superficie de ataque de https://example.com" -> bofa_run_flow("web_security_review", "https://example.com"); "Triaje de CVE para web_framework" -> bofa_run_flow("vuln_triage", "web_framework") |
+| **Blue team** | blue | blue, blue_daily, blue_risk_assessment | "Simula alertas SIEM" -> bofa_run_flow("blue", "dummy"); "Evalua el riesgo de /var/log/auth.log" -> bofa_run_flow("blue_risk_assessment", "/var/log/auth.log") |
 | **Exploit / payloads** | exploit | - | "Codifica este payload en base64" -> bofa_execute_script("exploit", "payload_encoder", parameters_json='{"payload":"...", "encoding":"base64"}') |
 
 No hay agentes separados en el código; el LLM decide qué herramientas usar en función del dominio que el usuario pida.

@@ -1,0 +1,17 @@
+name: timeline_diff
+category: forensics
+description: "Compara dos timelines JSON generados por filesystem_timeline y detecta ficheros añadidos, eliminados o modificados"
+parameters:
+  before:
+    type: string
+    description: "Ruta al fichero JSON 'antes' (salida de filesystem_timeline --json)"
+    required: true
+  after:
+    type: string
+    description: "Ruta al fichero JSON 'despues' (salida de filesystem_timeline --json)"
+    required: true
+  json:
+    type: bool
+    description: "Si es true, imprime salida JSON parseable (para IA/flows)"
+    required: false
+

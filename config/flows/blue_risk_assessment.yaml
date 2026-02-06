@@ -1,0 +1,23 @@
+name: blue_risk_assessment
+description: "Blue risk assessment: log_guardian (JSON) + log_anomaly_score + informe con report_finding"
+steps:
+  - module: blue
+    script: log_guardian
+    parameters:
+      file: "{target}"
+      json: true
+      output: "reports/blue_risk_{target}.json"
+  - module: blue
+    script: log_anomaly_score
+    parameters:
+      input: "reports/blue_risk_{target}.json"
+      json: true
+  - module: reporting
+    script: report_finding
+    parameters:
+      title: "Blue risk assessment for {target}"
+      description: "Evaluacion de riesgo basada en log_guardian y log_anomaly_score sobre {target}. Ver JSON en reports/blue_risk_{target}.json."
+      severity: "info"
+      steps: "1. Ejecutar blue_risk_assessment sobre {target}. 2. Revisar riesgo y hallazgos en el JSON. 3. Tomar acciones segun score y notas."
+      output: "reports/blue_risk_assessment_{target}.md"
+

@@ -127,6 +127,10 @@ SKIP_FULL = {
     "web/robots_txt",      # requiere URL accesible (network-dependent)
     "web/security_headers_analyzer",  # requiere URL accesible (network-dependent)
     "web/path_scanner",    # requiere URL accesible (network-dependent)
+    "web/param_finder",    # requiere URL accesible (network-dependent)
+    "web/response_classifier",  # requiere URL accesible (network-dependent)
+    "blue/log_anomaly_score",  # requiere fichero JSON previo de log_guardian/log_quick_summary
+    "forensics/timeline_diff",  # requiere ficheros JSON previos de filesystem_timeline
 }
 
 

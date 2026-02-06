@@ -68,6 +68,28 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.6.0 (continuacion 6) - Blue/forense avanzado (2026-02)
+
+### Blue avanzado
+- **scripts/blue/log_anomaly_score.py** + .yaml: calcula un score de riesgo sencillo a partir de la salida JSON de `log_guardian` o `log_quick_summary` (risk_score, top_ips, top_users, notas) con salida JSON opcional para IA/flows.
+- **config/flows/blue_risk_assessment.yaml**: flujo de evaluacion de riesgo blue: `log_guardian(file={target}, json=true, output=reports/blue_risk_{target}.json)`, `log_anomaly_score(input=reports/blue_risk_{target}.json, json=true)` y `report_finding` con informe en `reports/blue_risk_assessment_{target}.md`.
+
+### Forense avanzado
+- **scripts/forensics/timeline_diff.py** + .yaml: compara dos timelines JSON generados por `filesystem_timeline` (antes/despues) y devuelve ficheros `added`, `removed` y `modified` con resumen.
+- **config/flows/forensics_diff.yaml**: flujo forense que ejecuta `timeline_diff` sobre `reports/timeline_before.json` y `reports/timeline_after.json` y genera informe de hallazgos con `report_finding`.
+
+### MCP y orquestacion
+- **mcp/bofa_mcp.py**: `_CAPABILITIES` ampliado con nuevos flujos `blue_risk_assessment` y `forensics_diff`, y nuevos scripts JSON `blue/log_anomaly_score` y `forensics/timeline_diff`. Nuevos `chain_examples` para blue/forense avanzado.
+- **bofa_suggest_tools(goal)**: para objetivos de blue/logs ahora sugiere tambien `blue_risk_assessment` y `blue/log_anomaly_score` como herramientas de evaluacion de riesgo sobre logs.
+- **docs/ORCHESTRATION_AND_CHAINING.md**: seccion ampliada con flujos `blue_risk_assessment` y `forensics_diff`, y scripts JSON `blue/log_anomaly_score` y `forensics/timeline_diff`; ejemplos de encadenamiento blue y forense avanzado.
+- **docs/LLM_CYBERSECURITY.md**: fila de dominio Blue actualizada para incluir `blue_daily` y `blue_risk_assessment` como flujos recomendados para el agente blue.
+
+### Verificacion y numeros
+- **tools/verify_bofa.py**: `SKIP_FULL` incluye `blue/log_anomaly_score` y `forensics/timeline_diff` (requieren ficheros JSON previos generados por otros scripts).
+- **docs/STATUS.md** y **docs/DOCUMENTATION_INDEX.md**: numeros actualizados a 20 modulos, 76 scripts y 17 flujos predefinidos.
+
+---
+
 ## v2.6.0 (continuacion 2) - Modulo web, flujo vuln_triage, CVE, ASCII (2026-02)
 
 ### Modulo web
