@@ -1,0 +1,33 @@
+# BOFA Flow: Bug Bounty Web Full
+# Recon web + cabeceras, security headers, robots.txt y path scan.
+
+name: bug_bounty_web_full
+description: "Bug bounty web completo: recon, cabeceras, security headers, robots.txt y path scan"
+steps:
+  - module: recon
+    script: web_discover
+    parameters:
+      url: "{target}"
+  - module: recon
+    script: http_headers
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: security_headers_analyzer
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: robots_txt
+    parameters:
+      url: "{target}"
+      json: true
+  - module: web
+    script: path_scanner
+    parameters:
+      url: "{target}"
+      paths: "admin,login,wp-admin,phpinfo.php,config,backup,.git,server-status"
+      timeout: 5
+      json: true
+

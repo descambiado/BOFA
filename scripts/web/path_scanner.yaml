@@ -1,0 +1,27 @@
+name: path_scanner
+category: web
+description: "Escanea rutas web comunes sobre una URL para bug bounty (admin, login, wp-admin, etc.)"
+parameters:
+  url:
+    type: string
+    description: "URL base (ej. https://example.com)"
+    required: true
+  paths:
+    type: string
+    description: "Lista de rutas separadas por coma (sin barra inicial)"
+    required: false
+  timeout:
+    type: int
+    description: "Timeout en segundos por peticion"
+    required: false
+    default: 5
+  status-codes:
+    type: string
+    description: "Codigos HTTP considerados hallazgo (por ejemplo 200,301,302,401,403)"
+    required: false
+    default: "200,301,302,401,403"
+  json:
+    type: bool
+    description: "Si es true, imprime salida JSON en stdout (para IA/flows)"
+    required: false
+

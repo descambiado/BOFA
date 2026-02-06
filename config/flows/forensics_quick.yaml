@@ -1,0 +1,18 @@
+# BOFA Flow: Forensics Quick
+# Vista rapida forense de un directorio/fichero: metadatos y linea de tiempo.
+
+name: forensics_quick
+description: "Forensics quick: metadatos de fichero y linea de tiempo de directorio, con opcion de informe"
+steps:
+  - module: forensics
+    script: file_metadata
+    parameters:
+      path: "{target}"
+      json: true
+  - module: forensics
+    script: filesystem_timeline
+    parameters:
+      directory: "{target}"
+      max-files: 50
+      json: true
+

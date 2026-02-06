@@ -43,6 +43,9 @@ def _safe_params(temp_log_path=None):
         ("exploit", "payload_encoder"): {"payload": "test"},
         ("vulnerability", "cve_export"): {"output": "/tmp/cve_export_verify.json"},
         ("forensics", "hash_calculator"): {"input": "verify_test"},
+        ("blue", "log_quick_summary"): {"file": temp_log_path or "/dev/null"},
+        ("forensics", "file_metadata"): {"path": str(_ROOT / "README.md")},
+        ("forensics", "filesystem_timeline"): {"directory": str(_ROOT / "scripts"), "max-files": 5},
         ("reporting", "report_finding"): {
             "title": "Verify test",
             "description": "Test run",
@@ -123,6 +126,7 @@ SKIP_FULL = {
     "recon/http_headers",  # requiere servidor escuchando en la URL (network-dependent)
     "web/robots_txt",      # requiere URL accesible (network-dependent)
     "web/security_headers_analyzer",  # requiere URL accesible (network-dependent)
+    "web/path_scanner",    # requiere URL accesible (network-dependent)
 }
 
 

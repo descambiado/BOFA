@@ -1,0 +1,13 @@
+name: file_metadata
+category: forensics
+description: "Extrae metadatos basicos de un fichero (tamano, fechas, permisos) con salida opcional JSON"
+parameters:
+  path:
+    type: string
+    description: "Ruta al fichero a analizar"
+    required: true
+  json:
+    type: boolean
+    description: "Si es true, imprime salida JSON en stdout (para IA/flows)"
+    required: false
+
