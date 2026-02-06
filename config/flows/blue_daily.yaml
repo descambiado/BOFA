@@ -1,0 +1,20 @@
+# BOFA Flow: Blue Daily
+# Revision diaria de logs con log_guardian y reporte basico.
+
+name: blue_daily
+description: "Blue daily: analizar un fichero de log con log_guardian (JSON) y generar informe basico"
+steps:
+  - module: blue
+    script: log_guardian
+    parameters:
+      file: "{target}"
+      json: true
+  - module: reporting
+    script: report_finding
+    parameters:
+      title: "Blue daily report for {target}"
+      description: "Revision automatica de logs de {target} con log_guardian. Ver JSON del paso 1 para detalles."
+      severity: "info"
+      steps: "1. Ejecutar blue_daily sobre {target}. 2. Revisar issues en la salida JSON de log_guardian. 3. Tomar acciones segun hallazgos."
+      output: "reports/blue_daily_{target}.md"
+

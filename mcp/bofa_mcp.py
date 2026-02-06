@@ -187,24 +187,37 @@ _CAPABILITIES = {
         {"id": "demo", "name": "Demo", "when": "probar que BOFA funciona", "combine_with": None},
         {"id": "recon", "name": "Recon", "when": "reconocimiento basico", "combine_with": "web_recon o full_recon con misma URL"},
         {"id": "web_recon", "name": "Web Recon", "when": "solo descubrimiento web de una URL", "combine_with": "full_recon para mas pasos (headers, robots, CVE)"},
-        {"id": "full_recon", "name": "Full Recon", "when": "recon completo: web + headers + robots.txt + CVE", "combine_with": "vuln_triage(product) para CVE por producto"},
+        {"id": "full_recon", "name": "Full Recon", "when": "recon completo: web_discover + headers + robots.txt + CVE", "combine_with": "vuln_triage(product) para CVE por producto"},
+        {"id": "web_security_review", "name": "Web Security Review", "when": "revisar cabeceras y robots.txt de una URL", "combine_with": "bug_bounty_web_full o vuln_triage"},
+        {"id": "bug_bounty_web_light", "name": "Bug Bounty Web Light", "when": "recon rapido de una URL con headers y robots", "combine_with": "bug_bounty_web_full"},
+        {"id": "bug_bounty_web_full", "name": "Bug Bounty Web Full", "when": "bug bounty web mas profundo (headers + robots + path scan)", "combine_with": "vuln_triage(product) y report_finding"},
         {"id": "pentest_basic", "name": "Pentest basico", "when": "pentest basico sobre URL", "combine_with": "report_finding para documentar hallazgos"},
         {"id": "vulnerability_scan", "name": "Vulnerability scan", "when": "listar CVE de la base local", "combine_with": "vuln_triage(product) para filtrar por producto"},
         {"id": "vuln_triage", "name": "Vuln triage", "when": "CVE por producto (target=producto ej. web_framework)", "combine_with": "report_finding para informe de hallazgo"},
-        {"id": "blue", "name": "Blue team", "when": "simulacion blue team", "combine_with": None},
+        {"id": "blue", "name": "Blue team", "when": "simulacion blue team general", "combine_with": "blue_daily para informe diario"},
+        {"id": "blue_daily", "name": "Blue daily", "when": "revision diaria de logs de un host", "combine_with": "report_finding o flujos forenses"},
+        {"id": "forensics_quick", "name": "Forensics quick", "when": "vista rapida de metadatos y linea de tiempo de ficheros", "combine_with": "report_finding o blue_daily"},
     ],
     "scripts_with_json": [
         "recon/http_headers",
         "web/robots_txt",
+        "web/security_headers_analyzer",
+        "web/path_scanner",
+        "blue/log_guardian",
+        "blue/log_quick_summary",
         "vulnerability/cve_lookup",
         "vulnerability/cve_export",
         "reporting/report_finding",
         "forensics/hash_calculator",
+        "forensics/file_metadata",
+        "forensics/filesystem_timeline",
     ],
     "chain_examples": [
         "full_recon(URL) -> parse stdout of cve_lookup -> vuln_triage(product from context)",
-        "web_recon(URL) -> http_headers(URL, json=true) -> robots_txt(URL, json=true)",
-        "cve_lookup(product) -> report_finding(title, description from CVE)",
+        "web_security_review(URL) -> revisar headers y robots -> bug_bounty_web_full(URL) para buscar mas rutas",
+        "bug_bounty_web_full(URL) -> usar path_scanner findings + security headers -> report_finding resumen manual o automatizado",
+        "blue_daily(log_path) -> usar JSON de log_guardian + informe generado por report_finding",
+        "file_metadata(path) + filesystem_timeline(dir) -> report_finding(forense rapido)",
     ],
 }
 
@@ -230,9 +243,9 @@ def bofa_suggest_tools(goal: str) -> str:
     reasons = []
 
     if "recon" in goal_lower or "reconocimiento" in goal_lower or "web" in goal_lower or "url" in goal_lower or "http" in goal_lower:
-        suggested_flows.extend(["web_recon", "full_recon"])
-        suggested_scripts.extend(["recon/web_discover", "recon/http_headers", "web/robots_txt"])
-        reasons.append("recon/web: run full_recon(URL) or web_recon(URL); then http_headers, robots_txt with same URL")
+        suggested_flows.extend(["web_recon", "full_recon", "web_security_review", "bug_bounty_web_light", "bug_bounty_web_full"])
+        suggested_scripts.extend(["recon/web_discover", "recon/http_headers", "web/robots_txt", "web/security_headers_analyzer", "web/path_scanner"])
+        reasons.append("recon/web: usar web_recon o full_recon para mapa basico; web_security_review y bug_bounty_web_* para revision mas profunda (headers, robots, paths)")
     if "vuln" in goal_lower or "cve" in goal_lower or "vulnerabilidad" in goal_lower or "producto" in goal_lower:
         suggested_flows.extend(["vulnerability_scan", "vuln_triage"])
         suggested_scripts.extend(["vulnerability/cve_lookup", "vulnerability/cve_export"])
@@ -244,10 +257,10 @@ def bofa_suggest_tools(goal: str) -> str:
     if "reporte" in goal_lower or "report" in goal_lower or "hallazgo" in goal_lower:
         suggested_scripts.append("reporting/report_finding")
         reasons.append("report: use report_finding with title, description, severity, steps, output path")
-    if "blue" in goal_lower or "defensa" in goal_lower:
-        suggested_flows.append("blue")
-        suggested_scripts.extend(["blue/log_guardian", "blue/siem_alert_simulator"])
-        reasons.append("blue: run flow blue or log_guardian, siem_alert_simulator")
+    if "blue" in goal_lower or "defensa" in goal_lower or "log" in goal_lower:
+        suggested_flows.extend(["blue", "blue_daily"])
+        suggested_scripts.extend(["blue/log_guardian", "blue/log_quick_summary"])
+        reasons.append("blue: usar blue para simulacion y blue_daily/log_guardian/log_quick_summary para revision de logs")
 
     suggested_flows = list(dict.fromkeys(suggested_flows))
     suggested_scripts = list(dict.fromkeys(suggested_scripts))

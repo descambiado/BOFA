@@ -33,12 +33,15 @@ Que un mismo target (URL, producto, dominio) recorra varias herramientas en secu
 |-------|--------|--------------------------------|
 | full_recon | URL | web_discover(url), http_headers(url, json), robots_txt(url, json), cve_lookup(limit 5) |
 | web_security_review | URL | http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json) |
+| bug_bounty_web_light | URL | web_discover(url), http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json) |
+| bug_bounty_web_full | URL | web_discover(url), http_headers(url, json), security_headers_analyzer(url, json), robots_txt(url, json), path_scanner(url, json) |
 | web_recon | URL | web_discover(url) |
 | vuln_triage | producto | cve_lookup(product=target, limit 15), cve_export(output=reports/vuln_triage_{target}.json, product=target) |
 | vulnerability_scan | (no usa target) | cve_lookup(limit 10), cve_export(output cve_export.json) |
 | pentest_basic | URL | pasos de pentest basico |
 | recon | dominio | pasos de recon |
 | blue | dummy | simulacion blue team |
+| blue_daily | ruta de log | log_guardian(file=target, json=true) y report_finding con informe en reports/blue_daily_target.md |
 
 Combinar: ejecutar full_recon(URL) y luego vuln_triage(producto) si quieres CVE filtrados por producto. La IA puede extraer "producto" del contexto (ej. web_framework) o del usuario.
 
@@ -53,11 +56,15 @@ Estos scripts aceptan parametro json o devuelven JSON por defecto; la IA puede p
 | recon/http_headers | json: true | Cabeceras de una URL; pasar misma URL a security_headers_analyzer, robots_txt o report_finding. |
 | web/security_headers_analyzer | json: true | Analisis de HSTS, CSP, X-Frame-Options, Referrer-Policy y cookies; ideal para resumen de seguridad web o alimentar report_finding. |
 | web/robots_txt | json: true | Contenido robots.txt; combinar con http_headers y security_headers_analyzer para mismo dominio. |
+| web/path_scanner | json: true | Rutas comunes encontradas en una URL (admin, login, etc.); util para bug bounty web y para alimentar un informe. |
 | blue/log_guardian | json: true | Resumen de detecciones en un log (detections, threat_summary, suspicious_ips); se puede pasar a report_finding o a un flujo blue. |
+| blue/log_quick_summary | json: true | Contadores basicos de fallos de login, sudo, errores, IPs y usuarios; proporciona vista rapida para informes blue. |
 | vulnerability/cve_lookup | (salida JSON por defecto) | Entradas CVE; filtrar por product/severidad; pasar IDs o resumen a report_finding. |
 | vulnerability/cve_export | output: path | Exporta a fichero; path puede ser reports/ para agrupar. |
 | reporting/report_finding | title, description, severity, steps, output | Genera informe de hallazgo; recibir titulo/descripcion de cve_lookup o de analisis previo. |
-| forensics/hash_calculator | (salida texto/hex) | Hash de cadena o fichero; usar en reporte o comparacion. |
+| forensics/hash_calculator | json: true | Hash MD5/SHA256 de cadena o fichero; salida JSON opcional para usarlo en reportes o comparacion. |
+| forensics/file_metadata | json: true | Metadatos basicos de un fichero (tamano, fechas, permisos); util para informes forenses. |
+| forensics/filesystem_timeline | json: true | Linea de tiempo simple de ficheros en un directorio (mtime, tamano, ruta). |
 
 Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") -> 2) parsear steps[].stdout_preview del paso cve_lookup -> 3) bofa_execute_script("reporting", "report_finding", parameters_json='{"title":"CVE summary", "description": "...", "severity":"info", "steps":"...", "output":"reports/finding.md"}').
 

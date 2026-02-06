@@ -1,0 +1,13 @@
+name: log_quick_summary
+category: blue
+description: "Resumen rapido de eventos en un fichero de log (login fallidos, aceptados, sudo, errores) con salida opcional JSON"
+parameters:
+  file:
+    type: string
+    description: "Ruta del fichero de log a analizar"
+    required: true
+  json:
+    type: boolean
+    description: "Si es true, salida JSON (para IA/flows)"
+    required: false
+

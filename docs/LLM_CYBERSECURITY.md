@@ -24,7 +24,7 @@ BOFA no incluye el LLM; el LLM es el cliente. BOFA aporta el **arsenal** y los *
 | **Arsenal de herramientas** | 65+ scripts en 18 módulos (recon, exploit, red, blue, purple, vulnerability, osint, forensics, etc.). |
 | **Arquitectura multi-dominio** | Módulos = dominios (recon, vulnerability, exploit, blue…). El LLM puede actuar como “agente de recon”, “agente de vulnerabilidades”, etc. usando solo esos módulos. |
 | **Inteligencia de vulnerabilidades** | Módulo `vulnerability`: `cve_lookup`, `cve_export` (base local CVE). El LLM puede consultar y filtrar por producto/severidad. |
-| **Testing web** | Scripts recon/web_discover, recon/http_headers, web/robots_txt; flujos web_recon, full_recon (web+headers+robots+CVE), pentest_basic. |
+| **Testing web** | Scripts recon/web_discover, recon/http_headers, web/robots_txt, web/security_headers_analyzer, web/path_scanner; flujos web_recon, full_recon, web_security_review, bug_bounty_web_light, bug_bounty_web_full, pentest_basic. |
 | **Combinar y encadenar** | bofa_capabilities(), bofa_suggest_tools(goal); flujos que inyectan mismo target; scripts con salida JSON para parsear y pasar a report_finding. Ver ORCHESTRATION_AND_CHAINING.md. |
 | **Análisis y explotación** | Scripts en `exploit`, `red`, `forensics`; flujos `pentest_basic`, `recon`. |
 
@@ -40,7 +40,7 @@ BOFA no incluye el LLM; el LLM es el cliente. BOFA aporta el **arsenal** y los *
 | `bofa_list_scripts` | Ver scripts de un modulo o de todos; elegir script para una tarea. |
 | `bofa_script_info` | Ver descripcion y parametros de un script antes de ejecutarlo. |
 | `bofa_execute_script` | Ejecutar script con parameters_json. Incluir "json": true donde aplique para stdout parseable y encadenar. |
-| `bofa_list_flows` | Ver flujos (demo, recon, web_recon, full_recon, pentest_basic, vulnerability_scan, vuln_triage, blue). |
+| `bofa_list_flows` | Ver flujos (demo, recon, web_recon, full_recon, web_security_review, bug_bounty_web_light, bug_bounty_web_full, pentest_basic, vulnerability_scan, vuln_triage, blue). |
 | `bofa_run_flow` | Ejecutar flujo con target; resultado incluye steps[].stdout_preview (puede ser JSON para extraer y usar). |
 
 El LLM debe: 1) opcionalmente bofa_capabilities() o bofa_suggest_tools(goal) para saber que combinar, 2) listar modulos o flujos segun la peticion, 3) leer script_info si hace falta, 4) ejecutar script o flujo con parametros correctos, 5) parsear stdout cuando sea JSON y usarlo en el siguiente paso o en report_finding, 6) devolver al usuario un resumen. Ver [ORCHESTRATION_AND_CHAINING.md](ORCHESTRATION_AND_CHAINING.md) para ejemplos de encadenamiento.
@@ -51,13 +51,14 @@ El LLM debe: 1) opcionalmente bofa_capabilities() o bofa_suggest_tools(goal) par
 
 El LLM puede especializarse por dominio usando solo ciertos módulos y flujos:
 
-| Dominio | Módulos | Flujos | Ejemplo de petición |
+| Dominio | Modulos | Flujos | Ejemplo de peticion |
 |---------|---------|--------|----------------------|
-| **Recon** | recon | recon, web_recon, full_recon | "Reconocimiento web de example.com" → bofa_run_flow("web_recon", "https://example.com"); "Recon completo (web + CVE)" → bofa_run_flow("full_recon", "https://example.com") |
+| **Recon** | recon | recon, web_recon, full_recon | "Reconocimiento web de example.com" -> bofa_run_flow("web_recon", "https://example.com"); "Recon completo (web + CVE)" -> bofa_run_flow("full_recon", "https://example.com") |
 | **Vulnerabilidades** | vulnerability | vulnerability_scan, vuln_triage | "Lista CVE de web_framework" -> bofa_run_flow("vuln_triage", "web_framework"); o cve_lookup con product |
-| **Pentest básico** | recon, exploit | pentest_basic | "Pentest básico de https://example.com" → bofa_run_flow("pentest_basic", "https://example.com") |
-| **Blue team** | blue | blue | "Simula alertas SIEM" → bofa_run_flow("blue", "dummy") |
-| **Exploit / payloads** | exploit | — | "Codifica este payload en base64" → bofa_execute_script("exploit", "payload_encoder", parameters_json='{"payload":"...", "encoding":"base64"}') |
+| **Pentest basico** | recon, exploit | pentest_basic | "Pentest basico de https://example.com" -> bofa_run_flow("pentest_basic", "https://example.com") |
+| **Bug bounty web** | recon, web, vulnerability, reporting | web_recon, full_recon, web_security_review, bug_bounty_web_light, bug_bounty_web_full, vuln_triage | "Mapea superficie de ataque de https://example.com" -> bofa_run_flow("web_security_review", "https://example.com"); "Triaje de CVE para web_framework" -> bofa_run_flow("vuln_triage", "web_framework") |
+| **Blue team** | blue | blue | "Simula alertas SIEM" -> bofa_run_flow("blue", "dummy") |
+| **Exploit / payloads** | exploit | - | "Codifica este payload en base64" -> bofa_execute_script("exploit", "payload_encoder", parameters_json='{"payload":"...", "encoding":"base64"}') |
 
 No hay agentes separados en el código; el LLM decide qué herramientas usar en función del dominio que el usuario pida.
 

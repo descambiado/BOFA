@@ -37,12 +37,34 @@ Por descambiado. Cambios notables por version.
 - **config/flows/full_recon.yaml** (recordatorio): ya combinaba web_discover, http_headers, robots_txt y cve_lookup sobre la misma URL.
 
 ### Verificacion
-- **tools/verify_bofa.py**: SKIP_FULL incluye web/security_headers_analyzer (dependencia de red).
-- `python3 tools/verify_bofa.py --full`: 68 scripts, 33 OK, 28 need params, 7 omitidos, 0 fallos.
+- **tools/verify_bofa.py**: SKIP_FULL incluye web/security_headers_analyzer, web/robots_txt y web/path_scanner (dependencias de red).
+- `python3 tools/verify_bofa.py --full`: 72 scripts, 36 OK, 28 need params, 8 omitidos, 0 fallos.
 
 ### Documentacion
-- **docs/STATUS.md** y **docs/DOCUMENTATION_INDEX.md**: numeros actualizados (68 scripts, 20 modulos, 9 flujos).
+- **docs/STATUS.md** y **docs/DOCUMENTATION_INDEX.md**: numeros actualizados (72 scripts, 20 modulos, 13 flujos).
 - **docs/ORCHESTRATION_AND_CHAINING.md**: añadido flujo web_security_review y script web/security_headers_analyzer en la tabla de scripts con salida JSON.
+
+---
+
+## v2.6.0 (continuacion 5) - Arsenal web/blue/forense ampliado (2026-02)
+
+### Web / bug bounty
+- **scripts/web/path_scanner.py** + .yaml: escanea rutas comunes sobre una URL (admin, login, wp-admin, phpinfo.php, etc.) con soporte de salida JSON para bug bounty y flujos.
+- **config/flows/bug_bounty_web_light.yaml**: recon ligero de una URL (web_discover, http_headers, security_headers_analyzer, robots_txt).
+- **config/flows/bug_bounty_web_full.yaml**: recon bug bounty mas profundo (web_discover, http_headers, security_headers_analyzer, robots_txt, path_scanner).
+
+### Blue y forense
+- **scripts/blue/log_quick_summary.py** + .yaml: resumen rapido de logs (login fallidos/aceptados, sudo, errores, IPs y usuarios) con salida JSON opcional.
+- **scripts/forensics/file_metadata.py** + .yaml: metadatos basicos de un fichero (tamano, fechas, permisos) con salida JSON opcional.
+- **scripts/forensics/filesystem_timeline.py** + .yaml: linea de tiempo simple de ficheros en un directorio (ruta, tamano, mtime) con salida JSON.
+- **config/flows/blue_daily.yaml**: flujo diario blue (log_guardian con JSON sobre un log y reporte basico via report_finding).
+- **config/flows/forensics_quick.yaml**: flujo rapido forense (file_metadata + filesystem_timeline sobre un directorio/fichero).
+
+### MCP y orquestacion
+- **mcp/bofa_mcp.py**: _CAPABILITIES ampliado con nuevos flujos (web_security_review, bug_bounty_web_*, blue_daily, forensics_quick) y scripts JSON (path_scanner, log_quick_summary, file_metadata, filesystem_timeline).
+- **bofa_suggest_tools(goal)**: ahora sugiere tambien los flujos y scripts nuevos para objetivos de bug bounty web, blue/logs y forense.
+- **docs/ORCHESTRATION_AND_CHAINING.md**: tabla de flujos y scripts JSON actualizada con bug_bounty_web_*, blue_daily y scripts forense; ejemplos de cadenas ampliados.
+- **docs/LLM_CYBERSECURITY.md**: capacidades web/bug bounty y dominios actualizados (incluyendo bug bounty web) para uso por LLM.
 
 ---
 
