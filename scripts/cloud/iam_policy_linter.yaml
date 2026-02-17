@@ -1,0 +1,13 @@
+name: iam_policy_linter
+category: cloud
+description: "Analiza políticas IAM (JSON) para detectar misconfiguraciones: wildcards, permisos excesivos, acciones de alto riesgo"
+parameters:
+  policy:
+    type: string
+    description: "Ruta al fichero de política IAM (JSON)"
+    required: true
+  json:
+    type: boolean
+    description: "Salida en formato JSON (recomendada para IA/flows)"
+    required: false
+    default: false

@@ -15,6 +15,7 @@ Uso:
 import argparse
 import json
 import re
+import ssl
 import sys
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
@@ -59,13 +60,20 @@ def main():
     parser.add_argument("--url", type=str, required=True, help="URL a analizar (ej. https://example.com)")
     parser.add_argument("--timeout", type=int, default=10, help="Timeout en segundos (default 10)")
     parser.add_argument("--json", action="store_true", help="Salida JSON (para IA/flows)")
+    parser.add_argument("--insecure", action="store_true", help="No verificar certificado SSL (dev/test)")
     args = parser.parse_args()
+
+    ctx = None
+    if args.insecure:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
 
     url = _normalize_url(args.url)
     try:
         req = Request(url, method="GET")
         req.add_header("User-Agent", "BOFA-ParamFinder/1.0")
-        with urlopen(req, timeout=args.timeout) as resp:
+        with urlopen(req, timeout=args.timeout, context=ctx) as resp:
             body = resp.read().decode("utf-8", errors="replace")
     except (HTTPError, URLError, OSError) as e:
         err = {"error": str(e), "url": url}

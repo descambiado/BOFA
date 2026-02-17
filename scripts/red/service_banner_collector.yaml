@@ -1,0 +1,28 @@
+name: service_banner_collector
+category: red
+description: "Recolecta banners de servicios (SSH, HTTP, etc.) en host:puertos. --safe para banners simulados sin conexión"
+parameters:
+  target:
+    type: string
+    description: "Host o host:puerto (ej. 127.0.0.1)"
+    required: true
+  ports:
+    type: string
+    description: "Puertos separados por coma (default 22,80,443)"
+    required: false
+    default: "22,80,443"
+  safe:
+    type: boolean
+    description: "Modo seguro: banners simulados sin conexión real (para verify/flows)"
+    required: false
+    default: false
+  timeout:
+    type: number
+    description: "Timeout por puerto en segundos (solo modo real)"
+    required: false
+    default: 3
+  json:
+    type: boolean
+    description: "Salida en formato JSON (recomendada para IA/flows)"
+    required: false
+    default: false

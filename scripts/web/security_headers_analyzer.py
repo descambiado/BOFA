@@ -18,6 +18,7 @@ Uso:
 
 import argparse
 import json
+import ssl
 import sys
 from http.cookies import SimpleCookie
 from urllib.request import urlopen, Request
@@ -120,12 +121,19 @@ def main():
     parser.add_argument("--url", type=str, required=True, help="URL objetivo (ej. https://example.com)")
     parser.add_argument("--timeout", type=int, default=10, help="Timeout en segundos (default 10)")
     parser.add_argument("--json", action="store_true", help="Salida JSON (recomendada para IA/flows)")
+    parser.add_argument("--insecure", action="store_true", help="No verificar certificado SSL (dev/test)")
     args = parser.parse_args()
+
+    ctx = None
+    if args.insecure:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
 
     try:
         req = Request(args.url, method="GET")
         req.add_header("User-Agent", "BOFA-Web-Security/1.0")
-        with urlopen(req, timeout=args.timeout) as resp:
+        with urlopen(req, timeout=args.timeout, context=ctx) as resp:
             # headers es email.message.Message; usar get_all para cookies
             raw_headers = resp.headers
             headers_dict = dict(raw_headers.items())

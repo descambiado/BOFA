@@ -23,7 +23,15 @@ keywords = [
     "blue-team",
     "osint",
     "malware-analysis",
-    "security-tools"
+    "security-tools",
+    "bug-bounty",
+    "zero-day",
+    "mcp",
+    "llm",
+    "cursor",
+    "vulnerability-scanner",
+    "ctf",
+    "forensics"
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -81,6 +89,9 @@ docs = [
     "mkdocstrings[python]>=0.23.0"
 ]
 mcp = [
+    "mcp>=1.0.0"
+]
+agent = [
     "mcp>=1.0.0"
 ]
 

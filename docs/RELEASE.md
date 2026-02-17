@@ -9,6 +9,18 @@ La versión está unificada en:
 - `README.md` -> badge y titulo v2.6.0
 - `CHANGELOG.md` -> entrada `## v2.6.0`
 
+## Ramas y GitHub
+
+- **main**: rama principal estable; cada tag (v2.6.0, etc.) marca una release.
+- **Desarrollo**: opcionalmente usar ramas `feature/...` o `develop` y hacer merge a `main` cuando esté listo para release.
+- **Releases en GitHub**: tras `git push origin v2.6.0`, en GitHub ir a **Releases** -> **Draft a new release**, elegir tag `v2.6.0`, título "BOFA v2.6.0 - Agente autónomo con LLM", y pegar la descripción del CHANGELOG (resumen v2.6.0) para que quede bien detallado.
+
+## Topics recomendados (GitHub)
+
+En el repositorio: Settings -> General -> Topics. Añadir:
+
+`cybersecurity`, `penetration-testing`, `bug-bounty`, `security-tools`, `mcp`, `llm`, `ollama`, `openai`, `claude`, `cursor`, `vulnerability-scanner`, `red-team`, `blue-team`, `forensics`, `malware-analysis`
+
 ## Commit y push (recomendado)
 
 ```bash
@@ -16,16 +28,16 @@ La versión está unificada en:
 git add -A
 git status   # revisar qué se sube
 
-git commit -m "Release v2.6.0: Core finalization, BOFA Flow, verification
+git commit -m "Release v2.6.0: Agente autónomo, SSL insecure, docs unificados
 
-- Core: script validator YAML types, module loader parameters list/dict
-- Script migration: exploit, red, osint, blue, recon to --key; cross-platform fixes
-- BOFA Flow: config/flows (demo, recon, blue), flow_runner, CLI option F
-- Verification: tools/verify_bofa.py (quick + --full), 0 failures
-- Docs: NEXT_STEPS_AND_ROADMAP, flows/README, tools/README, MODULE_CONTRACT
-- Version: 2.6.0 (pyproject, CLI, README, CHANGELOG)"
+- agents/: security_agent (Observe-Think-Act), llm_providers (Ollama/OpenAI/Anthropic)
+- tools/run_agent.py, tools/self_hack_runner.py
+- --insecure en scripts web/recon para SSL autofirmado
+- bug_bounty_full_chain: insecure, limit 10, flow_report_aggregator en reports/
+- docs/AGENT.md, DOCUMENTATION_INDEX, STATUS, README actualizados
+- Números: 96 scripts, 20 módulos, 25 flujos"
 
-git tag -a v2.6.0 -m "v2.6.0 Core finalization, BOFA Flow, verification"
+git tag -a v2.6.0 -m "v2.6.0 Agente autónomo con LLM, bug bounty full chain"
 
 git push origin main
 git push origin v2.6.0

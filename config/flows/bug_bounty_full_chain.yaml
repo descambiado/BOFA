@@ -1,0 +1,89 @@
+# BOFA Flow: Bug Bounty Full Chain
+# Recon web + mapa de superficie + fuzzing sencillo de parametros + cadenas de exploit + informe.
+#
+# Target = URL (ej. https://example.com)
+
+name: bug_bounty_full_chain
+description: "Bug bounty web de cadena completa: attack_surface_mapper, recon web, fuzzing basico de parametros, exploit_chain_suggester y reporte final"
+steps:
+  - module: recon
+    script: attack_surface_mapper
+    parameters:
+      target: "{target}"
+      json: true
+
+  - module: recon
+    script: web_discover
+    parameters:
+      url: "{target}"
+
+  - module: recon
+    script: http_headers
+    parameters:
+      url: "{target}"
+      json: true
+      insecure: true
+
+  - module: web
+    script: security_headers_analyzer
+    parameters:
+      url: "{target}"
+      json: true
+      insecure: true
+
+  - module: web
+    script: robots_txt
+    parameters:
+      url: "{target}"
+      json: true
+      insecure: true
+
+  - module: web
+    script: path_scanner
+    parameters:
+      url: "{target}"
+      timeout: 5
+      json: true
+      insecure: true
+
+  - module: web
+    script: param_finder
+    parameters:
+      url: "{target}"
+      json: true
+      insecure: true
+
+  - module: exploit
+    script: http_param_fuzzer
+    parameters:
+      url: "{target}"
+      params: "{step_7.params}"
+      method: "GET"
+      limit: 10
+      json: true
+      insecure: true
+
+  - module: vulnerability
+    script: exploit_chain_suggester
+    parameters:
+      product: "web_framework"
+      json: true
+
+  - module: reporting
+    script: report_finding
+    parameters:
+      title: "Bug Bounty: {target}"
+      description: "Informe generado por el flujo bug_bounty_full_chain. Revisar salidas de recon, fuzzing y exploit_chain_suggester para completar impacto/mitigacion."
+      severity: "high"
+      steps: "1. Ejecutar bug_bounty_full_chain sobre {target}.\\n2. Revisar hallazgos de recon (headers, paths, parametros).\\n3. Revisar resultados de http_param_fuzzer y cadenas sugeridas por exploit_chain_suggester.\\n4. Completar secciones de impacto y mitigacion antes de disclosure."
+      impact: ""
+      mitigation: ""
+      references: ""
+      output: "reports/bug_bounty_{target}.md"
+
+post_process:
+  script: reporting/flow_report_aggregator
+  params:
+    input: "{flow_report_json}"
+    output: "reports/executive_{target_safe}.md"
+

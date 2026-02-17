@@ -1,0 +1,18 @@
+name: attack_surface_mapper
+category: recon
+description: "Genera mapa unificado de superficie de ataque: plan de campaña con fases, pasos y flujos recomendados para URL o host"
+parameters:
+  target:
+    type: string
+    description: "URL (https://...) o host (IP)"
+    required: true
+  type:
+    type: string
+    description: "Tipo: auto (detecta), url, host"
+    required: false
+    default: "auto"
+  json:
+    type: boolean
+    description: "Salida JSON"
+    required: false
+    default: false

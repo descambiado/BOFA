@@ -1,0 +1,17 @@
+{
+  "default": "deny",
+  "rules": [
+    {
+      "action": "allow",
+      "source": "10.0.1.0/24",
+      "dest": "10.0.2.0/24",
+      "ports": [443, 22]
+    },
+    {
+      "action": "allow",
+      "source": "10.0.2.0/24",
+      "dest": "10.0.3.0/24",
+      "ports": [3306]
+    }
+  ]
+}

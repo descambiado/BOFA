@@ -15,4 +15,8 @@ parameters:
     type: bool
     description: "Si es true, imprime salida JSON en stdout (para IA/flows)"
     required: false
+  insecure:
+    type: bool
+    description: "No verificar certificado SSL (solo dev/test)"
+    required: false
 

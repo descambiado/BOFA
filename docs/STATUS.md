@@ -10,13 +10,14 @@ Autor: descambiado. Referencia: en que punto estamos y hacia donde va el framewo
 |------|--------|---------|
 | **Core** | OK Cerrado | Engine, config, logger, errors, module_loader, script_validator. Contrato claro ([MODULE_CONTRACT.md](MODULE_CONTRACT.md)). No se añaden nombres de productos externos en la documentación del framework. |
 | **CLI** | OK Listo | `./bofa.sh` / `cli/bofa_cli.py`. Menú, módulos, scripts, flujos (F). Solo usa el core. |
-| **Modulos y scripts** | OK Operativo | 20 modulos, 81 scripts. Verificacion `tools/verify_bofa.py --full` -> 0 fallos. Paramentos `--key value`, YAML alineado. |
-| **Flujos (BOFA Flow)** | OK Listo | `config/flows/` (demo, recon, blue, web_recon, pentest_basic, vulnerability_scan, full_recon, vuln_triage, web_security_review, bug_bounty_web_light, bug_bounty_web_full, bug_bounty_web_params, bug_bounty_web_diff, blue_daily, blue_risk_assessment, forensics_quick, forensics_diff, ctf_binary_recon, ctf_network_recon, exploit_payload_workshop). `flows/flow_runner.py`: list_flows, run_flow, informes Markdown en `reports/`. Orquestables por LLM. |
+| **Modulos y scripts** | OK Operativo | 20 modulos, 96 scripts. Verificacion `tools/verify_bofa.py --full` -> 0 fallos. Paramentos `--key value`, YAML alineado. |
+| **Flujos (BOFA Flow)** | OK Listo | `config/flows/` (demo, recon, full_recon, bug_bounty_full_chain, vuln_triage, vuln_to_action, bug_bounty_web_*, cloud_config_review, malware_static_recon, network_zero_trust_overview, etc.). `flows/flow_runner.py`: list_flows, run_flow, informes Markdown en `reports/`. Orquestables por LLM. |
 | **Servidor MCP** | OK Listo | `mcp/bofa_mcp.py`. Expone: listar módulos/scripts, info de script, ejecutar script, listar/ejecutar flujos. Transporte stdio. Opcional: `pip install .[mcp]`. |
+| **Agente autónomo** | OK Listo | `agents/security_agent.py`, `tools/run_agent.py`. Loop Observe-Think-Act con LLM (Ollama, OpenAI, Anthropic) hasta vulnerar. Ver [AGENT.md](AGENT.md). |
 | **Verificación** | OK Listo | `python3 tools/verify_bofa.py` (quick), `--full`, `--mcp`. Resultado: TODO OK. |
-| **Documentación** | OK Actualizada | README, BOFA_AT_A_GLANCE, CORE_ARCHITECTURE, MODULE_CONTRACT, MODULE_CHECKLIST, MCP_CURSOR_INTEGRATION, QUICK_START_FIRST_MODULE, NEXT_STEPS_AND_ROADMAP, REPORTS_CONVENTION, LLM_CYBERSECURITY, ZERO_DAY_AND_REPORTING. |
+| **Documentación** | OK Actualizada | README, BOFA_AT_A_GLANCE, CORE_ARCHITECTURE, MODULE_CONTRACT, MODULE_CHECKLIST, MCP_CURSOR_INTEGRATION, QUICK_START_FIRST_MODULE, NEXT_STEPS_AND_ROADMAP, REPORTS_CONVENTION, LLM_CYBERSECURITY, ZERO_DAY_AND_REPORTING, AGENT. |
 | **Config clientes MCP** | OK Ejemplo | `.cursor/mcp.json.example` para usar BOFA desde Cursor u otros clientes. |
-| **LLM + ciberseguridad** | OK Documentado | Un LLM (Cursor, Claude) usa las herramientas MCP para pruebas autónomas; ver [LLM_CYBERSECURITY.md](LLM_CYBERSECURITY.md). |
+| **LLM + ciberseguridad** | OK Documentado | Un LLM (Cursor, Claude) usa las herramientas MCP para pruebas autónomas; agente autónomo con `run_agent` (sin Cursor). Ver [LLM_CYBERSECURITY.md](LLM_CYBERSECURITY.md) y [AGENT.md](AGENT.md). |
 | **Zero-day y reporte** | OK Soporte | Recon, vuln intel, exploit tools + módulo `reporting` (report_finding) para informe de hallazgo y disclosure; ver [ZERO_DAY_AND_REPORTING.md](ZERO_DAY_AND_REPORTING.md). |
 
 **Conclusión**: El framework está **production-ready** para uso local (CLI, core, flujos) y para uso desde clientes MCP. Sobre si los scripts son reales, novedosos y como seguir: [ARSENAL_AND_QUALITY.md](ARSENAL_AND_QUALITY.md). La **IA funciona** conectando un LLM al servidor MCP. **Zero-days**: BOFA no los encuentra automáticamente; sí da recon, vuln intel, exploit tools y **reporte de hallazgos** (report_finding) para disclosure.
@@ -28,8 +29,8 @@ Autor: descambiado. Referencia: en que punto estamos y hacia donde va el framewo
 | Concepto | BOFA |
 |----------|------|
 | Modulos (categorias) | 20 (examples, exploit, red, blue, purple, osint, recon, web, cloud, ai, malware, forensics, vulnerability, reporting, etc.) |
-| Scripts | 81 |
-| Flujos predefinidos | 20 (demo, recon, blue, web_recon, pentest_basic, vulnerability_scan, full_recon, vuln_triage, web_security_review, bug_bounty_web_light, bug_bounty_web_full, bug_bounty_web_params, bug_bounty_web_diff, blue_daily, blue_risk_assessment, forensics_quick, forensics_diff, ctf_binary_recon, ctf_network_recon, exploit_payload_workshop) |
+| Scripts | 96 |
+| Flujos predefinidos | 25 (incl. bug_bounty_full_chain, vuln_to_action: CVE->exploit_chain_suggester->zero_day_disclosure_kit) |
 | Herramientas MCP expuestas | 8 (list_modules, list_scripts, script_info, execute_script, list_flows, run_flow, capabilities, suggest_tools) |
 
 ---
@@ -66,7 +67,7 @@ Todo lo anterior es desarrollo propio de BOFA; no se referencia ni depende de pr
 |------------|--------|
 | Core estable y cerrado | OK |
 | CLI, flujos, MCP, verificación | OK |
-| Arsenal (66 scripts, 19 módulos, 7 flujos) | OK |
+| Arsenal (96 scripts, 20 módulos, 25 flujos) | OK |
 | LLM + ciberseguridad (doc + MCP) | OK |
 | Zero-day y reporte (doc + reporting/report_finding) | OK |
 | Documentación (contrato, checklist, convenciones, LLM, zero-day) | OK |

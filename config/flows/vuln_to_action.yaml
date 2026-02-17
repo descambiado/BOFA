@@ -1,0 +1,24 @@
+# BOFA Flow: Vuln to Action
+# Conecta vulnerabilidad con acciones: CVE lookup -> exploit chain suggester -> attack surface -> report.
+# Target = producto (ej. web_framework) o CVE ID. Para URL usar attack_surface_mapper directamente.
+
+name: vuln_to_action
+description: "Cadena vulnerabilidad->acción: cve_lookup, exploit_chain_suggester, zero_day_disclosure_kit"
+steps:
+  - module: vulnerability
+    script: cve_lookup
+    parameters:
+      product: "{target}"
+      limit: 5
+  - module: vulnerability
+    script: exploit_chain_suggester
+    parameters:
+      product: "{target}"
+      json: true
+  - module: reporting
+    script: zero_day_disclosure_kit
+    parameters:
+      cve: "CVE-PENDING"
+      description: "Hallazgo de vuln_triage (ver paso 1)"
+      severity: "high"
+      output: "reports/vuln_to_action_{target}"

@@ -16,4 +16,9 @@ parameters:
     description: "Salida en formato JSON (recomendada para IA/flows)"
     required: false
     default: false
+  insecure:
+    type: boolean
+    description: "No verificar certificado SSL (solo dev/test)"
+    required: false
+    default: false
 

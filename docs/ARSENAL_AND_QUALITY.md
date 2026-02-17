@@ -9,7 +9,7 @@ Por descambiado. Respuesta directa: funcionan, son reales, que son novedosos y q
 Si. La verificacion lo confirma:
 
 - `python3 tools/verify_bofa.py`: modo rapido (flujo demo + ejemplos). Resultado: TODO OK.
-- `python3 tools/verify_bofa.py --full`: valida los 66 scripts; ejecuta los que admiten params vacios o tienen params seguros en `_safe_params()`. 33 ejecutados OK, 28 no ejecutados por requerir parametros (no es fallo), 5 omitidos (larga duracion o interactivos). Fallos: 0.
+- `python3 tools/verify_bofa.py --full`: valida los 96 scripts; ejecuta los que admiten params vacios o tienen params seguros en `_safe_params()`. Los que no se ejecutan es por requerir parametros (no es fallo) o por estar en SKIP_FULL. Fallos: 0.
 
 Los scripts que no se ejecutan en --full es porque requieren target, URL, fichero, etc.; no porque esten rotos. Cumplen el contrato (argparse --key, YAML, exit code).
 
@@ -47,7 +47,7 @@ El proyecto y la mayoria de los scripts son recientes. Algunos conceptos (CVE lo
 
 ## ¿Como vamos?
 
-- **Estabilidad**: Core cerrado, 66 scripts verificados, 0 fallos en --full.
+- **Estabilidad**: Core cerrado, 96 scripts verificados, 0 fallos en --full.
 - **Usabilidad**: CLI, flujos, MCP listos; documentacion actualizada; verificacion automatizada.
 - **Honestidad**: Este doc deja claro que hay utilidades reales, integracion novedosa y simuladores con nombres llamativos pero sin claims falsos.
 

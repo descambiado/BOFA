@@ -1,0 +1,27 @@
+# BOFA Flow: Network Zero Trust Overview
+# Recon de servicios (banners) + validación de política de segmentación + reporte.
+# Target = host para banners (ej. 127.0.0.1). Política: sample_segment_policy.json en zero_trust.
+
+name: network_zero_trust_overview
+description: "Recon de servicios (banners) + validación de política de segmentación + report_finding"
+steps:
+  - module: red
+    script: service_banner_collector
+    parameters:
+      target: "{target}"
+      ports: "22,80,443"
+      safe: true
+      json: true
+  - module: zero_trust
+    script: segment_policy_checker
+    parameters:
+      policy: "sample_segment_policy.json"
+      json: true
+  - module: reporting
+    script: report_finding
+    parameters:
+      title: "Network Zero Trust overview"
+      description: "Recon de servicios (banners) y validación de política de segmentación (ver stdout de pasos previos)"
+      severity: "info"
+      steps: "1. service_banner_collector 2. segment_policy_checker 3. Revisar findings"
+      output: "reports/network_zero_trust_overview_report.md"

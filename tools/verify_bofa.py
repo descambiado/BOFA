@@ -42,9 +42,22 @@ def _safe_params(temp_log_path=None):
         ("exploit", "payload_obfuscator"): {"payload": "SELECT * FROM users"},
         ("exploit", "shellcode_template_builder"): {"platform": "linux", "arch": "x64", "language": "c"},
         ("exploit", "service_fuzzer_stub"): {"service": "generic", "max-len": 64, "json": True},
+        ("exploit", "http_param_fuzzer"): {
+            "url": "http://127.0.0.1:9999",
+            "param": "q",
+            "method": "GET",
+            "limit": 0,
+            "json": True,
+            "dry-run": True,
+        },
         ("osint", "social_profile_mapper"): {"username": "verify_test"},
         ("exploit", "payload_encoder"): {"payload": "test"},
         ("vulnerability", "cve_export"): {"output": "/tmp/cve_export_verify.json"},
+        ("vulnerability", "cve_enricher"): {
+            "cve": "CVE-2024-0001",
+            "dry-run": True,
+            "json": True,
+        },
         ("forensics", "hash_calculator"): {"input": "verify_test"},
         ("blue", "log_quick_summary"): {"file": temp_log_path or "/dev/null"},
         ("forensics", "file_metadata"): {"path": str(_ROOT / "README.md")},
@@ -57,6 +70,22 @@ def _safe_params(temp_log_path=None):
             "steps": "1. Run verify 2. Check output",
             "output": "/tmp/finding_verify.md",
         },
+        ("cloud", "iam_policy_linter"): {"policy": str(_ROOT / "scripts/cloud/sample_iam_policy.json"), "json": True},
+        ("cloud", "storage_acl_auditor"): {"config": str(_ROOT / "scripts/cloud/sample_storage_config.json"), "json": True},
+        ("malware", "binary_header_inspector"): {"path": str(_ROOT / "README.md"), "json": True},
+        ("malware", "string_yara_like_scanner"): {"path": str(_ROOT / "README.md"), "json": True},
+        ("malware", "packer_heuristics"): {"path": str(_ROOT / "README.md"), "json": True},
+        ("zero_trust", "segment_policy_checker"): {"policy": str(_ROOT / "scripts/zero_trust/sample_segment_policy.json"), "json": True},
+        ("red", "service_banner_collector"): {"target": "127.0.0.1", "safe": True, "json": True},
+        ("vulnerability", "exploit_chain_suggester"): {"product": "web_framework", "json": True},
+        ("recon", "attack_surface_mapper"): {"target": "https://example.com", "json": True},
+        ("reporting", "zero_day_disclosure_kit"): {"cve": "CVE-2024-TEST", "description": "Test", "output": "/tmp/bofa_disclosure", "json": True},
+        ("reporting", "findings_correlator"): {"target": "https://example.com", "json": True},
+        ("reporting", "flow_report_aggregator"): {
+            "input": str(_ROOT / "scripts" / "reporting" / "sample_flow_output.json"),
+            "output": "/tmp/flow_aggregator_verify.md",
+        },
+        ("reporting", "risk_scorer"): {"input": str(_ROOT / "scripts" / "reporting" / "sample_findings.json"), "json": True},
     }
     return p
 
@@ -91,6 +120,15 @@ def run_quick():
     except Exception as e:
         results.append(("examples/example_params", False, str(e)))
     return results
+
+
+def run_agent_check():
+    """Verifica que el módulo del agente autónomo se importa (sin ejecutar LLM)."""
+    try:
+        from agents.security_agent import run_security_agent
+        return ("Agent module", True, None)
+    except Exception as e:
+        return ("Agent module", False, str(e)[:200])
 
 
 def run_mcp_check():
@@ -196,6 +234,7 @@ def run_full():
 def main():
     full = "--full" in sys.argv
     mcp_check = "--mcp" in sys.argv
+    agent_check = "--agent" in sys.argv
     print("BOFA Verification")
     print("=" * 60)
     print(f"Modo: {'full (todos los scripts)' if full else 'quick (flujo demo + ejemplos)'}")
@@ -233,6 +272,9 @@ def main():
         if mcp_check:
             mcp_result = run_mcp_check()
             results.append(mcp_result)
+        if agent_check:
+            agent_result = run_agent_check()
+            results.append(agent_result)
         ok_count = sum(1 for _, ok, _ in results if ok is True)
         skip_count = sum(1 for _, ok, _ in results if ok == "skipped")
         total = len(results)

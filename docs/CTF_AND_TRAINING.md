@@ -123,3 +123,66 @@ Estos flujos no contienen logica de LLM; solo proporcionan datos estructurados q
 
 Todo sigue la filosofia de BOFA: core congelado y profesional, arsenal en expansion y salidas JSON listas para ser orquestadas por humanos o IA.
 
+---
+
+## Malware / forense avanzado
+
+Para analisis estatico de malware y binarios mas alla del CTF basico, BOFA incluye scripts de malware/forense avanzado que complementan ctf_string_hunter y hash_calculator.
+
+### malware/binary_header_inspector
+
+- **Que hace**: inspecciona los primeros bytes de un fichero para identificar tipo (ELF, PE, Mach-O, PDF, ZIP, etc.), magic bytes y metadatos basicos (entropia, info ELF/PE si aplica).
+- **Uso basico**:
+
+```bash
+python3 scripts/malware/binary_header_inspector.py --path muestra.bin --json
+```
+
+- **Salida JSON**: `path`, `size`, `detection` (type, magic_hex, description), `entropy_first_256`, `elf_info` o `pe_info` si aplica.
+
+### malware/string_yara_like_scanner
+
+- **Que hace**: escanea un fichero con reglas tipo YARA ligero (patrones string y regex). Reglas por defecto: URLs HTTP, IPv4, Base64-like, flags CTF, exec/system, registry, PowerShell, cmd.exe, etc. Acepta fichero JSON de reglas custom.
+- **Uso basico**:
+
+```bash
+python3 scripts/malware/string_yara_like_scanner.py --path muestra.bin --json
+python3 scripts/malware/string_yara_like_scanner.py --path muestra.bin --rules mis_reglas.json --json
+```
+
+- **Salida JSON**: `path`, `size`, `rules_loaded`, `matches_count`, `matches` (rule_id, offset, matched).
+
+### malware/packer_heuristics
+
+- **Que hace**: detecta firmas de packers comunes (UPX, ASPack, FSG, PECompact, Themida, VMProtect, etc.) en binarios.
+- **Uso basico**:
+
+```bash
+python3 scripts/malware/packer_heuristics.py --path binary.exe --json
+```
+
+- **Salida JSON**: `path`, `size`, `detected` (packer_id, name, offset), `packed` (boolean).
+
+### Flujo malware_static_recon
+
+- **Ubicacion**: `config/flows/malware_static_recon.yaml`
+- **Target**: ruta a un binario o fichero a analizar.
+- **Pasos**:
+  1. `malware/binary_header_inspector(path={target}, json=true)` -> tipo, magic, entropia.
+  2. `malware/string_yara_like_scanner(path={target}, json=true)` -> patrones detectados.
+  3. `forensics/hash_calculator(input={target}, file=true)` -> hashes MD5/SHA256.
+  4. `malware/packer_heuristics(path={target}, json=true)` -> packers detectados.
+  5. `reporting/report_finding` -> informe en `reports/malware_static_recon_report.md`.
+
+Uso tipico (usar ruta absoluta para el target):
+
+```bash
+python3 -c "from flows.flow_runner import run_flow; from pathlib import Path; run_flow('malware_static_recon', str(Path('muestra.bin').resolve()))"
+```
+
+### Combinacion con CTF
+
+- Para CTF: `ctf_binary_recon` (ctf_string_hunter + hash_calculator) da una vista rapida de strings y hashes.
+- Para malware/forense mas profundo: `malware_static_recon` añade cabeceras, patrones YARA-like y deteccion de packers.
+- Se pueden ejecutar ambos sobre el mismo binario y combinar resultados en un informe manual o con report_finding.
+

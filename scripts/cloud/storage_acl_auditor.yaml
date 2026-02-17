@@ -1,0 +1,13 @@
+name: storage_acl_auditor
+category: cloud
+description: "Audita ACL de almacenamiento (S3/GCS style) desde JSON local: buckets públicos, políticas permisivas, publicAccessBlock"
+parameters:
+  config:
+    type: string
+    description: "Ruta al fichero de configuración de storage (JSON)"
+    required: true
+  json:
+    type: boolean
+    description: "Salida en formato JSON (recomendada para IA/flows)"
+    required: false
+    default: false

@@ -1,0 +1,13 @@
+name: segment_policy_checker
+category: zero_trust
+description: "Valida políticas de segmentación Zero Trust desde JSON: deny-by-default, wildcards, egress"
+parameters:
+  policy:
+    type: string
+    description: "Ruta al fichero de política de segmentación (JSON)"
+    required: true
+  json:
+    type: boolean
+    description: "Salida en formato JSON (recomendada para IA/flows)"
+    required: false
+    default: false

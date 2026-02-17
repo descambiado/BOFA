@@ -4,9 +4,12 @@ BOFA Flow Runner - Ejecutor de flujos de scripts
 
 Ejecuta secuencias predefinidas de scripts con un target común
 y genera un informe unificado (Markdown/JSON).
+Soporta placeholders {step_N.field} para encadenamiento contextual.
 Usa exclusivamente el core (get_engine); no modifica el core.
 """
 
+import json
+import re
 import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -78,6 +81,85 @@ def _substitute_target(parameters: Dict[str, Any], target: str) -> Dict[str, Any
     return out
 
 
+def _try_parse_json(text: str) -> Optional[Dict[str, Any]]:
+    """Intenta parsear JSON desde un texto."""
+    if not text or not isinstance(text, str):
+        return None
+    text = text.strip()
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    end = -1
+    for i, c in enumerate(text[start:], start):
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+    if end < 0:
+        return None
+    try:
+        return json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+
+
+def _extract_from_step_json(step_result: Dict[str, Any], path: str) -> Optional[str]:
+    """
+    Extrae valor de un paso desde su stdout JSON.
+    path: "params" -> para param_finder: {"params":[{"name":"q"},...]} -> "q,id,search"
+    """
+    preview = step_result.get("stdout_preview") or ""
+    obj = _try_parse_json(preview)
+    if not obj:
+        return None
+    if path == "params":
+        params_list = obj.get("params") or []
+        names = []
+        for p in params_list:
+            if isinstance(p, dict) and "name" in p:
+                names.append(str(p["name"]))
+            elif isinstance(p, str):
+                names.append(p)
+        return ",".join(names) if names else None
+    return None
+
+
+def _substitute_step_placeholders(
+    parameters: Dict[str, Any],
+    steps_results: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Sustituye {step_N.field} por valores extraídos del JSON de pasos anteriores."""
+    if not parameters:
+        return {}
+    out = {}
+    for k, v in parameters.items():
+        if not isinstance(v, str):
+            out[k] = v
+            continue
+        m = re.search(r"\{step_(\d+)\.(\w+)\}", v)
+        if not m:
+            out[k] = v
+            continue
+        step_num = int(m.group(1))
+        field = m.group(2)
+        replacement = None
+        for sr in steps_results:
+            if sr.get("index") == step_num:
+                replacement = _extract_from_step_json(sr, field)
+                break
+        if replacement is not None:
+            out[k] = re.sub(r"\{step_\d+\.\w+\}", replacement, v)
+        elif field == "params" and k == "params":
+            out[k] = "q"
+        else:
+            out[k] = v
+    return out
+
+
 def run_flow(
     flow_id: str,
     target: str,
@@ -125,6 +207,7 @@ def run_flow(
         script = step.get("script")
         params = step.get("parameters") or {}
         params = _substitute_target(params, target)
+        params = _substitute_step_placeholders(params, steps_results)
 
         step_result = {
             "index": i + 1,
@@ -212,12 +295,52 @@ def run_flow(
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(md_lines))
 
+    # Guardar report_json en disco para post-proceso
+    json_filename = f"flow_{flow_id}_{timestamp}.json"
+    json_path = out_dir / json_filename
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(report_json, f, indent=2, ensure_ascii=False)
+    except OSError:
+        json_path = None
+
+    # Post-proceso opcional (ej. flow_report_aggregator)
+    post_process = flow.get("post_process") or {}
+    post_script = post_process.get("script")
+    post_params = post_process.get("params") or {}
+    if post_script and json_path:
+        try:
+            mod_script = post_script.split("/")
+            if len(mod_script) == 2:
+                pp_mod, pp_scr = mod_script[0], mod_script[1]
+                pp_params = dict(post_params)
+                target_safe = (target or "").replace("://", "_").replace("/", "_").replace(":", "_")[:80]
+                for k, v in list(pp_params.items()):
+                    if not isinstance(v, str):
+                        continue
+                    s = v.replace("{flow_report_json}", str(json_path))
+                    s = s.replace("{target}", target or "")
+                    s = s.replace("{target_safe}", target_safe)
+                    # Rutas relativas (output) se resuelven desde la raíz del proyecto
+                    if k == "output" and s and not Path(s).is_absolute():
+                        s = str(_ROOT / s)
+                    pp_params[k] = s
+                engine.execute_script(
+                    module_name=pp_mod,
+                    script_name=pp_scr,
+                    parameters=pp_params,
+                    timeout=config.execution_timeout or 60,
+                )
+        except Exception:
+            pass
+
     return {
         "flow_id": flow_id,
         "target": target,
         "status": status,
         "steps": steps_results,
         "report_path": str(report_path),
+        "report_json_path": str(json_path) if json_path else None,
         "report_json": report_json,
     }
 
