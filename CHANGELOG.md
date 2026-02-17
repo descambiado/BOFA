@@ -112,6 +112,26 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.6.0 (continuacion 8) - Exploit avanzado (2026-02)
+
+### Nuevos scripts exploit
+- **scripts/exploit/payload_obfuscator.py** + .yaml: genera variantes ofuscadas de un payload de texto (base64, urlencode, xor, combinaciones) con salida opcional JSON para uso por humanos o IA.
+- **scripts/exploit/shellcode_template_builder.py** + .yaml: genera plantillas de shellcode/payload en C, Python y ASM sin ejecutar nada (uso educacional y de laboratorio).
+- **scripts/exploit/service_fuzzer_stub.py** + .yaml: crea un conjunto de payloads de fuzzing de alto nivel para servicios de texto (generic, http_login, etc.); no envia trafico, pensado como stub que otros componentes pueden consumir.
+
+### Flujos exploit
+- **config/flows/exploit_payload_workshop.yaml**: flujo que encadena `payload_encoder` (base64) y `payload_obfuscator` sobre un mismo payload y termina en `report_finding` con un informe resumen de variantes generadas.
+
+### MCP, orquestacion y documentacion
+- **mcp/bofa_mcp.py**: `_CAPABILITIES` incluye ahora el flujo `exploit_payload_workshop` y los scripts JSON `exploit/payload_obfuscator`, `exploit/shellcode_template_builder` y `exploit/service_fuzzer_stub`. `bofa_suggest_tools(goal)` sugiere estas herramientas para objetivos de pentest/exploit/payload.
+- **docs/ORCHESTRATION_AND_CHAINING.md**: tabla de flujos y scripts JSON ampliada con `exploit_payload_workshop` y los nuevos scripts exploit; nuevo ejemplo de encadenamiento \"Exploit avanzado (payload workshop)\".
+
+### Verificacion y numeros
+- **tools/verify_bofa.py**: `_safe_params` actualizado para incluir ejecucion de `payload_obfuscator`, `shellcode_template_builder` y `service_fuzzer_stub` con parametros seguros en `--full`.
+- **docs/STATUS.md**: numeros actualizados a 20 modulos, 81 scripts y 20 flujos predefinidos (incluyendo exploit_payload_workshop).
+
+---
+
 ## v2.6.0 (continuacion 2) - Modulo web, flujo vuln_triage, CVE, ASCII (2026-02)
 
 ### Modulo web

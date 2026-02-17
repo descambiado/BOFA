@@ -41,6 +41,7 @@ Que un mismo target (URL, producto, dominio) recorra varias herramientas en secu
 | vuln_triage | producto | cve_lookup(product=target, limit 15), cve_export(output=reports/vuln_triage_{target}.json, product=target) |
 | vulnerability_scan | (no usa target) | cve_lookup(limit 10), cve_export(output cve_export.json) |
 | pentest_basic | URL | pasos de pentest basico |
+| exploit_payload_workshop | payload (texto) | payload_encoder(payload, encoding=base64), payload_obfuscator(payload, techniques, json=true), report_finding informe en reports/exploit_payload_workshop_target.md |
 | recon | dominio | pasos de recon |
 | blue | dummy | simulacion blue team |
 | blue_daily | ruta de log | log_guardian(file=target, json=true) y report_finding con informe en reports/blue_daily_target.md |
@@ -76,6 +77,9 @@ Estos scripts aceptan parametro json o devuelven JSON por defecto; la IA puede p
 | forensics/timeline_diff | json: true | Compara dos timelines JSON (antes/despues) y devuelve listas de ficheros añadidos, eliminados y modificados. |
 | study/ctf_string_hunter | json: true | Extrae strings interesantes de un fichero (URLs, rutas, emails, JWT, flags) para CTF/estudio. |
 | forensics/pcap_proto_counter | json: true | Cuenta protocolos basicos (TCP, UDP, ICMP, HTTP, TLS, DNS) en un PCAP pequeno. |
+| exploit/payload_obfuscator | json: true | Genera variantes ofuscadas de un payload de texto (base64, urlencode, xor, combinaciones) para pruebas controladas. |
+| exploit/shellcode_template_builder | json: true | Devuelve plantillas de shellcode/payload en C, Python y ASM sin ejecutar nada (educacional/laboratorio). |
+| exploit/service_fuzzer_stub | json: true | Lista de payloads de fuzzing de alto nivel para servicios de texto; no envia trafico, se usa con herramientas externas. |
 
 Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") -> 2) parsear steps[].stdout_preview del paso cve_lookup -> 3) bofa_execute_script("reporting", "report_finding", parameters_json='{"title":"CVE summary", "description": "...", "severity":"info", "steps":"...", "output":"reports/finding.md"}').
 
@@ -112,6 +116,9 @@ Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") ->
 
 9. **CTF red rapido (PCAP)**  
    - Ejecutar bofa_run_flow("ctf_network_recon", "captura.pcap") -> usar pcap_proto_counter.counts para decidir si centrarse en HTTP, DNS o TLS, y documentar el analisis con el informe generado.
+
+10. **Exploit avanzado (payload workshop)**  
+    - Ejecutar bofa_run_flow("exploit_payload_workshop", "PAYLOAD_BASE") -> usar JSON de payload_obfuscator.variants para proponer variantes codificadas/ofuscadas y documentarlas con report_finding.  
 
 ---
 
