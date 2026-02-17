@@ -9,6 +9,8 @@
 
 Framework open-source de ciberseguridad con core estable, CLI profesional y módulos descubiertos automáticamente. Por [@descambiado](https://github.com/descambiado). **96 herramientas y 25 flujos** para **penetration testing**, **bug bounty**, **forense**, **cloud security** y **malware analysis**, con servidor **MCP** y **agente autónomo con LLM** (Ollama, OpenAI, Claude).
 
+**Un solo framework. Una IA con todo el contexto. 96 herramientas y 25 flujos para que la IA sea tu mejor hacker.**
+
 ---
 
 ## BOFA en 30 segundos
@@ -20,9 +22,17 @@ pip install -r requirements.txt
 ./bofa.sh
 ```
 
-**Uso 100% local** (sin Cursor ni MCP): el menú CLI, los flujos y el agente (`run_agent`, `self_hack_runner`) funcionan en tu máquina con solo clonar e instalar. Opcional: `pip install .[mcp]` para usar BOFA desde **Cursor, Claude Desktop o cualquier cliente MCP** — ver [Integración MCP](docs/MCP_CURSOR_INTEGRATION.md).
+**Uso 100% local**: el menú CLI, los flujos y el agente (`run_agent`, `self_hack_runner`) funcionan en tu máquina con solo clonar e instalar. Opcional: servidor MCP para **cualquier cliente** (Cursor, Claude Desktop, etc.); Cursor es solo un ejemplo — ver [Integración MCP](docs/MCP_CURSOR_INTEGRATION.md) y [mcp/README.md](mcp/README.md).
 
-Menu interactivo, modulos descubiertos por el core, sin configuracion extra. Crear modulo propio: [Tu primer modulo en 5 minutos](docs/QUICK_START_FIRST_MODULE.md) (sin tocar el core).
+Menú interactivo, módulos descubiertos por el core, sin configuración extra. Crear módulo propio: [Tu primer módulo en 5 minutos](docs/QUICK_START_FIRST_MODULE.md) (sin tocar el core).
+
+### Cómo usar BOFA
+
+| Forma | Comando o acción |
+|-------|------------------|
+| **CLI** | `./bofa.sh` — menú con módulos, scripts y flujos (F). |
+| **Agente con IA** | `python3 tools/run_agent.py <URL> --provider ollama` — la IA ejecuta herramientas BOFA hasta encontrar hallazgos. |
+| **Cliente MCP** (opcional) | `pip install .[mcp]` y configurar tu cliente (Cursor, Claude Desktop, etc.) para invocar `mcp/bofa_mcp.py`. |
 
 | Qué quieres | Enlace |
 |-------------|--------|
@@ -31,13 +41,14 @@ Menu interactivo, modulos descubiertos por el core, sin configuracion extra. Cre
 | **Crear un módulo** | [Tu primer módulo en 5 min](docs/QUICK_START_FIRST_MODULE.md) |
 | **Entender el core** | [Arquitectura](docs/CORE_ARCHITECTURE.md) · [Contrato módulos](docs/MODULE_CONTRACT.md) |
 | **Estado actual** | [STATUS](docs/STATUS.md) |
+| **Wiki (roadmap, estado, instalación)** | [wiki/](wiki/README.md) — contenido para la Wiki de GitHub |
 | **Indice de documentacion** | [DOCUMENTATION_INDEX](docs/DOCUMENTATION_INDEX.md) |
 | **Zero-day y reporte** | [ZERO_DAY_AND_REPORTING](docs/ZERO_DAY_AND_REPORTING.md) |
 | **Roadmap y próximos pasos** | [NEXT_STEPS_AND_ROADMAP](docs/NEXT_STEPS_AND_ROADMAP.md) |
 | **Ejecutar un flujo** | [BOFA Flows](flows/README.md) (opción F en CLI) |
 | **Saber que todo funciona** | `python3 tools/verify_bofa.py` — [tools/README.md](tools/README.md) |
 | **IA + ciberseguridad (LLM con BOFA)** | [LLM + BOFA para ciberseguridad](docs/LLM_CYBERSECURITY.md) |
-| **Usar BOFA desde Cursor (MCP)** | [Integración MCP con Cursor](docs/MCP_CURSOR_INTEGRATION.md) — [mcp/README.md](mcp/README.md) |
+| **Usar BOFA desde un cliente MCP** | [Ejemplo Cursor](docs/MCP_CURSOR_INTEGRATION.md) — [mcp/README.md](mcp/README.md) (cualquier cliente MCP) |
 | **Agente autónomo (LLM)** | [Agente Observe-Think-Act](docs/AGENT.md) — `python3 tools/run_agent.py URL --provider ollama` |
 | **Copiar un ejemplo** | [Módulos de ejemplo](scripts/examples/README.md) |
 
@@ -48,11 +59,10 @@ Menu interactivo, modulos descubiertos por el core, sin configuracion extra. Cre
 ### Why BOFA / ¿Qué hace diferente a BOFA?
 
 - **Framework unificado**: 20 módulos y 96 scripts descubiertos automáticamente por el core (recon, web, exploit, blue, purple, osint, cloud, malware, forensics, vulnerability, reporting, zero_trust, etc.).
-- **Flujos listos para IA**: 25 flujos (`full_recon`, `bug_bounty_full_chain`, `bug_bounty_web_*`, `cloud_config_review`, `malware_static_recon`, `network_zero_trust_overview`, `vuln_to_action`, …) con informes Markdown orquestables por LLM.
-- **Puente CVE → acción**: `vulnerability/exploit_chain_suggester` genera cadenas de herramientas BOFA a partir de CVE o producto.
-- **Mapa de ataque unificado**: `recon/attack_surface_mapper` sugiere fases y pasos de recon para URL/host.
-- **Zero-Day Disclosure Kit**: `reporting/zero_day_disclosure_kit` genera plantillas CERT/vendor, timeline y checklist para divulgación responsable.
-- **Servidor MCP**: `mcp/bofa_mcp.py` expone módulos, scripts y flujos para clientes como Cursor/Claude (Model Context Protocol).
+- **Agente con LLM**: una IA (Ollama, OpenAI, Claude) ejecuta y orquesta BOFA en loop Observe-Think-Act; local-first con `run_agent.py`.
+- **Servidor MCP para cualquier cliente**: `mcp/bofa_mcp.py` expone módulos, scripts y flujos a **cualquier** cliente MCP (Cursor, Claude Desktop, etc.); Cursor es solo un ejemplo.
+- **Flujos listos para IA**: 25 flujos (`bug_bounty_full_chain`, `vuln_to_action`, `cloud_config_review`, …) con informes Markdown.
+- **Puente CVE → acción** y **Zero-Day Disclosure Kit**: ver docs; arsenal completo en [STATUS](docs/STATUS.md).
 
 ### Plataforma web educativa (labs y UI)
 - **Web UI**: Interfaz React/TypeScript (Vite + Tailwind) para explorar scripts y labs (ver `package.json` y `docs/USAGE.md`).
@@ -242,4 +252,4 @@ MIT License. Ver [LICENSE](LICENSE). Uso comercial, modificacion y distribucion 
 
 ---
 
-BOFA v2.6.0 - [@descambiado](https://github.com/descambiado) | [LICENSE](LICENSE) | Python 3.8+
+BOFA v2.7.0 - [@descambiado](https://github.com/descambiado) | [LICENSE](LICENSE) | Python 3.8+
