@@ -203,6 +203,7 @@ _CAPABILITIES = {
         {"id": "forensics_diff", "name": "Forensics diff", "when": "comparar dos timelines (antes/despues) para ver ficheros añadidos/eliminados/modificados", "combine_with": "forensics_quick o blue_daily"},
         {"id": "ctf_binary_recon", "name": "CTF binary recon", "when": "analizar rapidamente un binario de CTF (strings interesantes + hashes)", "combine_with": "report_finding o otros analisis manuales"},
         {"id": "ctf_network_recon", "name": "CTF network recon", "when": "resumen rapido de protocolos en un PCAP pequeno para CTF", "combine_with": "report_finding o analisis de trafico mas profundo"},
+        {"id": "exploit_payload_workshop", "name": "Exploit payload workshop", "when": "probar variantes de codificacion/ofuscacion de un payload de texto", "combine_with": "report_finding o modulos forensics para hashes/artefactos"},
     ],
     "scripts_with_json": [
         "recon/http_headers",
@@ -223,6 +224,9 @@ _CAPABILITIES = {
         "forensics/timeline_diff",
         "study/ctf_string_hunter",
         "forensics/pcap_proto_counter",
+        "exploit/payload_obfuscator",
+        "exploit/shellcode_template_builder",
+        "exploit/service_fuzzer_stub",
     ],
     "chain_examples": [
         "full_recon(URL) -> parse stdout of cve_lookup -> vuln_triage(product from context)",
@@ -277,9 +281,9 @@ def bofa_suggest_tools(goal: str) -> str:
         suggested_scripts.extend(["vulnerability/cve_lookup", "vulnerability/cve_export"])
         reasons.append("vuln: run vuln_triage(product) or cve_lookup with product/limit")
     if "pentest" in goal_lower or "test" in goal_lower:
-        suggested_flows.append("pentest_basic")
-        suggested_scripts.extend(["recon/web_discover", "exploit/payload_encoder"])
-        reasons.append("pentest: run pentest_basic(URL) or combine recon + exploit scripts")
+        suggested_flows.extend(["pentest_basic", "exploit_payload_workshop"])
+        suggested_scripts.extend(["recon/web_discover", "exploit/payload_encoder", "exploit/payload_obfuscator", "exploit/service_fuzzer_stub"])
+        reasons.append("pentest: run pentest_basic(URL) o exploit_payload_workshop(payload) y combinar recon + exploit scripts")
     if "reporte" in goal_lower or "report" in goal_lower or "hallazgo" in goal_lower:
         suggested_scripts.append("reporting/report_finding")
         reasons.append("report: use report_finding with title, description, severity, steps, output path")
