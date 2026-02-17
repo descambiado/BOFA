@@ -1,0 +1,23 @@
+name: ctf_string_hunter
+category: study
+description: "Extrae strings interesantes (URLs, rutas, emails, JWT, flags) de un fichero para CTF y estudio, con salida opcional JSON"
+parameters:
+  path:
+    type: string
+    description: "Ruta al fichero binario o de texto a analizar"
+    required: true
+  min-length:
+    type: int
+    description: "Longitud minima de string a considerar"
+    required: false
+    default: 4
+  flag-prefix:
+    type: string
+    description: "Prefijo de flag a resaltar (por defecto BOFA{, tambien se buscan CTF{)"
+    required: false
+    default: "BOFA{"
+  json:
+    type: bool
+    description: "Si es true, imprime salida JSON parseable (para IA/flows)"
+    required: false
+

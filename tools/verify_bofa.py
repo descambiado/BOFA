@@ -46,6 +46,7 @@ def _safe_params(temp_log_path=None):
         ("blue", "log_quick_summary"): {"file": temp_log_path or "/dev/null"},
         ("forensics", "file_metadata"): {"path": str(_ROOT / "README.md")},
         ("forensics", "filesystem_timeline"): {"directory": str(_ROOT / "scripts"), "max-files": 5},
+        ("study", "ctf_string_hunter"): {"path": str(_ROOT / "README.md"), "min-length": 4, "json": True},
         ("reporting", "report_finding"): {
             "title": "Verify test",
             "description": "Test run",
@@ -131,6 +132,7 @@ SKIP_FULL = {
     "web/response_classifier",  # requiere URL accesible (network-dependent)
     "blue/log_anomaly_score",  # requiere fichero JSON previo de log_guardian/log_quick_summary
     "forensics/timeline_diff",  # requiere ficheros JSON previos de filesystem_timeline
+    "forensics/pcap_proto_counter",  # requiere fichero PCAP y dependencia scapy opcional
 }
 
 

@@ -201,6 +201,8 @@ _CAPABILITIES = {
         {"id": "blue_risk_assessment", "name": "Blue risk assessment", "when": "calcular score de riesgo a partir de logs (auth/syslog)", "combine_with": "forensics_quick o report_finding adicionales"},
         {"id": "forensics_quick", "name": "Forensics quick", "when": "vista rapida de metadatos y linea de tiempo de ficheros", "combine_with": "forensics_diff o report_finding o blue_daily"},
         {"id": "forensics_diff", "name": "Forensics diff", "when": "comparar dos timelines (antes/despues) para ver ficheros añadidos/eliminados/modificados", "combine_with": "forensics_quick o blue_daily"},
+        {"id": "ctf_binary_recon", "name": "CTF binary recon", "when": "analizar rapidamente un binario de CTF (strings interesantes + hashes)", "combine_with": "report_finding o otros analisis manuales"},
+        {"id": "ctf_network_recon", "name": "CTF network recon", "when": "resumen rapido de protocolos en un PCAP pequeno para CTF", "combine_with": "report_finding o analisis de trafico mas profundo"},
     ],
     "scripts_with_json": [
         "recon/http_headers",
@@ -219,6 +221,8 @@ _CAPABILITIES = {
         "forensics/file_metadata",
         "forensics/filesystem_timeline",
         "forensics/timeline_diff",
+        "study/ctf_string_hunter",
+        "forensics/pcap_proto_counter",
     ],
     "chain_examples": [
         "full_recon(URL) -> parse stdout of cve_lookup -> vuln_triage(product from context)",
@@ -230,6 +234,8 @@ _CAPABILITIES = {
         "blue_risk_assessment(log_path) -> usar log_anomaly_score.risk_score y top_ips/top_users para priorizar acciones blue",
         "forensics_quick(dir) -> generar timeline y luego timeline_diff(before, after) -> report_finding(forense detallado)",
         "file_metadata(path) + filesystem_timeline(dir) -> report_finding(forense rapido)",
+        "ctf_binary_recon(path) -> usar ctf_string_hunter.categories (flags/urls/rutas) y hash_calculator.hash para documentar un binario de reto",
+        "ctf_network_recon(pcap) -> usar pcap_proto_counter.counts para decidir si centrarse en HTTP, DNS o TLS en el analisis CTF",
     ],
 }
 
@@ -281,6 +287,10 @@ def bofa_suggest_tools(goal: str) -> str:
         suggested_flows.extend(["blue", "blue_daily", "blue_risk_assessment"])
         suggested_scripts.extend(["blue/log_guardian", "blue/log_quick_summary", "blue/log_anomaly_score"])
         reasons.append("blue: usar blue para simulacion y blue_daily/log_guardian/log_quick_summary/log_anomaly_score para revision de logs y score de riesgo")
+    if "ctf" in goal_lower or "training" in goal_lower or "estudio" in goal_lower or "aprendizaje" in goal_lower:
+        suggested_flows.extend(["ctf_binary_recon", "ctf_network_recon"])
+        suggested_scripts.extend(["study/ctf_string_hunter", "forensics/pcap_proto_counter", "forensics/hash_calculator"])
+        reasons.append("ctf/estudio: usar ctf_binary_recon para binarios (strings + hash) y ctf_network_recon para PCAP (contadores de protocolos)")
 
     suggested_flows = list(dict.fromkeys(suggested_flows))
     suggested_scripts = list(dict.fromkeys(suggested_scripts))

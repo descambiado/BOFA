@@ -1,0 +1,15 @@
+name: ctf_binary_recon
+description: "CTF binary recon: extraer strings interesantes de un binario y calcular sus hashes para referencia"
+steps:
+  - module: study
+    script: ctf_string_hunter
+    parameters:
+      path: "{target}"
+      min-length: 4
+      json: true
+  - module: forensics
+    script: hash_calculator
+    parameters:
+      input: "{target}"
+      file: true
+
