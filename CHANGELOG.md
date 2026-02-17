@@ -4,6 +4,177 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## Resumen v2.6.0 (Release 2026-02)
+
+**BOFA v2.6.0** estabiliza el framework con **96 scripts**, **20 módulos** y **25 flujos**. Incluye el **agente autónomo** que razona con un LLM (Ollama, OpenAI, Anthropic) en un loop Observe-Think-Act hasta encontrar vulnerabilidades; flujo **bug_bounty_full_chain** con encadenamiento contextual, `--insecure` para SSL autofirmado, y post-proceso que genera informe ejecutivo en `reports/`. Verificación: `python3 tools/verify_bofa.py` (quick), `--full`, `--mcp`, `--agent`.
+
+---
+
+## v2.6.0 (continuacion 15) - Agente autónomo con LLM (2026-02)
+
+### Agente de seguridad que razona
+- **agents/security_agent.py**: Loop Observe-Think-Act. El agente razona con un LLM, ejecuta herramientas BOFA, correlaciona hallazgos y continúa hasta vulnerar.
+- **agents/llm_providers.py**: Abstracción para Ollama (local), OpenAI, Anthropic. Sin dependencias extra; usa urllib para APIs.
+- **tools/run_agent.py**: CLI para ejecutar el agente.
+- **docs/AGENT.md**: Documentación del agente.
+
+### Acciones del agente
+- `execute_script`: Ejecuta scripts BOFA (param_finder, path_scanner, http_param_fuzzer, etc.).
+- `run_flow`: Ejecuta flujos completos.
+- `correlate`: Correlaciona hallazgos previos con findings_correlator.
+- `done`: Termina con success si encontró vulnerabilidades.
+
+### Uso
+```bash
+python3 tools/run_agent.py https://target.com --provider ollama   # Local
+python3 tools/run_agent.py https://target.com --provider openai  # API
+```
+
+---
+
+## v2.6.0 (continuacion 14) - Enriquecimiento espectacular: encadenamiento contextual, correlacion, payloads (2026-02)
+
+### Encadenamiento contextual en flow runner
+- **flows/flow_runner.py**: soporte para placeholders `{step_N.field}` (ej. `{step_7.params}`) para inyectar salida JSON de pasos anteriores en el siguiente. Guarda `report_json` en disco (`reports/flow_{id}_{timestamp}.json`). Post-proceso opcional: si el flow tiene `post_process`, ejecuta el script indicado con `{flow_report_json}` y `{target_safe}`.
+
+### Payload library y http_param_fuzzer ampliado
+- **scripts/exploit/payloads.yaml**: biblioteca de payloads con sets generic, sqli, xss, ssti, lfi.
+- **scripts/exploit/http_param_fuzzer.py**: `--params "q,id,search"` para fuzzear varios parametros; `--payload-set generic|sqli|xss|ssti|lfi` para cargar desde payloads.yaml.
+
+### Correlacion y reportes inteligentes
+- **scripts/reporting/findings_correlator.py** + .yaml: correlaciona param_finder, path_scanner, http_param_fuzzer y security_headers en hotspots priorizados con recomendaciones.
+- **scripts/reporting/flow_report_aggregator.py** + .yaml: genera informe ejecutivo Markdown desde JSON de run_flow; extrae hallazgos, calcula risk score 0-10.
+- **scripts/reporting/risk_scorer.py** + .yaml: puntuacion de riesgo (0-10) desde output de findings_correlator.
+
+### CVE enricher: Exploit-DB
+- **scripts/vulnerability/cve_enricher.py**: añade `exploit_db_url` y referencia a Exploit-DB en `references` para cada CVE.
+
+### Flujo bug_bounty_full_chain mejorado
+- **config/flows/bug_bounty_full_chain.yaml**: http_param_fuzzer usa `params: "{step_7.params}"` (encadenamiento desde param_finder). Post-proceso: flow_report_aggregator genera `reports/executive_{target_safe}.md`.
+
+### MCP y verificacion
+- _CAPABILITIES: findings_correlator, flow_report_aggregator, risk_scorer. Nuevos chain_examples.
+- bofa_suggest_tools: "correlar", "hotspot", "executivo", "reporte" -> scripts de correlacion y agregacion.
+- verify_bofa: _safe_params para findings_correlator, flow_report_aggregator, risk_scorer.
+
+### Numeros
+- 96 scripts, 25 flujos. Core congelado.
+
+---
+
+## v2.6.0 (continuacion 13) - Fuzzing HTTP real, CVE enrichment y bug bounty full chain (2026-02)
+
+### Fuzzing HTTP real para bug bounty
+- **scripts/exploit/http_param_fuzzer.py** + .yaml: fuzzing sencillo de parametros HTTP (GET/POST) con payloads tipicos (SQLi, XSS, traversal) y salida JSON. Pensado para encadenar con param_finder/attack_surface_mapper y flows bug bounty. Incluye modo seguro `--dry-run` y `--limit` para controlar trafico.
+
+### Enriquecimiento de CVE (NVD + local)
+- **scripts/vulnerability/cve_enricher.py** + .yaml: enriquece un CVE combinando base local BOFA (cve_data.yaml) y NVD API v2 (si hay red). Devuelve CVSS aproximado, severidad, descripcion y referencias, listo para IA/flows. `--dry-run` usa solo base local (offline/educativo).
+
+### Flujo bug bounty de cadena completa
+- **config/flows/bug_bounty_full_chain.yaml**: cadena completa para bug bounty web. Pasos: attack_surface_mapper(target), web_discover, http_headers, security_headers_analyzer, robots_txt, path_scanner, param_finder, http_param_fuzzer(q), exploit_chain_suggester(product=web_framework), report_finding. Target = URL.
+
+### MCP y orquestacion
+- **mcp/bofa_mcp.py**:
+  - _CAPABILITIES: nuevo flujo `bug_bounty_full_chain`, scripts JSON `exploit/http_param_fuzzer` y `vulnerability/cve_enricher`, ejemplo de cadena para bug bounty full chain.
+  - bofa_suggest_tools(goal): para objetivos con "recon/web/bug bounty" sugiere bug_bounty_full_chain y http_param_fuzzer; para "vuln/CVE" sugiere cve_enricher, vuln_to_action y exploit_chain_suggester.
+
+### Verificacion
+- **tools/verify_bofa.py**: _safe_params incluye exploit/http_param_fuzzer (modo dry-run, limit=0) y vulnerability/cve_enricher (dry-run con CVE-2024-0001).
+
+### Numeros
+- 93 scripts, 25 flujos. Core congelado.
+
+---
+
+## v2.6.0 (continuacion 12) - Vuln-to-action y zero-day kit (2026-02)
+
+### Utilidades revolucionarias: puente vulnerabilidad->accion
+- **scripts/vulnerability/exploit_chain_suggester.py** + .yaml: conecta CVE o producto con cadena ordenada de scripts BOFA. Dado CVE-2024-0002 o product=web_framework, devuelve pasos accionables (http_headers, path_scanner, param_finder, payload_obfuscator, report_finding, etc.) con parametros y razon. Puente unico vulnerabilidad->herramientas.
+- **scripts/recon/attack_surface_mapper.py** + .yaml: genera mapa unificado de superficie de ataque para URL o host. Plan de campaña con fases (recon basico, seguridad web, parametros, inteligencia vuln), pasos ordenados y flujos recomendados. La IA puede ejecutar el plan fase a fase.
+- **scripts/reporting/zero_day_disclosure_kit.py** + .yaml: workflow completo para divulgacion responsable. Genera plantillas CERT, vendor, timeline sugerido (D0, D+7, D+90) y checklist de 8 pasos. Ficheros: cert_report_*.md, vendor_contact_*.md, timeline_*.json.
+
+### Flujos
+- **config/flows/vuln_to_action.yaml**: cve_lookup(product) -> exploit_chain_suggester(product) -> zero_day_disclosure_kit. Target = producto.
+
+### MCP
+- _CAPABILITIES: exploit_chain_suggester, attack_surface_mapper, zero_day_disclosure_kit. Flujo vuln_to_action.
+- bofa_suggest_tools: "zero day", "disclosure", "exploit", "cve", "cadena", "chain" -> scripts y razones.
+
+### Numeros
+- 91 scripts, 24 flujos. Core congelado.
+
+---
+
+## v2.6.0 (continuacion 11) - Red / zero trust de apoyo (2026-02)
+
+### Modulos zero_trust y red
+- **scripts/zero_trust/segment_policy_checker.py** + .yaml: valida politicas de segmentacion Zero Trust desde JSON (deny-by-default, wildcards, egress). Soporta --json.
+- **scripts/red/service_banner_collector.py** + .yaml: recolecta banners de servicios (SSH, HTTP, etc.). --safe para banners simulados sin conexion real. Soporta --json.
+- **scripts/zero_trust/sample_segment_policy.json**: politica de ejemplo para pruebas.
+
+### Flujos
+- **config/flows/network_zero_trust_overview.yaml**: flujo recon servicios + segmentacion. Pasos: service_banner_collector(target, safe), segment_policy_checker(policy), report_finding. Target = host.
+
+### MCP y orquestacion
+- **mcp/bofa_mcp.py**: _CAPABILITIES ampliado con network_zero_trust_overview, zero_trust/segment_policy_checker, red/service_banner_collector. bofa_suggest_tools(goal) sugiere para "red", "segment", "zero trust", "banner", "servicios".
+- **docs/ORCHESTRATION_AND_CHAINING.md**: flujo network_zero_trust_overview, scripts JSON, ejemplo 13 (recon servicios + segmentacion).
+
+### Verificacion
+- **tools/verify_bofa.py**: _safe_params incluye zero_trust/segment_policy_checker y red/service_banner_collector (modo safe).
+- `python3 tools/verify_bofa.py --full`: 88 scripts, 47 OK, 0 fallos.
+
+### Numeros
+- 88 scripts, 23 flujos. Core congelado.
+
+---
+
+## v2.6.0 (continuacion 10) - Malware / forense avanzado (2026-02)
+
+### Modulo malware
+- **scripts/malware/binary_header_inspector.py** + .yaml: inspecciona cabeceras de binarios (ELF, PE, Mach-O, PDF, ZIP, etc.): magic bytes, tipo, entropia, info ELF/PE. Soporta --json.
+- **scripts/malware/string_yara_like_scanner.py** + .yaml: escáner de patrones tipo YARA ligero (URLs, IPs, flags, indicadores); reglas por defecto o JSON custom. Soporta --json.
+- **scripts/malware/packer_heuristics.py** + .yaml: detecta packers (UPX, ASPack, FSG, etc.) en binarios. Soporta --json.
+
+### Flujos
+- **config/flows/malware_static_recon.yaml**: flujo de recon estático malware. Pasos: binary_header_inspector, string_yara_like_scanner, hash_calculator, packer_heuristics, report_finding. Target = ruta al binario.
+
+### MCP y orquestacion
+- **mcp/bofa_mcp.py**: _CAPABILITIES ampliado con malware_static_recon y scripts malware/*. bofa_suggest_tools(goal) sugiere para "malware", "binario", "forense", "yara", "packer".
+- **docs/ORCHESTRATION_AND_CHAINING.md**: flujo malware_static_recon, scripts JSON, ejemplo 12.
+- **docs/CTF_AND_TRAINING.md**: sección "Malware / forense avanzado" con binary_header_inspector, string_yara_like_scanner, packer_heuristics y flujo malware_static_recon.
+
+### Verificacion
+- **tools/verify_bofa.py**: _safe_params incluye malware/binary_header_inspector, string_yara_like_scanner, packer_heuristics con path a README.md.
+- `python3 tools/verify_bofa.py --full`: 86 scripts, 45 OK, 0 fallos.
+
+### Numeros
+- 86 scripts, 22 flujos. Core congelado.
+
+---
+
+## v2.6.0 (continuacion 9) - Cloud security init (2026-02)
+
+### Modulo cloud
+- **scripts/cloud/iam_policy_linter.py** + .yaml: analiza politicas IAM (JSON) para wildcards, permisos excesivos, acciones de alto riesgo. Soporta --json para salida estructurada (IA/flows).
+- **scripts/cloud/storage_acl_auditor.py** + .yaml: audita ACL de almacenamiento (S3/GCS style) desde JSON local: buckets publicos, politicas permisivas, publicAccessBlock. Soporta --json.
+- **scripts/cloud/sample_iam_policy.json** y **sample_storage_config.json**: ficheros de ejemplo para pruebas y flujo.
+
+### Flujos
+- **config/flows/cloud_config_review.yaml**: flujo de revision cloud. Pasos: iam_policy_linter(policy), storage_acl_auditor(config), report_finding. Target = directorio con sample_iam_policy.json y sample_storage_config.json (ej. . para scripts/cloud).
+
+### MCP y orquestacion
+- **mcp/bofa_mcp.py**: _CAPABILITIES ampliado con cloud_config_review, cloud/iam_policy_linter, cloud/storage_acl_auditor. bofa_suggest_tools(goal) sugiere flujos/scripts para objetivos "cloud", "iam", "storage", "s3", "acl".
+- **docs/ORCHESTRATION_AND_CHAINING.md**: bloque Cloud security documentado (flujo, scripts JSON, ejemplo de cadena).
+
+### Verificacion
+- **tools/verify_bofa.py**: _safe_params incluye cloud/iam_policy_linter y cloud/storage_acl_auditor con rutas a sample_*.json.
+- `python3 tools/verify_bofa.py --full`: 83 scripts, 42 OK, 28 need params, 13 omitidos, 0 fallos.
+
+### Numeros
+- 83 scripts, 21 flujos. Core congelado.
+
+---
+
 ## v2.6.0 (continuacion 3) - Orquestacion para la IA, encadenamiento (2026-02)
 
 ### MCP: descubrir y combinar

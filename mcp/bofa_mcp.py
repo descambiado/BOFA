@@ -193,6 +193,7 @@ _CAPABILITIES = {
         {"id": "bug_bounty_web_full", "name": "Bug Bounty Web Full", "when": "bug bounty web mas profundo (headers + robots + path scan)", "combine_with": "bug_bounty_web_params o bug_bounty_web_diff, vuln_triage(product) y report_finding"},
         {"id": "bug_bounty_web_params", "name": "Bug Bounty Web Params", "when": "descubrir parametros potenciales en una URL (formularios y enlaces)", "combine_with": "bug_bounty_web_full o report_finding"},
         {"id": "bug_bounty_web_diff", "name": "Bug Bounty Web Diff", "when": "comparar tamanos de respuesta de rutas comunes para detectar rutas raras", "combine_with": "bug_bounty_web_full y report_finding"},
+        {"id": "bug_bounty_full_chain", "name": "Bug Bounty Full Chain", "when": "cadena completa bug bounty web: attack_surface_mapper + recon + fuzzing basico de parametros + exploit_chain_suggester + report_finding", "combine_with": "vuln_to_action para pasar de producto/CVE a cadena extendida y zero_day_disclosure_kit"},
         {"id": "pentest_basic", "name": "Pentest basico", "when": "pentest basico sobre URL", "combine_with": "report_finding para documentar hallazgos"},
         {"id": "vulnerability_scan", "name": "Vulnerability scan", "when": "listar CVE de la base local", "combine_with": "vuln_triage(product) para filtrar por producto"},
         {"id": "vuln_triage", "name": "Vuln triage", "when": "CVE por producto (target=producto ej. web_framework)", "combine_with": "report_finding para informe de hallazgo"},
@@ -204,6 +205,10 @@ _CAPABILITIES = {
         {"id": "ctf_binary_recon", "name": "CTF binary recon", "when": "analizar rapidamente un binario de CTF (strings interesantes + hashes)", "combine_with": "report_finding o otros analisis manuales"},
         {"id": "ctf_network_recon", "name": "CTF network recon", "when": "resumen rapido de protocolos en un PCAP pequeno para CTF", "combine_with": "report_finding o analisis de trafico mas profundo"},
         {"id": "exploit_payload_workshop", "name": "Exploit payload workshop", "when": "probar variantes de codificacion/ofuscacion de un payload de texto", "combine_with": "report_finding o modulos forensics para hashes/artefactos"},
+        {"id": "cloud_config_review", "name": "Cloud config review", "when": "revisar politicas IAM y ACL de storage (ficheros JSON locales)", "combine_with": "report_finding para informe de hallazgos cloud"},
+        {"id": "malware_static_recon", "name": "Malware static recon", "when": "analisis estatico de malware/forense avanzado (cabeceras, patrones YARA-like, hashes, packers)", "combine_with": "ctf_binary_recon o report_finding para informe detallado"},
+        {"id": "network_zero_trust_overview", "name": "Network Zero Trust overview", "when": "recon de servicios (banners) + validacion de politica de segmentacion", "combine_with": "report_finding para informe de recon + segmentacion"},
+        {"id": "vuln_to_action", "name": "Vuln to action", "when": "conectar CVE/producto con cadena accionable y kit de divulgacion", "combine_with": "exploit_chain_suggester, attack_surface_mapper, report_finding"},
     ],
     "scripts_with_json": [
         "recon/http_headers",
@@ -217,6 +222,7 @@ _CAPABILITIES = {
         "blue/log_anomaly_score",
         "vulnerability/cve_lookup",
         "vulnerability/cve_export",
+        "vulnerability/cve_enricher",
         "reporting/report_finding",
         "forensics/hash_calculator",
         "forensics/file_metadata",
@@ -227,6 +233,20 @@ _CAPABILITIES = {
         "exploit/payload_obfuscator",
         "exploit/shellcode_template_builder",
         "exploit/service_fuzzer_stub",
+        "exploit/http_param_fuzzer",
+        "cloud/iam_policy_linter",
+        "cloud/storage_acl_auditor",
+        "malware/binary_header_inspector",
+        "malware/string_yara_like_scanner",
+        "malware/packer_heuristics",
+        "zero_trust/segment_policy_checker",
+        "red/service_banner_collector",
+        "vulnerability/exploit_chain_suggester",
+        "recon/attack_surface_mapper",
+        "reporting/zero_day_disclosure_kit",
+        "reporting/findings_correlator",
+        "reporting/flow_report_aggregator",
+        "reporting/risk_scorer",
     ],
     "chain_examples": [
         "full_recon(URL) -> parse stdout of cve_lookup -> vuln_triage(product from context)",
@@ -240,6 +260,14 @@ _CAPABILITIES = {
         "file_metadata(path) + filesystem_timeline(dir) -> report_finding(forense rapido)",
         "ctf_binary_recon(path) -> usar ctf_string_hunter.categories (flags/urls/rutas) y hash_calculator.hash para documentar un binario de reto",
         "ctf_network_recon(pcap) -> usar pcap_proto_counter.counts para decidir si centrarse en HTTP, DNS o TLS en el analisis CTF",
+        "cloud_config_review(dir) -> iam_policy_linter(policy) + storage_acl_auditor(config) -> report_finding con resumen de findings IAM y ACL",
+        "malware_static_recon(path) -> binary_header_inspector + string_yara_like_scanner + hash_calculator + packer_heuristics -> report_finding con analisis estatico completo",
+        "network_zero_trust_overview(host) -> service_banner_collector(safe) + segment_policy_checker(policy) -> report_finding con recon servicios + segmentacion",
+        "exploit_chain_suggester(cve/product) -> cadena de scripts BOFA ordenados para verificar/ documentar vulnerabilidad; combinar con attack_surface_mapper(target) para plan completo",
+        "attack_surface_mapper(target) -> plan de campaña con fases; la IA ejecuta cada paso; zero_day_disclosure_kit para divulgacion responsable",
+        "bug_bounty_full_chain(URL) -> attack_surface_mapper + full recon web + http_param_fuzzer(params from step 7) + exploit_chain_suggester + report_finding + flow_report_aggregator(post)",
+        "findings_correlator(param_finder, path_scanner, fuzzer JSONs) -> hotspots priorizados; risk_scorer(findings) -> score 0-10",
+        "run_flow(URL) -> flow_report_aggregator(input=report_json_path) -> informe ejecutivo con risk score",
     ],
 }
 
@@ -265,7 +293,16 @@ def bofa_suggest_tools(goal: str) -> str:
     reasons = []
 
     if "recon" in goal_lower or "reconocimiento" in goal_lower or "web" in goal_lower or "url" in goal_lower or "http" in goal_lower or "bug bounty" in goal_lower:
-        suggested_flows.extend(["web_recon", "full_recon", "web_security_review", "bug_bounty_web_light", "bug_bounty_web_full", "bug_bounty_web_params", "bug_bounty_web_diff"])
+        suggested_flows.extend([
+            "web_recon",
+            "full_recon",
+            "web_security_review",
+            "bug_bounty_web_light",
+            "bug_bounty_web_full",
+            "bug_bounty_web_params",
+            "bug_bounty_web_diff",
+            "bug_bounty_full_chain",
+        ])
         suggested_scripts.extend([
             "recon/web_discover",
             "recon/http_headers",
@@ -274,19 +311,20 @@ def bofa_suggest_tools(goal: str) -> str:
             "web/path_scanner",
             "web/param_finder",
             "web/response_classifier",
+            "exploit/http_param_fuzzer",
         ])
-        reasons.append("recon/web: usar web_recon o full_recon para mapa basico; web_security_review y bug_bounty_web_* para revision mas profunda (headers, robots, paths, parametros, diferencias de respuesta)")
+        reasons.append("recon/web: usar web_recon o full_recon para mapa basico; web_security_review y bug_bounty_web_* y bug_bounty_full_chain para revision mas profunda (headers, robots, paths, parametros, fuzzing basico, cadenas de exploit)")
     if "vuln" in goal_lower or "cve" in goal_lower or "vulnerabilidad" in goal_lower or "producto" in goal_lower:
-        suggested_flows.extend(["vulnerability_scan", "vuln_triage"])
-        suggested_scripts.extend(["vulnerability/cve_lookup", "vulnerability/cve_export"])
-        reasons.append("vuln: run vuln_triage(product) or cve_lookup with product/limit")
+        suggested_flows.extend(["vulnerability_scan", "vuln_triage", "vuln_to_action"])
+        suggested_scripts.extend(["vulnerability/cve_lookup", "vulnerability/cve_export", "vulnerability/cve_enricher", "vulnerability/exploit_chain_suggester"])
+        reasons.append("vuln: usar vuln_triage(product) o cve_lookup con product/limit; cve_enricher para enriquecer un CVE concreto (CVSS, referencias) y exploit_chain_suggester para cadena accionable")
     if "pentest" in goal_lower or "test" in goal_lower:
         suggested_flows.extend(["pentest_basic", "exploit_payload_workshop"])
         suggested_scripts.extend(["recon/web_discover", "exploit/payload_encoder", "exploit/payload_obfuscator", "exploit/service_fuzzer_stub"])
         reasons.append("pentest: run pentest_basic(URL) o exploit_payload_workshop(payload) y combinar recon + exploit scripts")
-    if "reporte" in goal_lower or "report" in goal_lower or "hallazgo" in goal_lower:
-        suggested_scripts.append("reporting/report_finding")
-        reasons.append("report: use report_finding with title, description, severity, steps, output path")
+    if "reporte" in goal_lower or "report" in goal_lower or "hallazgo" in goal_lower or "correlar" in goal_lower or "hotspot" in goal_lower or "executivo" in goal_lower:
+        suggested_scripts.extend(["reporting/report_finding", "reporting/findings_correlator", "reporting/flow_report_aggregator", "reporting/risk_scorer"])
+        reasons.append("report: report_finding para informe; findings_correlator para hotspots; flow_report_aggregator para informe ejecutivo desde flow JSON; risk_scorer para score 0-10")
     if "blue" in goal_lower or "defensa" in goal_lower or "log" in goal_lower or "siem" in goal_lower or "deteccion" in goal_lower:
         suggested_flows.extend(["blue", "blue_daily", "blue_risk_assessment"])
         suggested_scripts.extend(["blue/log_guardian", "blue/log_quick_summary", "blue/log_anomaly_score"])
@@ -295,6 +333,24 @@ def bofa_suggest_tools(goal: str) -> str:
         suggested_flows.extend(["ctf_binary_recon", "ctf_network_recon"])
         suggested_scripts.extend(["study/ctf_string_hunter", "forensics/pcap_proto_counter", "forensics/hash_calculator"])
         reasons.append("ctf/estudio: usar ctf_binary_recon para binarios (strings + hash) y ctf_network_recon para PCAP (contadores de protocolos)")
+    if "cloud" in goal_lower or "iam" in goal_lower or "storage" in goal_lower or "s3" in goal_lower or "acl" in goal_lower:
+        suggested_flows.extend(["cloud_config_review"])
+        suggested_scripts.extend(["cloud/iam_policy_linter", "cloud/storage_acl_auditor"])
+        reasons.append("cloud: usar cloud_config_review(dir) o iam_policy_linter/storage_acl_auditor con ficheros JSON de politicas/ACLs")
+    if "malware" in goal_lower or "binario" in goal_lower or "forense" in goal_lower or "yara" in goal_lower or "packer" in goal_lower:
+        suggested_flows.extend(["malware_static_recon", "ctf_binary_recon"])
+        suggested_scripts.extend(["malware/binary_header_inspector", "malware/string_yara_like_scanner", "malware/packer_heuristics", "study/ctf_string_hunter", "forensics/hash_calculator"])
+        reasons.append("malware/forense: usar malware_static_recon(path) para cabeceras, patrones YARA-like, hashes y packers; ctf_binary_recon para strings CTF")
+    if "red" in goal_lower or "segment" in goal_lower or "zero trust" in goal_lower or "banner" in goal_lower or "servicios" in goal_lower:
+        suggested_flows.extend(["network_zero_trust_overview"])
+        suggested_scripts.extend(["red/service_banner_collector", "zero_trust/segment_policy_checker"])
+        reasons.append("red/zero trust: usar network_zero_trust_overview(host) para recon de banners + validacion de politica de segmentacion")
+    if "zero day" in goal_lower or "zeroday" in goal_lower or "disclosure" in goal_lower or "divulgacion" in goal_lower:
+        suggested_scripts.extend(["reporting/zero_day_disclosure_kit", "vulnerability/exploit_chain_suggester", "reporting/report_finding"])
+        reasons.append("zero day: zero_day_disclosure_kit para plantillas CERT/vendor; exploit_chain_suggester para cadena de verificacion")
+    if "exploit" in goal_lower or "cve" in goal_lower or "cadena" in goal_lower or "chain" in goal_lower:
+        suggested_scripts.extend(["vulnerability/exploit_chain_suggester", "recon/attack_surface_mapper"])
+        reasons.append("exploit/cve: exploit_chain_suggester(cve/product) sugiere cadena BOFA; attack_surface_mapper(target) plan de campaña")
 
     suggested_flows = list(dict.fromkeys(suggested_flows))
     suggested_scripts = list(dict.fromkeys(suggested_scripts))

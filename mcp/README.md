@@ -1,6 +1,6 @@
 # BOFA MCP Server
 
-Servidor **Model Context Protocol (MCP)** que expone las capacidades del core de BOFA a clientes compatibles (Cursor, Claude Desktop, etc.). No añade IA ni LLM al framework; solo actúa como puente para que un agente de IA pueda listar y ejecutar scripts y flujos BOFA.
+Servidor **Model Context Protocol (MCP)** que expone las capacidades del core de BOFA a **cualquier cliente MCP**: Cursor, Claude Desktop, o cualquier herramienta que hable el protocolo MCP. No añade IA ni LLM al framework; solo actúa como puente para que un agente de IA pueda listar y ejecutar scripts y flujos BOFA. **BOFA se puede usar por completo en local sin MCP** (CLI `./bofa.sh`, agente `tools/run_agent.py`, flujos); MCP es opcional para integrar con asistentes de IA.
 
 ## Instalación
 
@@ -32,9 +32,11 @@ El servidor usa transporte **stdio** por defecto (espera que un cliente MCP lo i
 | `bofa_list_flows` | Lista los flujos predefinidos. |
 | `bofa_run_flow` | Ejecuta un flujo con un target dado. |
 
-## Integración con Cursor
+## Integración con clientes MCP
 
-Ver [docs/MCP_CURSOR_INTEGRATION.md](../docs/MCP_CURSOR_INTEGRATION.md) para configurar `.cursor/mcp.json` y usar BOFA desde Cursor.
+- **Cursor**: Ver [docs/MCP_CURSOR_INTEGRATION.md](../docs/MCP_CURSOR_INTEGRATION.md) para configurar `.cursor/mcp.json`.
+- **Claude Desktop**: Añadir el servidor BOFA en la config MCP de Claude (stdio, command `python3`, args `ruta/a/BOFA/mcp/bofa_mcp.py`, cwd la raíz de BOFA).
+- **Otros clientes**: Cualquier cliente que soporte MCP sobre stdio puede invocar `python3 mcp/bofa_mcp.py` con cwd en la raíz del proyecto.
 
 ## Consideraciones de seguridad
 

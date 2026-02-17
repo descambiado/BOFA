@@ -1,0 +1,20 @@
+name: flow_report_aggregator
+category: reporting
+description: "Genera informe ejecutivo desde JSON de run_flow; extrae hallazgos y score de riesgo"
+parameters:
+  input:
+    type: string
+    description: "Ruta al JSON de salida del flow"
+    required: false
+  stdin:
+    type: bool
+    description: "Leer JSON desde stdin"
+    required: false
+  output:
+    type: string
+    description: "Ruta de salida del informe Markdown"
+    required: true
+  json:
+    type: bool
+    description: "Escribir también JSON con estructura completa"
+    required: false

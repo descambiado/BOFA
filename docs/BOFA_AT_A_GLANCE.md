@@ -6,7 +6,7 @@ Por descambiado. Todo lo esencial del framework en un solo lugar.
 
 ## Qué es BOFA
 
-Framework open-source de ciberseguridad con core estable, CLI profesional y modulos descubiertos automaticamente. 66+ scripts, 19 modulos, 7 flujos. CLI, API, MCP para LLM.
+Framework open-source de ciberseguridad con core estable, CLI profesional y módulos descubiertos automáticamente. 96+ scripts, 20 módulos, 25 flujos. CLI, API, MCP para LLM. Incluye flujos bug bounty (bug_bounty_full_chain con encadenamiento contextual), correlación de hallazgos (findings_correlator, flow_report_aggregator, risk_scorer), payloads (sqli, xss, ssti, lfi) y CVE (cve_enricher con Exploit-DB).
 
 ---
 

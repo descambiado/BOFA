@@ -1,0 +1,25 @@
+# BOFA Flow: Cloud Config Review
+# Revisión de seguridad cloud: IAM policy linter + storage ACL auditor + reporte.
+# Target = ruta al directorio con los ficheros (ej. . para scripts/cloud, o ruta absoluta).
+
+name: cloud_config_review
+description: "Revisión de seguridad cloud: iam_policy_linter, storage_acl_auditor y report_finding sobre políticas/ACLs locales"
+steps:
+  - module: cloud
+    script: iam_policy_linter
+    parameters:
+      policy: "{target}/sample_iam_policy.json"
+      json: true
+  - module: cloud
+    script: storage_acl_auditor
+    parameters:
+      config: "{target}/sample_storage_config.json"
+      json: true
+  - module: reporting
+    script: report_finding
+    parameters:
+      title: "Cloud security review"
+      description: "Revisión de políticas IAM y ACL de storage (ver stdout de pasos previos)"
+      severity: "info"
+      steps: "1. iam_policy_linter 2. storage_acl_auditor 3. Revisar findings"
+      output: "reports/cloud_config_review_report.md"

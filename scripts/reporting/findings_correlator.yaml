@@ -1,0 +1,20 @@
+name: findings_correlator
+category: reporting
+description: "Correlaciona hallazgos de param_finder, path_scanner, http_param_fuzzer y security_headers en hotspots priorizados"
+parameters:
+  target:
+    type: string
+    description: "URL base del target (ej. https://example.com)"
+    required: true
+  input:
+    type: string
+    description: "Rutas a ficheros JSON separadas por espacio (outputs de scripts)"
+    required: false
+  stdin:
+    type: bool
+    description: "Leer array de JSON desde stdin"
+    required: false
+  json:
+    type: bool
+    description: "Salida JSON"
+    required: false

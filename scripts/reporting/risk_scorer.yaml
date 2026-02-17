@@ -1,0 +1,16 @@
+name: risk_scorer
+category: reporting
+description: "Calcula puntuación de riesgo (0-10) desde hallazgos de findings_correlator"
+parameters:
+  input:
+    type: string
+    description: "Ruta al JSON de findings_correlator"
+    required: false
+  stdin:
+    type: bool
+    description: "Leer JSON desde stdin"
+    required: false
+  json:
+    type: bool
+    description: "Salida JSON"
+    required: false

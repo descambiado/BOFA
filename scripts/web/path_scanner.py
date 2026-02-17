@@ -14,6 +14,7 @@ Uso:
 
 import argparse
 import json
+import ssl
 import sys
 from urllib.parse import urljoin, urlparse
 from urllib.request import urlopen, Request
@@ -59,7 +60,14 @@ def main():
         action="store_true",
         help="Salida JSON (incluye rutas encontradas y errores)",
     )
+    parser.add_argument("--insecure", action="store_true", help="No verificar certificado SSL (dev/test)")
     args = parser.parse_args()
+
+    ctx = None
+    if args.insecure:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
 
     base = _normalize_base(args.url)
     try:
@@ -77,7 +85,7 @@ def main():
         req = Request(target, method="GET")
         req.add_header("User-Agent", "BOFA-PathScanner/1.0")
         try:
-            with urlopen(req, timeout=args.timeout) as resp:
+            with urlopen(req, timeout=args.timeout, context=ctx) as resp:
                 status = getattr(resp, "status", None)
                 length = None
                 try:

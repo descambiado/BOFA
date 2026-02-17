@@ -2,7 +2,12 @@
 
 ![BOFA](https://github.com/descambiado/BOFA/blob/main/public/bofasuitebanner.png?raw=true)
 
-Framework open-source de ciberseguridad con core estable, CLI profesional y modulos descubiertos automaticamente. Por [@descambiado](https://github.com/descambiado). Plataforma educativa y herramientas reales (66+ scripts, 19 modulos, 7 flujos), CLI, API y servidor MCP para uso con LLM.
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Python](https://img.shields.io/badge/python-3.8%2B-green)
+![Scripts](https://img.shields.io/badge/scripts-96%2B-orange)
+![Flows](https://img.shields.io/badge/flows-25-blue)
+
+Framework open-source de ciberseguridad con core estable, CLI profesional y módulos descubiertos automáticamente. Por [@descambiado](https://github.com/descambiado). **96 herramientas y 25 flujos** para **penetration testing**, **bug bounty**, **forense**, **cloud security** y **malware analysis**, con servidor **MCP** y **agente autónomo con LLM** (Ollama, OpenAI, Claude).
 
 ---
 
@@ -15,7 +20,7 @@ pip install -r requirements.txt
 ./bofa.sh
 ```
 
-Opcional (integración con Cursor u otros clientes MCP): `pip install .[mcp]` — ver [Integración MCP](docs/MCP_CURSOR_INTEGRATION.md).
+**Uso 100% local** (sin Cursor ni MCP): el menú CLI, los flujos y el agente (`run_agent`, `self_hack_runner`) funcionan en tu máquina con solo clonar e instalar. Opcional: `pip install .[mcp]` para usar BOFA desde **Cursor, Claude Desktop o cualquier cliente MCP** — ver [Integración MCP](docs/MCP_CURSOR_INTEGRATION.md).
 
 Menu interactivo, modulos descubiertos por el core, sin configuracion extra. Crear modulo propio: [Tu primer modulo en 5 minutos](docs/QUICK_START_FIRST_MODULE.md) (sin tocar el core).
 
@@ -33,27 +38,31 @@ Menu interactivo, modulos descubiertos por el core, sin configuracion extra. Cre
 | **Saber que todo funciona** | `python3 tools/verify_bofa.py` — [tools/README.md](tools/README.md) |
 | **IA + ciberseguridad (LLM con BOFA)** | [LLM + BOFA para ciberseguridad](docs/LLM_CYBERSECURITY.md) |
 | **Usar BOFA desde Cursor (MCP)** | [Integración MCP con Cursor](docs/MCP_CURSOR_INTEGRATION.md) — [mcp/README.md](mcp/README.md) |
+| **Agente autónomo (LLM)** | [Agente Observe-Think-Act](docs/AGENT.md) — `python3 tools/run_agent.py URL --provider ollama` |
 | **Copiar un ejemplo** | [Módulos de ejemplo](scripts/examples/README.md) |
 
 ---
 
-## Caracteristicas
+## Características
 
-### Plataforma web educativa
-- **Interactive Script Library**: Browse and learn from 200+ security tools
-- **Code Viewer**: Professional syntax highlighting for all scripts
-- **Real-time Dashboard**: Monitor your security operations
-- **Study Materials**: Comprehensive cybersecurity lessons and CTF challenges
-- **Progress Tracking**: Track your learning journey and skill development
+### Why BOFA / ¿Qué hace diferente a BOFA?
 
-### CLI y herramientas (66+ scripts)
-- **Red Team**: 35+ offensive security tools and techniques
-- **Blue Team**: 28+ defensive tools with AI-powered threat detection  
-- **Purple Team**: 20+ coordinated exercise tools with ML integration
-- **OSINT**: 18+ intelligence gathering and analysis tools
-- **Malware Analysis**: 15+ static and dynamic analysis tools
-- **Social Engineering**: 12+ awareness and training tools
-- **Study & Research**: Educational CTF and training tools
+- **Framework unificado**: 20 módulos y 96 scripts descubiertos automáticamente por el core (recon, web, exploit, blue, purple, osint, cloud, malware, forensics, vulnerability, reporting, zero_trust, etc.).
+- **Flujos listos para IA**: 25 flujos (`full_recon`, `bug_bounty_full_chain`, `bug_bounty_web_*`, `cloud_config_review`, `malware_static_recon`, `network_zero_trust_overview`, `vuln_to_action`, …) con informes Markdown orquestables por LLM.
+- **Puente CVE → acción**: `vulnerability/exploit_chain_suggester` genera cadenas de herramientas BOFA a partir de CVE o producto.
+- **Mapa de ataque unificado**: `recon/attack_surface_mapper` sugiere fases y pasos de recon para URL/host.
+- **Zero-Day Disclosure Kit**: `reporting/zero_day_disclosure_kit` genera plantillas CERT/vendor, timeline y checklist para divulgación responsable.
+- **Servidor MCP**: `mcp/bofa_mcp.py` expone módulos, scripts y flujos para clientes como Cursor/Claude (Model Context Protocol).
+
+### Plataforma web educativa (labs y UI)
+- **Web UI**: Interfaz React/TypeScript (Vite + Tailwind) para explorar scripts y labs (ver `package.json` y `docs/USAGE.md`).
+- **Script Library**: Navegar por los scripts y su documentación (`scripts/README.md`).
+- **Labs Docker**: Varios labs en `labs/` (`docker-compose.yml`) para practicar SQLi, CTF, AD enum, cloud misconfig, EDR evasion, etc.
+
+### CLI y herramientas (core estable)
+- CLI `./bofa.sh` / `cli/bofa_cli.py` sobre el core: lista módulos, scripts y flujos; ejecuta scripts y flujos sin tocar el core.
+- 20 módulos, 96 scripts – ver detalle actualizado en [STATUS.md](docs/STATUS.md).
+- Scripts enfocados en uso real y educativo (recon web, cloud IAM, malware estático, blue team, CTF, etc.).
 
 ### Labs
 - **Docker-based Labs**: 8 comprehensive security environments
@@ -62,7 +71,7 @@ Menu interactivo, modulos descubiertos por el core, sin configuracion extra. Cre
 - **IoT/OT Security**: Industrial protocol and device testing
 - **Mobile Security**: Android application security analysis
 
-## Casos de uso
+## Casos de uso (Penetration Testing, Bug Bounty, Blue/Forense)
 
 - **Security Training**: Corporate cybersecurity education programs
 - **Penetration Testing**: Real-world security assessment tools
@@ -159,15 +168,14 @@ La **CLI** es solo una capa de presentación sobre el core; toda la lógica est�
 - **Access Control**: Role-based permissions system
 - **Data Encryption**: Secure storage of sensitive information
 
-## Numeros (referencia)
+## Números (referencia)
 
-- **200+ Real Security Tools** across 7 specialized modules
-- **50+ Innovative 2025 Techniques** with cutting-edge technology
-- **8 Professional Lab Environments** for hands-on practice
-- **15+ AI/ML Security Algorithms** implemented natively
-- **Cross-platform Support** (Linux, macOS, Windows, WSL2)
-- **Modern Web Interface** with professional code viewing
-- **Complete Documentation** for all tools and techniques
+- **20 módulos** (examples, exploit, red, blue, purple, osint, recon, web, cloud, ai, malware, forensics, vulnerability, reporting, zero_trust, etc.).
+- **96 scripts** descubiertos automáticamente por el core.
+- **25 flujos** predefinidos (demo, recon, full_recon, bug_bounty_full_chain, vuln_triage, vuln_to_action, bug_bounty_web_*, blue_*, forensics_*, cloud_config_review, malware_static_recon, network_zero_trust_overview…).
+- **8 herramientas MCP** (`bofa_list_modules`, `bofa_list_scripts`, `bofa_script_info`, `bofa_execute_script`, `bofa_list_flows`, `bofa_run_flow`, `bofa_capabilities`, `bofa_suggest_tools`).
+- **Agente autónomo** (`tools/run_agent.py`): loop Observe-Think-Act con LLM (Ollama, OpenAI, Anthropic) hasta encontrar vulnerabilidades.
+- **Labs Docker** listados en [labs/README.md](labs/README.md).
 
 ## Valor educativo
 

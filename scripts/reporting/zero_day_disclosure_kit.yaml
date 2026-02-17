@@ -1,0 +1,36 @@
+name: zero_day_disclosure_kit
+category: reporting
+description: "Genera plantillas y workflow para divulgación responsable de zero-days: timeline, CERT, vendor, checklist"
+parameters:
+  cve:
+    type: string
+    description: "CVE ID (o CVE-PENDING)"
+    required: false
+    default: ""
+  title:
+    type: string
+    description: "Título del hallazgo"
+    required: false
+  description:
+    type: string
+    description: "Descripción breve"
+    required: false
+  severity:
+    type: string
+    description: "critical, high, medium, low"
+    required: false
+    default: "high"
+  vendor:
+    type: string
+    description: "Nombre del vendor"
+    required: false
+  output:
+    type: string
+    description: "Directorio de salida"
+    required: false
+    default: "reports"
+  json:
+    type: boolean
+    description: "Salida JSON"
+    required: false
+    default: false

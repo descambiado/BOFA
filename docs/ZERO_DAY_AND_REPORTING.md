@@ -15,8 +15,11 @@ Por descambiado. Como encaja BOFA en la busqueda y reporte de vulnerabilidades (
 - **Exploit y payloads**: scripts en `exploit` (payload_encoder, post_exploit_enum, etc.) y en `red` para pruebas y desarrollo de PoC.
 - **Forense y análisis**: scripts en `forensics` (hash_calculator, etc.) para analizar muestras o artefactos.
 - **Reporte de hallazgos**: módulo `reporting` con script `report_finding` para generar un **informe de hallazgo** listo para disclosure (vendor/CERT). Ver más abajo.
+- **Zero-day disclosure kit**: script `reporting/zero_day_disclosure_kit` genera plantillas CERT, vendor, timeline (D0, D+7, D+90) y checklist de divulgación responsable.
+- **Exploit chain suggester**: script `vulnerability/exploit_chain_suggester` conecta CVE o producto con cadena ordenada de herramientas BOFA para verificar o documentar.
+- **Attack surface mapper**: script `recon/attack_surface_mapper` genera plan de campaña unificado (fases, pasos) para URL o host.
 
-Con BOFA puedes **orquestar** recon, vuln intel, pruebas y explotación; el “hallazgo” del zero-day sigue siendo humano/investigación. BOFA te ayuda a **sistematizar** y **reportar** ese hallazgo.
+Con BOFA puedes **orquestar** recon, vuln intel, pruebas y explotación; el “hallazgo” del zero-day sigue siendo humano/investigación. BOFA te ayuda a **sistematizar**, **ejecutar cadenas** y **reportar** ese hallazgo.
 
 ---
 
@@ -37,6 +40,16 @@ Para **reportar** vulnerabilidades (zero-day o no) de forma estándar:
 3. **Responsabilidad**  
    El contenido del reporte es del investigador. BOFA solo formatea y guarda; la divulgación (coordinated disclosure, CVE, etc.) la haces tú según tu política y la del vendor.
 
+4. **Zero-day disclosure kit**  
+   Para divulgación responsable estructurada:
+   ```bash
+   python3 scripts/reporting/zero_day_disclosure_kit.py --cve CVE-2024-XXXX --vendor "Vendor Inc" --description "RCE en X" --severity critical --output reports/
+   ```
+   Genera: `cert_report_*.md`, `vendor_contact_*.md`, `timeline_*.json` y checklist de 8 pasos.
+
+5. **Vuln to action**  
+   Flujo `vuln_to_action` (target=producto): cve_lookup -> exploit_chain_suggester -> zero_day_disclosure_kit. Conecta CVE con pasos accionables y kit de divulgación.
+
 ---
 
 ## Resumen
@@ -44,8 +57,9 @@ Para **reportar** vulnerabilidades (zero-day o no) de forma estándar:
 | Pregunta | Respuesta |
 |----------|-----------|
 | ¿BOFA encuentra zero-days? | No automáticamente; sí da recon, vuln intel, exploit tools y flujos para apoyar la investigación. |
-| ¿Podemos reportarlos con BOFA? | Sí: con el script `report_finding` generas un informe de hallazgo listo para disclosure. |
-| ¿Cómo estamos? | Framework listo para orquestar pruebas y para documentar/reportar hallazgos de forma estándar. |
+| ¿Podemos reportarlos con BOFA? | Sí: `report_finding` para informe; `zero_day_disclosure_kit` para plantillas CERT/vendor/timeline/checklist. |
+| ¿Cadena vulnerabilidad->acción? | Sí: `exploit_chain_suggester` (CVE->scripts BOFA) + `attack_surface_mapper` (plan campaña) + flujo `vuln_to_action`. |
+| ¿Cómo estamos? | Framework con puente vuln->acción, kit de divulgación y plan de campaña unificado. |
 
 Para generar un reporte de hallazgo: usar el módulo `reporting` y el script `report_finding`:
 ```bash

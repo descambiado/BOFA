@@ -32,3 +32,7 @@ __pycache__/
 reports/
 scripts/*/output/
 scripts/**/*_202*.json
+
+# Local / IDE (no subir)
+.cursor/
+BOFA/

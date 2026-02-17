@@ -1,0 +1,6 @@
+{
+  "target": "https://example.com",
+  "hotspots": [],
+  "summary": {"high": 0, "medium": 0, "low": 0},
+  "recommendations": []
+}

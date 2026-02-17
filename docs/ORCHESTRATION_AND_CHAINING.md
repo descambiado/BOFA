@@ -48,6 +48,10 @@ Que un mismo target (URL, producto, dominio) recorra varias herramientas en secu
 | blue_risk_assessment | ruta de log | log_guardian(file=target, json=true, output=reports/blue_risk_target.json), log_anomaly_score(input=reports/blue_risk_target.json, json=true), report_finding informe en reports/blue_risk_assessment_target.md |
 | ctf_binary_recon | ruta a fichero | ctf_string_hunter(path=target, json=true), hash_calculator(input=target, file=true) |
 | ctf_network_recon | ruta a PCAP | pcap_proto_counter(file=target, json=true), report_finding informe en reports/ctf_network_recon_target.md |
+| cloud_config_review | ruta base (dir) | iam_policy_linter(policy={target}/sample_iam_policy.json, json), storage_acl_auditor(config={target}/sample_storage_config.json, json), report_finding |
+| malware_static_recon | ruta a binario | binary_header_inspector(path), string_yara_like_scanner(path), hash_calculator(file), packer_heuristics(path), report_finding |
+| network_zero_trust_overview | host | service_banner_collector(target, safe=true), segment_policy_checker(policy), report_finding |
+| bug_bounty_full_chain | URL | attack_surface_mapper, web_discover, http_headers, security_headers, robots_txt, path_scanner, param_finder, http_param_fuzzer(params from step 7), exploit_chain_suggester, report_finding; post_process: flow_report_aggregator |
 
 Combinar: ejecutar full_recon(URL) y luego vuln_triage(producto) si quieres CVE filtrados por producto. La IA puede extraer "producto" del contexto (ej. web_framework) o del usuario.
 
@@ -80,6 +84,21 @@ Estos scripts aceptan parametro json o devuelven JSON por defecto; la IA puede p
 | exploit/payload_obfuscator | json: true | Genera variantes ofuscadas de un payload de texto (base64, urlencode, xor, combinaciones) para pruebas controladas. |
 | exploit/shellcode_template_builder | json: true | Devuelve plantillas de shellcode/payload en C, Python y ASM sin ejecutar nada (educacional/laboratorio). |
 | exploit/service_fuzzer_stub | json: true | Lista de payloads de fuzzing de alto nivel para servicios de texto; no envia trafico, se usa con herramientas externas. |
+| cloud/iam_policy_linter | json: true | Analiza politicas IAM (JSON) para wildcards, permisos excesivos, acciones de alto riesgo; salida estructurada para report_finding. |
+| cloud/storage_acl_auditor | json: true | Audita ACL de storage (S3/GCS style) desde JSON: buckets publicos, politicas permisivas; salida estructurada para report_finding. |
+| malware/binary_header_inspector | json: true | Inspecciona cabeceras (ELF, PE, Mach-O, PDF, ZIP, etc.): tipo, magic bytes, entropia; util para malware/forense. |
+| malware/string_yara_like_scanner | json: true | Escanea patrones tipo YARA (URLs, IPs, flags, indicadores) en binarios; salida estructurada. |
+| malware/packer_heuristics | json: true | Detecta packers (UPX, ASPack, etc.) en binarios; salida estructurada. |
+| zero_trust/segment_policy_checker | json: true | Valida politicas de segmentacion Zero Trust (deny-by-default, wildcards, egress); salida estructurada. |
+| red/service_banner_collector | json: true | Recolecta banners de servicios (SSH, HTTP, etc.); --safe para simulados sin conexion. |
+| vulnerability/exploit_chain_suggester | json: true | Conecta CVE/producto con cadena de scripts BOFA ordenados; puente vulnerabilidad->accion. |
+| recon/attack_surface_mapper | json: true | Plan de campaña unificado: fases, pasos, flujos para URL o host. |
+| reporting/zero_day_disclosure_kit | json: true | Plantillas CERT, vendor, timeline y checklist para divulgacion responsable. |
+| exploit/http_param_fuzzer | json: true | Fuzzing real de params HTTP; --params "q,id"; --payload-set sqli|xss|ssti|lfi. |
+| vulnerability/cve_enricher | json: true | Enriquece CVE con NVD + Exploit-DB URL; --dry-run para solo local. |
+| reporting/findings_correlator | json: true | Correlaciona param_finder, path_scanner, fuzzer -> hotspots priorizados. |
+| reporting/flow_report_aggregator | input, output | Informe ejecutivo desde JSON de run_flow; risk score. |
+| reporting/risk_scorer | json: true | Score 0-10 desde findings_correlator. |
 
 Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") -> 2) parsear steps[].stdout_preview del paso cve_lookup -> 3) bofa_execute_script("reporting", "report_finding", parameters_json='{"title":"CVE summary", "description": "...", "severity":"info", "steps":"...", "output":"reports/finding.md"}').
 
@@ -118,7 +137,25 @@ Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") ->
    - Ejecutar bofa_run_flow("ctf_network_recon", "captura.pcap") -> usar pcap_proto_counter.counts para decidir si centrarse en HTTP, DNS o TLS, y documentar el analisis con el informe generado.
 
 10. **Exploit avanzado (payload workshop)**  
-    - Ejecutar bofa_run_flow("exploit_payload_workshop", "PAYLOAD_BASE") -> usar JSON de payload_obfuscator.variants para proponer variantes codificadas/ofuscadas y documentarlas con report_finding.  
+    - Ejecutar bofa_run_flow("exploit_payload_workshop", "PAYLOAD_BASE") -> usar JSON de payload_obfuscator.variants para proponer variantes codificadas/ofuscadas y documentarlas con report_finding.
+
+11. **Cloud security (politicas IAM y ACL)**  
+    - Ejecutar bofa_run_flow("cloud_config_review", "scripts/cloud") -> iam_policy_linter y storage_acl_auditor analizan ficheros JSON locales; report_finding genera informe.  
+    - Alternativa: bofa_execute_script("cloud", "iam_policy_linter", parameters_json='{"policy":"path/to/policy.json","json":true}') y storage_acl_auditor con config path; combinar findings en report_finding.
+
+12. **Malware/forense avanzado (analisis estatico)**  
+    - Ejecutar bofa_run_flow("malware_static_recon", "muestra.bin") -> binary_header_inspector (tipo, magic), string_yara_like_scanner (patrones), hash_calculator (hashes), packer_heuristics (UPX, etc.), report_finding.  
+    - Alternativa: combinar con ctf_binary_recon para strings CTF (ctf_string_hunter) y malware_static_recon para analisis mas profundo.
+
+13. **Recon servicios + segmentacion (red / zero trust)**  
+    - Ejecutar bofa_run_flow("network_zero_trust_overview", "127.0.0.1") -> service_banner_collector (banners en modo safe o real), segment_policy_checker (valida sample_segment_policy.json), report_finding.  
+    - Alternativa: bofa_execute_script("red", "service_banner_collector", parameters_json='{"target":"192.168.1.1","safe":true,"json":true}') y luego segment_policy_checker con ruta a politica JSON; combinar en report_finding.
+
+14. **Vulnerabilidad -> accion (exploit chain + zero-day kit)**  
+    - bofa_execute_script("vulnerability", "exploit_chain_suggester", parameters_json='{"cve":"CVE-2024-0002","json":true}') -> cadena de scripts ordenados para verificar/documentar.  
+    - bofa_execute_script("recon", "attack_surface_mapper", parameters_json='{"target":"https://example.com","json":true}') -> plan de campaña con fases.  
+    - bofa_run_flow("vuln_to_action", "web_framework") -> cve_lookup + exploit_chain_suggester + zero_day_disclosure_kit.  
+    - Para zero-day: zero_day_disclosure_kit genera plantillas CERT, vendor, timeline y checklist.
 
 ---
 

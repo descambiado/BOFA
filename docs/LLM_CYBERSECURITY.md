@@ -21,7 +21,7 @@ BOFA no incluye el LLM; el LLM es el cliente. BOFA aporta el **arsenal** y los *
 | Capacidad | Cómo la da BOFA |
 |-----------|------------------|
 | **Automatización guiada por IA** | El LLM elige scripts y flujos según el objetivo del usuario; ejecuta y resume resultados. |
-| **Arsenal de herramientas** | 65+ scripts en 18 módulos (recon, exploit, red, blue, purple, vulnerability, osint, forensics, etc.). |
+| **Arsenal de herramientas** | 96 scripts en 20 módulos (recon, exploit, red, blue, purple, vulnerability, osint, forensics, etc.). |
 | **Arquitectura multi-dominio** | Módulos = dominios (recon, vulnerability, exploit, blue…). El LLM puede actuar como “agente de recon”, “agente de vulnerabilidades”, etc. usando solo esos módulos. |
 | **Inteligencia de vulnerabilidades** | Módulo `vulnerability`: `cve_lookup`, `cve_export` (base local CVE). El LLM puede consultar y filtrar por producto/severidad. |
 | **Testing web** | Scripts recon/web_discover, recon/http_headers, web/robots_txt, web/security_headers_analyzer, web/path_scanner; flujos web_recon, full_recon, web_security_review, bug_bounty_web_light, bug_bounty_web_full, pentest_basic. |
@@ -62,6 +62,8 @@ El LLM puede especializarse por dominio usando solo ciertos módulos y flujos:
 | **CTF / estudio** | study, forensics | ctf_binary_recon, ctf_network_recon | "Analiza rapido este binario CTF" -> bofa_run_flow("ctf_binary_recon", "reto.bin"); "Dame un resumen de protocolos en este PCAP CTF" -> bofa_run_flow("ctf_network_recon", "captura.pcap") |
 
 No hay agentes separados en el código; el LLM decide qué herramientas usar en función del dominio que el usuario pida.
+
+**Agente autónomo (sin Cursor)**: Para razonar y ejecutar BOFA sin un cliente MCP, usa el agente incluido: `python3 tools/run_agent.py https://target.com --provider ollama`. El agente hace un loop Observe-Think-Act con un LLM local (Ollama) o por API (OpenAI, Anthropic) y continúa hasta encontrar vulnerabilidades o agotar opciones. Ver [AGENT.md](AGENT.md).
 
 ---
 
