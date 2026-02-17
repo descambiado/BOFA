@@ -4,6 +4,26 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.7.0 (2026-02) - CLI navegable y mensaje MCP unificado
+
+### Documentación: MCP y "hablar con la IA"
+- **MCP para cualquier cliente**: README, mcp/README y MCP_CURSOR_INTEGRATION dejan claro que el servidor MCP sirve para **cualquier cliente** (Cursor, Claude Desktop, etc.); Cursor es solo un ejemplo, no un requisito.
+- **Cómo usar BOFA**: Nueva subsección en README con tres caminos (CLI, Agente con IA, Cliente MCP opcional).
+- **Frase de impacto** en README: "Un solo framework. Una IA con todo el contexto. 96 herramientas y 25 flujos para que la IA sea tu mejor hacker."
+- **Why BOFA**: Reducido a 4–5 bullets contundentes; MCP descrito como "cualquier cliente".
+
+### CLI más visual y navegable
+- **Menú dinámico**: Los módulos del menú principal se construyen desde `engine.list_modules()` (orden alfabético); los primeros 9 se muestran como [1]–[9].
+- **Opción L**: "Listar todos los módulos" muestra una pantalla con todos los módulos numerados para elegir cualquiera.
+- **Opción H**: "Ayuda" muestra atajos del menú, comandos directos (`run_agent`, `verify_bofa`, flujos) y enlace a documentación.
+- **Banner**: Línea bajo el banner "H = Ayuda | L = Todos los módulos".
+- **Prompt**: Actualizado a "Opción [0-9,L,H,A,C,F]:".
+
+### Visibilidad
+- **CONTRIBUTING.md**: Enlace a Good first issues (label en GitHub Issues).
+
+---
+
 ## Resumen v2.6.0 (Release 2026-02)
 
 **BOFA v2.6.0** estabiliza el framework con **96 scripts**, **20 módulos** y **25 flujos**. Incluye el **agente autónomo** que razona con un LLM (Ollama, OpenAI, Anthropic) en un loop Observe-Think-Act hasta encontrar vulnerabilidades; flujo **bug_bounty_full_chain** con encadenamiento contextual, `--insecure` para SSL autofirmado, y post-proceso que genera informe ejecutivo en `reports/`. Verificación: `python3 tools/verify_bofa.py` (quick), `--full`, `--mcp`, `--agent`.

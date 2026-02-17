@@ -1,4 +1,4 @@
-# 🤝 Contributing to BOFA v2.5.1
+# 🤝 Contributing to BOFA v2.7.0
 
 Thank you for your interest in contributing to BOFA Extended Systems! This guide will help you get started with contributing to our professional cybersecurity platform.
 
@@ -6,6 +6,7 @@ Thank you for your interest in contributing to BOFA Extended Systems! This guide
 
 ### 🐛 Bug Reports and Feature Requests
 - **GitHub Issues**: [Report bugs or request features](https://github.com/descambiado/BOFA/issues)
+- **Good first issues**: [Issues con etiqueta good-first-issue](https://github.com/descambiado/BOFA/issues?q=is%3Aissue+is%3Aopen+label%3Agood-first-issue) — ideal para empezar.
 - **Security Issues**: Email david@descambiado.com for security vulnerabilities
 
 ### ✨ Code Contributions

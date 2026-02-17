@@ -1,6 +1,8 @@
 # Integración BOFA MCP con Cursor (y otros clientes)
 
-BOFA puede usarse como backend de herramientas desde **Cursor**, **Claude Desktop** o cualquier **cliente MCP** mediante un servidor MCP que expone listar módulos/scripts, ejecutar scripts y flujos. **No es obligatorio usar MCP**: puedes usar BOFA 100% en local (CLI `./bofa.sh`, `tools/run_agent.py`, flujos). **Para usar un LLM con BOFA en ciberseguridad** (decisión autónoma, flujos orquestables), ver [LLM_CYBERSECURITY.md](LLM_CYBERSECURITY.md).
+Este documento es **solo un ejemplo** de integración. El servidor MCP de BOFA sirve para **cualquier cliente**; aquí se explica cómo configurar **un** cliente (Cursor).
+
+BOFA puede usarse como backend de herramientas desde Cursor, Claude Desktop o cualquier cliente MCP. **No es obligatorio usar MCP**: puedes usar BOFA 100% en local (CLI `./bofa.sh`, `tools/run_agent.py`, flujos). **Para usar un LLM con BOFA en ciberseguridad** (decisión autónoma, flujos orquestables), ver [LLM_CYBERSECURITY.md](LLM_CYBERSECURITY.md).
 
 ## Requisitos
 

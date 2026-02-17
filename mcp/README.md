@@ -34,9 +34,11 @@ El servidor usa transporte **stdio** por defecto (espera que un cliente MCP lo i
 
 ## Integración con clientes MCP
 
+**Cualquier cliente MCP** que soporte transporte stdio puede usar este servidor: invocar `python3 mcp/bofa_mcp.py` con cwd en la raíz del proyecto. Ejemplos:
+
 - **Cursor**: Ver [docs/MCP_CURSOR_INTEGRATION.md](../docs/MCP_CURSOR_INTEGRATION.md) para configurar `.cursor/mcp.json`.
 - **Claude Desktop**: Añadir el servidor BOFA en la config MCP de Claude (stdio, command `python3`, args `ruta/a/BOFA/mcp/bofa_mcp.py`, cwd la raíz de BOFA).
-- **Otros clientes**: Cualquier cliente que soporte MCP sobre stdio puede invocar `python3 mcp/bofa_mcp.py` con cwd en la raíz del proyecto.
+- **Otros**: Misma idea (stdio, command + args al script, cwd = raíz BOFA).
 
 ## Consideraciones de seguridad
 

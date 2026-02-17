@@ -65,22 +65,11 @@ class BOFAcli:
     La CLI solo muestra menús, pide input y muestra resultados.
     """
 
-    VERSION = "2.6.0"
+    VERSION = "2.7.0"
     AUTHOR = "@descambiado"
 
-    # Mapeo tecla -> nombre de módulo (descubierto por el core)
-    MODULE_MENU = {
-        "1": "recon",
-        "2": "exploit",
-        "3": "osint",
-        "4": "social",
-        "5": "blue",
-        "6": "malware",
-        "7": "dockerlabs",
-        "8": "study",
-        "9": "purple",
-        "E": "examples",  # Módulos de ejemplo oficiales
-    }
+    # Número de módulos mostrados en el menú principal (el resto vía L)
+    QUICK_MENU_SIZE = 9
 
     def __init__(self):
         """Inicializar CLI. Carga config y engine del core."""
@@ -117,27 +106,90 @@ class BOFAcli:
 ║                                                                  ║
 ║  {env_emoji} {Fore.YELLOW}Sistema: {self.os_info.get('environment', 'N/A'):<12} {Fore.YELLOW}🐳 Docker: {docker_ok:<3}        ║
 ╚══════════════════════════════════════════════════════════════════╝{Style.RESET_ALL}
+{Fore.CYAN}  H = Ayuda | L = Todos los módulos{Style.RESET_ALL}
 """)
 
+    def _get_modules_sorted(self):
+        """Lista de módulos descubiertos por el core, orden estable."""
+        return sorted(self.engine.list_modules())
+
     def print_menu(self):
-        """Imprimir menú principal. Opciones fijas, módulos vienen del core."""
-        print(f"""
-{Fore.YELLOW}┌─────────────────────────────────────────────────────────────────┐
-│                        MENÚ PRINCIPAL                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  {Fore.GREEN}[1]{Fore.WHITE} 🕵️  Reconocimiento        {Fore.GREEN}[2]{Fore.WHITE} 💥 Explotación          │
-│  {Fore.GREEN}[3]{Fore.WHITE} 🔍 OSINT                  {Fore.GREEN}[4]{Fore.WHITE} 🎭 Ingeniería Social    │
-│  {Fore.GREEN}[5]{Fore.WHITE} 🛡️  Blue Team             {Fore.GREEN}[6]{Fore.WHITE} 🧪 Análisis Malware     │
-│  {Fore.GREEN}[7]{Fore.WHITE} 🐳 Docker Labs            {Fore.GREEN}[8]{Fore.WHITE} 🎓 Modo Estudio         │
-│  {Fore.GREEN}[9]{Fore.WHITE} 🟣 Purple Team            {Fore.GREEN}[E]{Fore.WHITE} 📚 Ejemplos              │
-│                                                                 │
-│  {Fore.CYAN}[A]{Fore.WHITE} ℹ️  Información Sistema    {Fore.CYAN}[C]{Fore.WHITE} ⚙️  Configuración         │
-│  {Fore.CYAN}[F]{Fore.WHITE} 🔄 Flujos (run flow + informe)                               │
-│  {Fore.RED}[0]{Fore.WHITE} 🚪 Salir                                                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘{Style.RESET_ALL}
-""")
+        """Imprimir menú principal. Primeros N módulos del core + L, H, A, C, F, 0."""
+        all_mods = self._get_modules_sorted()
+        quick = all_mods[: self.QUICK_MENU_SIZE]
+        row_lines = []
+        idx = 0
+        while idx < len(quick):
+            if idx + 1 < len(quick):
+                a, b = quick[idx], quick[idx + 1]
+                la = (a[:22] + "..") if len(a) > 24 else a
+                lb = (b[:22] + "..") if len(b) > 24 else b
+                row_lines.append(f"│  {Fore.GREEN}[{idx + 1}]{Fore.WHITE} {la:<24}  {Fore.GREEN}[{idx + 2}]{Fore.WHITE} {lb:<24} │")
+                idx += 2
+            else:
+                a = quick[idx]
+                la = (a[:22] + "..") if len(a) > 24 else a
+                row_lines.append(f"│  {Fore.GREEN}[{idx + 1}]{Fore.WHITE} {la:<52} │")
+                idx += 1
+        # Rebuild: body with module rows
+        body = []
+        body.append(f"{Fore.YELLOW}┌─────────────────────────────────────────────────────────────────┐")
+        body.append("│                        MENÚ PRINCIPAL                           │")
+        body.append("├─────────────────────────────────────────────────────────────────┤")
+        body.append("│                                                                 │")
+        for line in row_lines:
+            body.append(line)
+        body.append("│                                                                 │")
+        body.append(f"│  {Fore.CYAN}[L]{Fore.WHITE} 📋 Listar todos los módulos  {Fore.CYAN}[H]{Fore.WHITE} ❓ Ayuda                  │")
+        body.append(f"│  {Fore.CYAN}[A]{Fore.WHITE} ℹ️  Información Sistema    {Fore.CYAN}[C]{Fore.WHITE} ⚙️  Configuración         │")
+        body.append(f"│  {Fore.CYAN}[F]{Fore.WHITE} 🔄 Flujos (run flow + informe)                               │")
+        body.append(f"│  {Fore.RED}[0]{Fore.WHITE} 🚪 Salir                                                      │")
+        body.append("│                                                                 │")
+        body.append("└─────────────────────────────────────────────────────────────────┘" + f"{Style.RESET_ALL}")
+        print("\n".join(body))
+
+    def show_list_all_modules(self):
+        """Pantalla con todos los módulos numerados para elegir uno."""
+        self.clear_screen()
+        self.print_banner()
+        all_mods = self._get_modules_sorted()
+        print(f"{Fore.CYAN}═══════════════════════════════════════════════════════════════════")
+        print("                     TODOS LOS MÓDULOS")
+        print(f"═══════════════════════════════════════════════════════════════════{Style.RESET_ALL}\n")
+        for i, name in enumerate(all_mods, 1):
+            print(f"  {Fore.GREEN}[{i}]{Fore.WHITE} {name}")
+        print(f"\n  {Fore.RED}[0]{Fore.WHITE} ← Volver al menú principal")
+        try:
+            choice = input(f"\n{Fore.YELLOW}Opción: {Style.RESET_ALL}").strip()
+        except (KeyboardInterrupt, EOFError):
+            return
+        if choice == "0":
+            return
+        if choice.isdigit() and 1 <= int(choice) <= len(all_mods):
+            self.show_module_menu(all_mods[int(choice) - 1])
+        else:
+            print(f"{Fore.RED}❌ Opción inválida.{Style.RESET_ALL}")
+            time.sleep(1)
+
+    def show_help_menu(self):
+        """Pantalla de ayuda: atajos y comandos directos."""
+        self.clear_screen()
+        self.print_banner()
+        print(f"{Fore.CYAN}═══════════════════════════════════════════════════════════════════")
+        print("                           AYUDA")
+        print(f"═══════════════════════════════════════════════════════════════════{Style.RESET_ALL}\n")
+        print(f"{Fore.GREEN}Atajos del menú:{Style.RESET_ALL}")
+        print("  [1-9]  Módulos rápidos (primeros 9)   [L] Listar todos los módulos")
+        print("  [A]    Información del sistema        [C] Configuración")
+        print("  [F]    Flujos (ejecutar + informe)    [0] Salir\n")
+        print(f"{Fore.GREEN}Comandos directos (fuera del menú):{Style.RESET_ALL}")
+        print("  Agente con IA (local):  python3 tools/run_agent.py <URL> --provider ollama")
+        print("  Verificar BOFA:         python3 tools/verify_bofa.py  (--full, --mcp, --agent)")
+        print("  Flujos desde CLI:       usar opción [F] en este menú\n")
+        print(f"{Fore.GREEN}Documentación:{Style.RESET_ALL}")
+        print("  README y guías: https://github.com/descambiado/BOFA  (docs/, wiki/)")
+        print("  Tu primer módulo: docs/QUICK_START_FIRST_MODULE.md")
+        input(f"\n{Fore.CYAN}Presiona Enter para volver...{Style.RESET_ALL}")
 
     def show_module_menu(self, module_name: str):
         """Mostrar listado de scripts de un módulo (datos del core)."""
@@ -390,8 +442,9 @@ class BOFAcli:
             self.print_banner()
             self.print_menu()
 
+            quick = self._get_modules_sorted()[: self.QUICK_MENU_SIZE]
             try:
-                choice = input(f"{Fore.YELLOW}Opción [0-9,E,A,C,F]: {Style.RESET_ALL}").strip().upper()
+                choice = input(f"{Fore.YELLOW}Opción [0-9,L,H,A,C,F]: {Style.RESET_ALL}").strip().upper()
             except (KeyboardInterrupt, EOFError):
                 print(f"\n{Fore.CYAN}🛡️  Saliendo de BOFA CLI. ¡Hasta pronto! 👋{Style.RESET_ALL}")
                 sys.exit(0)
@@ -399,8 +452,12 @@ class BOFAcli:
             if choice == "0":
                 print(f"\n{Fore.CYAN}🛡️  Gracias por usar BOFA. ¡Hasta pronto! 👋{Style.RESET_ALL}")
                 sys.exit(0)
-            if choice in self.MODULE_MENU:
-                self.show_module_menu(self.MODULE_MENU[choice])
+            if choice == "L":
+                self.show_list_all_modules()
+            elif choice == "H":
+                self.show_help_menu()
+            elif choice in "123456789" and int(choice) <= len(quick):
+                self.show_module_menu(quick[int(choice) - 1])
             elif choice == "A":
                 self.show_system_info()
             elif choice == "C":

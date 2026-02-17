@@ -23,18 +23,17 @@ bofa-cli
 
 ## 📋 Menú principal
 
-| Tecla | Módulo           | Tecla | Acción              |
-|-------|------------------|-------|---------------------|
-| 1     | Reconocimiento   | A     | Información sistema |
-| 2     | Explotación      | C     | Configuración       |
-| 3     | OSINT            | 0     | Salir               |
-| 4     | Ingeniería Social |       |                     |
-| 5     | Blue Team        |       |                     |
-| 6     | Análisis Malware |       |                     |
-| 7     | Docker Labs      |       |                     |
-| 8     | Modo Estudio     |       |                     |
-| 9     | Purple Team      |       |                     |
-| E     | **Ejemplos**     |       | Módulos de ejemplo  |
+El menú muestra los **primeros 9 módulos** descubiertos por el core (orden alfabético). El resto se accede con **L**.
+
+| Tecla | Acción |
+|-------|--------|
+| 1-9   | Primeros 9 módulos (recon, exploit, cloud, etc.) |
+| **L** | Listar **todos** los módulos y elegir uno |
+| **H** | Ayuda (atajos y comandos directos: run_agent, verify_bofa) |
+| A     | Información del sistema |
+| C     | Configuración |
+| F     | Flujos (ejecutar + informe) |
+| 0     | Salir |
 
 ## 🔧 Requisitos
 
