@@ -59,6 +59,7 @@ El LLM puede especializarse por dominio usando solo ciertos módulos y flujos:
 | **Bug bounty web** | recon, web, vulnerability, reporting | web_recon, full_recon, web_security_review, bug_bounty_web_light, bug_bounty_web_full, vuln_triage, bug_bounty_web_params, bug_bounty_web_diff | "Mapea superficie de ataque de https://example.com" -> bofa_run_flow("web_security_review", "https://example.com"); "Triaje de CVE para web_framework" -> bofa_run_flow("vuln_triage", "web_framework") |
 | **Blue team** | blue | blue, blue_daily, blue_risk_assessment | "Simula alertas SIEM" -> bofa_run_flow("blue", "dummy"); "Evalua el riesgo de /var/log/auth.log" -> bofa_run_flow("blue_risk_assessment", "/var/log/auth.log") |
 | **Exploit / payloads** | exploit | - | "Codifica este payload en base64" -> bofa_execute_script("exploit", "payload_encoder", parameters_json='{"payload":"...", "encoding":"base64"}') |
+| **CTF / estudio** | study, forensics | ctf_binary_recon, ctf_network_recon | "Analiza rapido este binario CTF" -> bofa_run_flow("ctf_binary_recon", "reto.bin"); "Dame un resumen de protocolos en este PCAP CTF" -> bofa_run_flow("ctf_network_recon", "captura.pcap") |
 
 No hay agentes separados en el código; el LLM decide qué herramientas usar en función del dominio que el usuario pida.
 

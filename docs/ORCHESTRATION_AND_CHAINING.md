@@ -45,6 +45,8 @@ Que un mismo target (URL, producto, dominio) recorra varias herramientas en secu
 | blue | dummy | simulacion blue team |
 | blue_daily | ruta de log | log_guardian(file=target, json=true) y report_finding con informe en reports/blue_daily_target.md |
 | blue_risk_assessment | ruta de log | log_guardian(file=target, json=true, output=reports/blue_risk_target.json), log_anomaly_score(input=reports/blue_risk_target.json, json=true), report_finding informe en reports/blue_risk_assessment_target.md |
+| ctf_binary_recon | ruta a fichero | ctf_string_hunter(path=target, json=true), hash_calculator(input=target, file=true) |
+| ctf_network_recon | ruta a PCAP | pcap_proto_counter(file=target, json=true), report_finding informe en reports/ctf_network_recon_target.md |
 
 Combinar: ejecutar full_recon(URL) y luego vuln_triage(producto) si quieres CVE filtrados por producto. La IA puede extraer "producto" del contexto (ej. web_framework) o del usuario.
 
@@ -72,6 +74,8 @@ Estos scripts aceptan parametro json o devuelven JSON por defecto; la IA puede p
 | forensics/filesystem_timeline | json: true | Linea de tiempo simple de ficheros en un directorio (mtime, tamano, ruta). |
 | blue/log_anomaly_score | json: true | Calcula un score de riesgo a partir de la salida JSON de log_guardian o log_quick_summary (risk_score, top_ips, top_users, notas). |
 | forensics/timeline_diff | json: true | Compara dos timelines JSON (antes/despues) y devuelve listas de ficheros añadidos, eliminados y modificados. |
+| study/ctf_string_hunter | json: true | Extrae strings interesantes de un fichero (URLs, rutas, emails, JWT, flags) para CTF/estudio. |
+| forensics/pcap_proto_counter | json: true | Cuenta protocolos basicos (TCP, UDP, ICMP, HTTP, TLS, DNS) en un PCAP pequeno. |
 
 Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") -> 2) parsear steps[].stdout_preview del paso cve_lookup -> 3) bofa_execute_script("reporting", "report_finding", parameters_json='{"title":"CVE summary", "description": "...", "severity":"info", "steps":"...", "output":"reports/finding.md"}').
 
@@ -102,6 +106,12 @@ Ejemplo de cadena (IA): 1) bofa_run_flow("full_recon", "https://example.com") ->
 7. **Forense avanzado (diff de timelines)**  
    - Generar dos timelines con forensics/filesystem_timeline --json (antes y despues) y guardarlos en reports/timeline_before.json y reports/timeline_after.json.  
    - Ejecutar bofa_run_flow("forensics_diff", "dummy") -> usar la salida JSON de timeline_diff (added/removed/modified) y el informe Markdown para resumir cambios sospechosos.
+
+8. **CTF binario rapido**  
+   - Ejecutar bofa_run_flow("ctf_binary_recon", "reto.bin") -> usar ctf_string_hunter.categories para localizar flags candidatas, URLs y rutas, y hash_calculator.hash para documentar el binario.  
+
+9. **CTF red rapido (PCAP)**  
+   - Ejecutar bofa_run_flow("ctf_network_recon", "captura.pcap") -> usar pcap_proto_counter.counts para decidir si centrarse en HTTP, DNS o TLS, y documentar el analisis con el informe generado.
 
 ---
 

@@ -1,0 +1,18 @@
+name: pcap_proto_counter
+category: forensics
+description: "Cuenta protocolos basicos (TCP, UDP, ICMP, HTTP, TLS, DNS) en un fichero PCAP pequeno, con salida opcional JSON"
+parameters:
+  file:
+    type: string
+    description: "Ruta al fichero PCAP a analizar"
+    required: true
+  limit:
+    type: int
+    description: "Numero maximo de paquetes a leer"
+    required: false
+    default: 2000
+  json:
+    type: bool
+    description: "Si es true, imprime salida JSON parseable (para IA/flows)"
+    required: false
+

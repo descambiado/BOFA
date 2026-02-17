@@ -1,0 +1,17 @@
+name: ctf_network_recon
+description: "CTF network recon: contar protocolos basicos en un PCAP y generar un informe simple"
+steps:
+  - module: forensics
+    script: pcap_proto_counter
+    parameters:
+      file: "{target}"
+      json: true
+  - module: reporting
+    script: report_finding
+    parameters:
+      title: "CTF network recon for {target}"
+      description: "Resumen de protocolos observados en el PCAP {target} usando pcap_proto_counter. Revisar JSON del primer paso para detalles."
+      severity: "info"
+      steps: "1. Ejecutar ctf_network_recon sobre el PCAP. 2. Revisar los contadores de protocolos (HTTP, DNS, TLS, etc.). 3. Usar estos datos para guiar el analisis CTF."
+      output: "reports/ctf_network_recon_{target}.md"
+

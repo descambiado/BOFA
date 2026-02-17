@@ -90,6 +90,28 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.6.0 (continuacion 7) - CTF / estudio (2026-02)
+
+### Scripts CTF
+- **scripts/study/ctf_string_hunter.py** + .yaml: extrae strings interesantes de un fichero (URLs, rutas, emails, JWT-like, flags con prefijo configurable) con salida JSON opcional para CTF/estudio.
+- **scripts/forensics/pcap_proto_counter.py** + .yaml: cuenta protocolos basicos (TCP, UDP, ICMP, HTTP, TLS, DNS) en un PCAP pequeno usando scapy si esta disponible, con salida JSON opcional.
+
+### Flujos CTF
+- **config/flows/ctf_binary_recon.yaml**: flujo CTF para binarios: `ctf_string_hunter(path={target}, json=true)` + `hash_calculator(input={target}, file=true)` para tener strings y hashes de un binario de reto.
+- **config/flows/ctf_network_recon.yaml**: flujo CTF para red: `pcap_proto_counter(file={target}, json=true)` + `report_finding` con informe en `reports/ctf_network_recon_{target}.md`.
+
+### MCP y documentacion
+- **mcp/bofa_mcp.py**: `_CAPABILITIES` ampliado con flujos `ctf_binary_recon` y `ctf_network_recon`, y scripts JSON `study/ctf_string_hunter` y `forensics/pcap_proto_counter`. `bofa_suggest_tools(goal)` entiende ahora objetivos tipo "ctf" o "training".
+- **docs/ORCHESTRATION_AND_CHAINING.md**: tabla de flujos y scripts JSON actualizada con los bloques CTF, y ejemplos de encadenamiento para binarios y PCAP en CTF.
+- **docs/LLM_CYBERSECURITY.md**: añadido dominio "CTF / estudio" en la tabla de dominios/agentes sugeridos.
+- **docs/CTF_AND_TRAINING.md**: nuevo documento explicando como usar los scripts y flujos CTF para practicar y como un LLM podria guiar el entrenamiento.
+
+### Verificacion y numeros
+- **tools/verify_bofa.py**: `_safe_params` incluye ahora `study/ctf_string_hunter` con un fichero seguro; `SKIP_FULL` marca `forensics/pcap_proto_counter` como dependiente de PCAP/scapy.
+- **docs/STATUS.md** y **docs/DOCUMENTATION_INDEX.md**: numeros actualizados a 20 modulos, 78 scripts y 19 flujos predefinidos; indice de documentacion incluye CTF_AND_TRAINING.md.
+
+---
+
 ## v2.6.0 (continuacion 2) - Modulo web, flujo vuln_triage, CVE, ASCII (2026-02)
 
 ### Modulo web
