@@ -163,6 +163,18 @@ class BOFAEngine:
             )
 
             while True:
+                elapsed = (datetime.utcnow() - start_time).total_seconds()
+                if timeout and elapsed >= timeout:
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                    duration = (datetime.utcnow() - start_time).total_seconds()
+                    logger.error(f"Timeout ejecutando script: {module_name}/{script_name}", timeout=timeout)
+                    raise ExecutionError(
+                        f"Timeout ejecutando script despues de {timeout} segundos",
+                        script_name=script_name,
+                        details={"timeout": timeout, "duration": duration},
+                    )
+
                 if cancel_file and check_cancelled(cancel_file):
                     cancellation_requested = True
                     process.terminate()
