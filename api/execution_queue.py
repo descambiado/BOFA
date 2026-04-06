@@ -57,8 +57,14 @@ class ExecutionQueue:
             item = self.queue.popleft()
             item["status"] = "running"
             item["started_at"] = datetime.utcnow().isoformat()
+            item["process_started"] = False
             self.running[item["execution_id"]] = item
             return item
+
+    async def mark_process_started(self, execution_id: str):
+        async with self.lock:
+            if execution_id in self.running:
+                self.running[execution_id]["process_started"] = True
 
     async def mark_completed(self, execution_id: str, result: Dict[str, Any]):
         async with self.lock:
@@ -88,7 +94,14 @@ class ExecutionQueue:
                     self.completed[execution_id] = item
                     return item
             if execution_id in self.running:
-                return self.running[execution_id]
+                item = self.running[execution_id]
+                if not item.get("process_started"):
+                    item = self.running.pop(execution_id)
+                    item["status"] = "cancelled"
+                    item["completed_at"] = datetime.utcnow().isoformat()
+                    self.completed[execution_id] = item
+                    return item
+                return item
             return None
 
     async def get_status(self, execution_id: str) -> Optional[Dict[str, Any]]:

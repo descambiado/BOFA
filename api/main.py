@@ -480,6 +480,7 @@ async def _execute_script_step(item: Dict[str, Any]):
     execution_tasks[execution_id] = process
     run_lookup_by_execution[execution_id] = run_id
     control["process"] = process
+    await execution_queue.mark_process_started(execution_id)
 
     stdout_chunks: List[str] = []
     stderr_chunks: List[str] = []
@@ -689,6 +690,8 @@ async def _start_lab_run(
     parent_run_id: Optional[str] = None,
     metadata_extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    if action not in {"start_lab", "stop_lab"}:
+        raise HTTPException(status_code=400, detail="Unsupported lab action")
     metadata = {"lab_id": lab_id, "action": action}
     if metadata_extra:
         metadata.update(metadata_extra)
@@ -744,6 +747,37 @@ def _normalize_history_from_runs(runs: List[Dict[str, Any]]) -> List[Dict[str, A
             }
         )
     return items
+
+
+def _normalize_legacy_history(user_id: Optional[int], limit: int = 50) -> List[Dict[str, Any]]:
+    items = []
+    for item in db.get_execution_history(user_id, limit=limit * 4):
+        if item.get("run_id"):
+            continue
+        items.append(
+            {
+                "id": item["id"],
+                "run_id": None,
+                "script": item.get("script_name"),
+                "module": item.get("module"),
+                "parameters": item.get("parameters") or {},
+                "timestamp": item.get("timestamp"),
+                "status": item.get("status"),
+                "execution_time": item.get("execution_time"),
+                "output": item.get("output"),
+                "error": item.get("error"),
+                "legacy": True,
+            }
+        )
+        if len(items) >= limit:
+            break
+    return items
+
+
+def _merge_history_items(run_items: List[Dict[str, Any]], legacy_items: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    merged = run_items + legacy_items
+    merged.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
+    return merged[:limit]
 
 
 @app.on_event("startup")
@@ -926,9 +960,9 @@ async def websocket_execution_alias(websocket: WebSocket, identifier: str):
 
 @app.post("/runs")
 async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
-    if not check_permission(current_user, "execute_scripts"):
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
     if request.run_type == "script":
+        if not check_permission(current_user, "execute_scripts"):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
         module = request.metadata.get("module")
         script = request.metadata.get("script")
         parameters = request.metadata.get("parameters", {})
@@ -936,12 +970,16 @@ async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = D
             raise HTTPException(status_code=400, detail="Script runs require metadata.module and metadata.script")
         return await _start_script_run(current_user, module, script, parameters, source=request.source)
     if request.run_type == "flow":
+        if not check_permission(current_user, "execute_scripts"):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
         flow_id = request.metadata.get("flow_id")
         target = request.target or request.metadata.get("target")
         if not flow_id or not target:
             raise HTTPException(status_code=400, detail="Flow runs require metadata.flow_id and target")
         return await _start_flow_run(current_user, flow_id, target, source=request.source)
     if request.run_type == "lab_session":
+        if not check_permission(current_user, "manage_labs"):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
         lab_id = request.metadata.get("lab_id")
         action = request.requested_action or request.metadata.get("action") or "start_lab"
         if not lab_id:
@@ -1036,9 +1074,26 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
         }
 
     if run.get("run_type") == "flow":
+        task = control.get("task")
+        if task:
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=CANCEL_GRACE_SECONDS)
+            except asyncio.TimeoutError:
+                await _emit_and_persist(
+                    run_id,
+                    "run",
+                    run_id,
+                    "force_kill",
+                    "cancelling",
+                    "Flow cancellation still draining after grace period",
+                    {"forced": False, "signal_sent": "cancel_marker"},
+                )
+            except asyncio.CancelledError:
+                pass
+        updated = db.get_run_detail(run_id) or {}
         return {
             "run_id": run_id,
-            "status": "cancelling",
+            "status": updated.get("status", "cancelling"),
             "message": "Flow cancellation requested",
             "cancel_mode": "graceful_then_kill",
             "grace_period_seconds": CANCEL_GRACE_SECONDS,
@@ -1161,11 +1216,15 @@ async def get_execution_status(execution_id: str, current_user: Dict[str, Any] =
         if current_user["role"] != "admin" and run and run.get("user_id") != current_user["user_id"]:
             raise HTTPException(status_code=403, detail="Access denied")
         step = next((item for item in (run or {}).get("steps", []) if item["id"] == status["step_id"]), None)
+        legacy_status = step.get("status") if step else status.get("status")
+        if legacy_status == "failed":
+            legacy_status = "error"
         return {
             "id": execution_id,
             "run_id": status["run_id"],
             "step_id": status["step_id"],
-            "status": step.get("status") if step else status.get("status"),
+            "status": legacy_status,
+            "run_status": step.get("status") if step else status.get("status"),
             "output": step.get("stdout_preview") if step else None,
             "error": step.get("error_message") if step else status.get("error"),
             "execution_time": step.get("duration") if step else None,
@@ -1195,7 +1254,9 @@ async def get_queue_info(current_user: Dict[str, Any] = Depends(auth_manager.get
 async def get_execution_history(limit: int = 50, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
     user_id = None if current_user["role"] == "admin" else current_user["user_id"]
     runs = db.list_runs(user_id=user_id, limit=limit)
-    return _normalize_history_from_runs(runs)
+    run_items = _normalize_history_from_runs(runs)
+    legacy_items = _normalize_legacy_history(user_id, limit)
+    return _merge_history_items(run_items, legacy_items, limit)
 
 
 @app.get("/labs")
