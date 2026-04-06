@@ -116,6 +116,13 @@ export interface RunDetail extends RunSummary {
   artifacts: RunArtifact[];
 }
 
+export interface FlowSummary {
+  id: string;
+  name: string;
+  description: string;
+  steps_count: number;
+}
+
 export interface Lab {
   id: string;
   name: string;
@@ -625,12 +632,31 @@ export const apiService = {
   },
 
   getRun: async (runId: string): Promise<RunDetail> => {
-    const response = await fetch(`${API_BASE}/runs/${runId}`, {
-      headers: getAuthHeaders(),
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error('No se pudo obtener el detalle del run');
-    return await response.json();
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo obtener el detalle del run');
+      return await response.json();
+    } catch (error) {
+      return {
+        id: runId,
+        run_type: runId.startsWith('mock-flow') ? 'flow' : 'script',
+        source: 'demo',
+        status: 'running',
+        target: 'demo-target',
+        requested_action: runId.startsWith('mock-flow') ? 'execute_flow' : 'execute_script',
+        created_at: new Date().toISOString(),
+        metadata: {
+          flow_id: runId.startsWith('mock-flow') ? 'demo-flow' : undefined,
+        },
+        steps: [],
+        labs: [],
+        events: [],
+        artifacts: [],
+      };
+    }
   },
 
   getRunTimeline: async (runId: string): Promise<{ run_id: string; events: RunEvent[]; artifacts: RunArtifact[] }> => {
@@ -643,23 +669,91 @@ export const apiService = {
   },
 
   cancelRun: async (runId: string): Promise<any> => {
-    const response = await fetch(`${API_BASE}/runs/${runId}/cancel`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error('No se pudo cancelar el run');
-    return await response.json();
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/cancel`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo cancelar el run');
+      return await response.json();
+    } catch (error) {
+      return { run_id: runId, status: 'cancelled', message: 'Run cancelado en modo demo' };
+    }
   },
 
   retryRun: async (runId: string): Promise<any> => {
-    const response = await fetch(`${API_BASE}/runs/${runId}/retry`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error('No se pudo reintentar el run');
-    return await response.json();
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/retry`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo reintentar el run');
+      return await response.json();
+    } catch (error) {
+      return { run_id: `retry-${runId}`, status: 'running', message: 'Retry lanzado en modo demo' };
+    }
+  },
+
+  getFlows: async (): Promise<FlowSummary[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/flows`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!response.ok) throw new Error('API not available');
+      return await response.json();
+    } catch (error) {
+      return [
+        {
+          id: 'full_recon',
+          name: 'full_recon',
+          description: 'Recon completo sobre un target con descubrimiento, cabeceras, robots.txt y CVE lookup',
+          steps_count: 4,
+        },
+        {
+          id: 'vuln_triage',
+          name: 'vuln_triage',
+          description: 'Triaging rápido para findings y priorización operativa',
+          steps_count: 3,
+        },
+        {
+          id: 'blue_daily',
+          name: 'blue_daily',
+          description: 'Cadena defensiva diaria para revisar señales, resúmenes y correlación',
+          steps_count: 4,
+        },
+      ];
+    }
+  },
+
+  startFlow: async (flowId: string, target: string): Promise<{ run_id: string; status: string; message: string }> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          run_type: 'flow',
+          source: 'ui',
+          requested_action: 'execute_flow',
+          target,
+          metadata: {
+            flow_id: flowId,
+            target,
+          },
+        }),
+        signal: AbortSignal.timeout(APP_CONFIG.api.timeout)
+      });
+      if (!response.ok) throw new Error('API not available');
+      return await response.json();
+    } catch (error) {
+      return {
+        run_id: `mock-flow-${Date.now()}`,
+        status: 'running',
+        message: `Flow ${flowId} iniciado en modo demo`,
+      };
+    }
   },
 
   // Labs
@@ -899,6 +993,15 @@ export const useRuns = () => {
     refetchInterval: 15000,
     retry: 1,
     staleTime: 10 * 1000,
+  });
+};
+
+export const useFlows = () => {
+  return useQuery({
+    queryKey: ['flows'],
+    queryFn: apiService.getFlows,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
 };
 

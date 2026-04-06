@@ -13,6 +13,7 @@ import {
   Shield,
   Terminal,
   TimerReset,
+  Workflow,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -92,6 +93,12 @@ const Dashboard = () => {
                 title="Scripts"
                 description="Ejecutar herramientas"
                 onClick={() => navigate("/scripts")}
+              />
+              <ActionButton
+                icon={<Workflow className="w-5 h-5" />}
+                title="Flows"
+                description="Orquestar cadenas"
+                onClick={() => navigate("/flows")}
               />
               <ActionButton
                 icon={<Eye className="w-5 h-5" />}
