@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="BOFA Operational Control Plane",
     description="Cybersecurity platform API with unified runs, timeline and operational control.",
-    version="2.8.0",
+    version="2.8.1",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -855,7 +855,7 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(auth_mana
 async def root():
     return {
         "name": "BOFA Operational Control Plane",
-        "version": "2.8.0",
+        "version": "2.8.1",
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "capabilities": {"runs": True, "script_execution": True, "lab_management": True, "flow_execution": True, "timeline": True},
