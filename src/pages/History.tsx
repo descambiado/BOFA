@@ -39,9 +39,12 @@ const History = () => {
 
   const handleRetry = async (runId: string) => {
     try {
-      await apiService.retryRun(runId);
-      toast.success("Run reintentado");
+      const result = await apiService.retryRun(runId);
+      toast.success(result.message || "Run reintentado");
       refetch();
+      if (result.run_id) {
+        setSelectedRunId(result.run_id);
+      }
     } catch (error) {
       toast.error("No se pudo reintentar el run");
     }
@@ -75,6 +78,8 @@ const History = () => {
               <div><span className="text-gray-400 text-sm block">Acción</span><span className="text-white">{selectedRun.requested_action}</span></div>
               <div><span className="text-gray-400 text-sm block">Creado</span><span className="text-white">{formatTimestamp(selectedRun.created_at)}</span></div>
               <div><span className="text-gray-400 text-sm block">Target</span><span className="text-white">{selectedRun.target || "n/a"}</span></div>
+              <div><span className="text-gray-400 text-sm block">Retry of</span><span className="text-white break-all">{selectedRun.parent_run_id || selectedRun.metadata?.retry_of || "n/a"}</span></div>
+              <div><span className="text-gray-400 text-sm block">Retry count</span><span className="text-white">{selectedRun.metadata?.retry_count ?? 0}</span></div>
             </CardContent>
           </Card>
 
@@ -173,6 +178,9 @@ const History = () => {
                   <div>
                     <h3 className="text-lg font-semibold text-white">{run.metadata?.script || run.target || run.requested_action}</h3>
                     <p className="text-sm text-gray-400">{formatTimestamp(run.created_at)}</p>
+                    {(run.parent_run_id || run.metadata?.retry_of) && (
+                      <p className="text-xs text-yellow-300">retry of {run.parent_run_id || run.metadata?.retry_of}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge>{run.run_type}</Badge>

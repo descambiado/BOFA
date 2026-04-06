@@ -102,6 +102,7 @@ export interface RunSummary {
   created_at: string;
   started_at?: string;
   completed_at?: string;
+  parent_run_id?: string;
   metadata?: Record<string, any>;
   timeline_count?: number;
   step_count?: number;
