@@ -29,6 +29,7 @@ export interface Module {
 
 export interface ExecutionResult {
   id: string;
+  run_id?: string;
   module: string;
   script: string;
   parameters: Record<string, string>;
@@ -37,6 +38,82 @@ export interface ExecutionResult {
   execution_time: string;
   output?: string;
   error?: string;
+}
+
+export interface RunEvent {
+  id: string;
+  run_id: string;
+  scope_type: string;
+  scope_id?: string;
+  event_type: string;
+  status?: string;
+  message?: string;
+  payload?: Record<string, any>;
+  created_at: string;
+}
+
+export interface RunArtifact {
+  id: string;
+  run_id: string;
+  artifact_type: string;
+  path: string;
+  label?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface RunStep {
+  id: string;
+  run_id: string;
+  step_type: string;
+  step_key?: string;
+  module?: string;
+  script_name?: string;
+  status: string;
+  step_index: number;
+  parameters?: Record<string, any>;
+  started_at?: string;
+  completed_at?: string;
+  exit_code?: number;
+  duration?: number;
+  stdout_preview?: string;
+  stderr_preview?: string;
+  error_message?: string;
+}
+
+export interface RunLab {
+  id: string;
+  run_id: string;
+  lab_id: string;
+  status: string;
+  container_id?: string;
+  port?: number;
+  started_at?: string;
+  stopped_at?: string;
+}
+
+export interface RunSummary {
+  id: string;
+  run_type: string;
+  source: string;
+  status: string;
+  target?: string;
+  requested_action: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  metadata?: Record<string, any>;
+  timeline_count?: number;
+  step_count?: number;
+  artifact_count?: number;
+  lab_count?: number;
+}
+
+export interface RunDetail extends RunSummary {
+  steps: RunStep[];
+  labs: RunLab[];
+  events: RunEvent[];
+  artifacts: RunArtifact[];
 }
 
 export interface Lab {
@@ -452,7 +529,7 @@ export const apiService = {
   },
 
   // Ejecución real con control manual (start/poll/stop)
-  startExecution: async (data: { module: string; script: string; parameters: Record<string, string>; }): Promise<{ execution_id: string }> => {
+  startExecution: async (data: { module: string; script: string; parameters: Record<string, string>; }): Promise<{ execution_id: string; run_id: string }> => {
     if (!authService.isAuthenticated()) throw new Error('Debe autenticarse para ejecutar scripts');
     try {
       const response = await fetch(`${API_BASE}/execute`, {
@@ -463,10 +540,11 @@ export const apiService = {
       });
       if (!response.ok) throw new Error('API not available');
       const result = await response.json();
-      return { execution_id: result.execution_id };
+      return { execution_id: result.execution_id, run_id: result.run_id || result.execution_id };
     } catch (error) {
       console.warn(`⚠️ API: Simulando inicio de ejecución de ${data.script}`);
-      return { execution_id: `mock-${Date.now()}` };
+      const id = `mock-${Date.now()}`;
+      return { execution_id: id, run_id: id };
     }
   },
 
@@ -515,6 +593,73 @@ export const apiService = {
       console.warn('⚠️ API: Using offline history data');
       return mockHistory;
     }
+  },
+
+  getRuns: async (): Promise<RunSummary[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!response.ok) throw new Error('API not available');
+      return await response.json();
+    } catch (error) {
+      return mockHistory.map((item) => ({
+        id: item.id,
+        run_type: 'script',
+        source: 'demo',
+        status: item.status,
+        requested_action: 'execute_script',
+        created_at: item.timestamp,
+        metadata: {
+          module: item.module,
+          script: item.script,
+          parameters: item.parameters,
+        },
+        step_count: 1,
+        timeline_count: 2,
+        artifact_count: item.output ? 1 : 0,
+        lab_count: 0,
+      }));
+    }
+  },
+
+  getRun: async (runId: string): Promise<RunDetail> => {
+    const response = await fetch(`${API_BASE}/runs/${runId}`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener el detalle del run');
+    return await response.json();
+  },
+
+  getRunTimeline: async (runId: string): Promise<{ run_id: string; events: RunEvent[]; artifacts: RunArtifact[] }> => {
+    const response = await fetch(`${API_BASE}/runs/${runId}/timeline`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener el timeline del run');
+    return await response.json();
+  },
+
+  cancelRun: async (runId: string): Promise<any> => {
+    const response = await fetch(`${API_BASE}/runs/${runId}/cancel`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo cancelar el run');
+    return await response.json();
+  },
+
+  retryRun: async (runId: string): Promise<any> => {
+    const response = await fetch(`${API_BASE}/runs/${runId}/retry`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo reintentar el run');
+    return await response.json();
   },
 
   // Labs
@@ -662,11 +807,17 @@ export const apiService = {
         },
         recent_activity: mockHistory.slice(0, 10).map(item => ({
           id: item.id,
-          module: item.module,
-          script: item.script,
+          run_type: 'script',
+          source: 'demo',
           status: item.status,
-          timestamp: item.timestamp,
-          output: item.output
+          target: item.script,
+          requested_action: 'execute_script',
+          created_at: item.timestamp,
+          metadata: {
+            module: item.module,
+            script_name: item.script,
+            output: item.output,
+          },
         }))
       };
     }
@@ -738,6 +889,26 @@ export const useExecutionHistory = () => {
     refetchInterval: 30000,
     retry: 1,
     staleTime: 10 * 1000,
+  });
+};
+
+export const useRuns = () => {
+  return useQuery({
+    queryKey: ['runs'],
+    queryFn: apiService.getRuns,
+    refetchInterval: 15000,
+    retry: 1,
+    staleTime: 10 * 1000,
+  });
+};
+
+export const useRunDetail = (runId: string | null) => {
+  return useQuery({
+    queryKey: ['run', runId],
+    queryFn: () => apiService.getRun(runId as string),
+    enabled: !!runId,
+    retry: 1,
+    staleTime: 5 * 1000,
   });
 };
 

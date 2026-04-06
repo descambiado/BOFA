@@ -144,10 +144,10 @@ const Dashboard = () => {
                   <div key={activity.id} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 p-4">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-white">
-                        {activity.script || "Script desconocido"}
+                        {activity.metadata?.script_name || activity.target || activity.requested_action || activity.run_type || "Operacion desconocida"}
                       </p>
                       <p className="text-sm text-slate-400">
-                        {activity.module || "módulo"} · {activity.timestamp ? new Date(activity.timestamp).toLocaleString() : "sin fecha"}
+                        {(activity.metadata?.module || activity.source || "runtime")} · {activity.created_at ? new Date(activity.created_at).toLocaleString() : "sin fecha"}
                       </p>
                     </div>
                     <Badge
