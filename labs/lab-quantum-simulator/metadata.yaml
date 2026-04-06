@@ -1,6 +1,6 @@
 name: "Quantum Computing Simulator Laboratory"
 description: "Comprehensive quantum computing laboratory with cryptanalysis and post-quantum security testing"
-version: "2.5.1"
+version: "2.8.0"
 category: "quantum_security"
 difficulty: "expert"
 estimated_time: "90-180 minutes"

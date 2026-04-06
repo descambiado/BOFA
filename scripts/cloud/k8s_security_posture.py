@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kubernetes Security Posture - BOFA v2.5.1
+Kubernetes Security Posture - BOFA v2.8.0
 Comprehensive K8s security assessment based on CIS benchmarks
 Author: @descambiado
 """

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Web Discovery Tool - Advanced Web Reconnaissance
-BOFA Suite v2.5.1 - Educational/Professional Use Only
+BOFA Suite v2.8.0 - Educational/Professional Use Only
 """
 
 import requests

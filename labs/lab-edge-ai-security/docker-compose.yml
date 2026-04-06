@@ -30,7 +30,7 @@ services:
     working_dir: /workspace
     command: >
       bash -c "
-        echo '🌐 Starting BOFA Edge AI Security Lab v2.5.1...' &&
+        echo '🌐 Starting BOFA Edge AI Security Lab v2.8.0...' &&
         echo '📦 Installing edge AI frameworks...' &&
         pip install --quiet tensorflow-lite tflite-runtime onnxruntime &&
         pip install --quiet jupyter matplotlib plotly dash paho-mqtt &&

@@ -252,4 +252,4 @@ MIT License. Ver [LICENSE](LICENSE). Uso comercial, modificacion y distribucion 
 
 ---
 
-BOFA v2.7.0 - [@descambiado](https://github.com/descambiado) | [LICENSE](LICENSE) | Python 3.8+
+BOFA v2.8.0 - [@descambiado](https://github.com/descambiado) | [LICENSE](LICENSE) | Python 3.8+

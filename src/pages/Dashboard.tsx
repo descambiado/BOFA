@@ -1,27 +1,19 @@
-
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ActionButton } from "@/components/UI/ActionButton";
 import { MetricCard } from "@/components/UI/MetricCard";
+import { ActionButton } from "@/components/UI/ActionButton";
 import { useDashboardStats } from "@/services/api";
-import { 
-  Shield, 
-  Terminal, 
-  Users, 
-  Search, 
-  Smartphone, 
-  Brain, 
-  Clock, 
-  Globe,
-  TrendingUp,
+import {
   Activity,
-  AlertTriangle,
   CheckCircle,
-  Zap,
-  Lock,
-  Cloud,
-  Eye
+  Clock,
+  Cpu,
+  Eye,
+  HardDrive,
+  Shield,
+  Terminal,
+  TimerReset,
+  Workflow,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -29,155 +21,111 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { data: stats, isLoading } = useDashboardStats();
 
-  const quickStats = stats ? [
+  const executions = stats?.executions ?? {};
+  const system = stats?.system ?? {};
+  const queue = stats?.queue ?? {};
+  const docker = stats?.docker ?? {};
+  const overview = stats?.overview ?? {};
+  const recentActivity = stats?.recent_activity ?? [];
+
+  const quickStats = [
     {
-      title: "Scripts Ejecutados",
-      value: stats.executions?.total_executions?.toString() || "0",
-      change: "+12%",
+      title: "Ejecuciones",
+      value: String(executions.total_executions ?? stats?.total_executions ?? 0),
+      change: `${executions.success_rate ?? stats?.completion_rate ?? 0}% éxito`,
       trend: "up" as const,
-      icon: <Terminal className="w-5 h-5" />
+      icon: <Terminal className="w-5 h-5" />,
     },
     {
-      title: "Ejecuciones Exitosas",
-      value: stats.executions?.successful?.toString() || "0",
-      change: stats.executions?.success_rate ? `${stats.executions.success_rate}%` : "0%",
-      trend: "up" as const,
-      icon: <CheckCircle className="w-5 h-5" />
+      title: "Cola Activa",
+      value: String((queue.queued ?? 0) + (queue.running ?? 0)),
+      change: `${queue.running ?? 0} corriendo`,
+      trend: (queue.running ?? 0) > 0 ? ("up" as const) : ("down" as const),
+      icon: <Activity className="w-5 h-5" />,
     },
     {
       title: "Labs Activos",
-      value: stats.docker?.active_labs?.toString() || "0",
-      change: "+1",
-      trend: "up" as const,
-      icon: <Activity className="w-5 h-5" />
+      value: String(docker.active_labs ?? stats?.active_labs ?? 0),
+      change: `${docker.containers_running ?? docker.active_labs ?? 0} contenedores`,
+      trend: (docker.active_labs ?? 0) > 0 ? ("up" as const) : ("down" as const),
+      icon: <Eye className="w-5 h-5" />,
     },
     {
-      title: "Uso de CPU",
-      value: `${stats.system?.cpu_percent || 0}%`,
-      change: stats.system?.cpu_percent > 70 ? "Alto" : "Normal",
-      trend: stats.system?.cpu_percent > 70 ? "down" as const : "up" as const,
-      icon: <Shield className="w-5 h-5" />
-    }
-  ] : [];
-
-  const recentActivities = [
-    {
-      id: 1,
-      action: "AI Threat Hunter ejecutado",
-      time: "hace 15 min",
-      status: "success",
-      module: "Blue Team"
+      title: "CPU",
+      value: `${system.cpu_percent ?? 0}%`,
+      change: (system.cpu_percent ?? 0) > 80 ? "Alta presión" : "Estable",
+      trend: (system.cpu_percent ?? 0) > 80 ? ("down" as const) : ("up" as const),
+      icon: <Cpu className="w-5 h-5" />,
     },
-    {
-      id: 2,
-      action: "Supply Chain Scanner completado",
-      time: "hace 32 min",
-      status: "warning",
-      module: "Red Team"
-    },
-    {
-      id: 3,
-      action: "Zero Trust Validator iniciado",
-      time: "hace 1 hora",
-      status: "running",
-      module: "Purple Team"
-    },
-    {
-      id: 4,
-      action: "Quantum Crypto Analyzer finalizado",
-      time: "hace 2 horas",
-      status: "success",
-      module: "Purple Team"
-    }
   ];
 
-  const newFeatures2025 = [
-    {
-      title: "🤖 AI Threat Hunter",
-      description: "ML local + MITRE ATT&CK para detección avanzada",
-      category: "Blue Team",
-      status: "new"
-    },
-    {
-      title: "🔗 Supply Chain Scanner",
-      description: "Mapeo completo de cadenas de suministro",
-      category: "Red Team", 
-      status: "new"
-    },
-    {
-      title: "🔮 Quantum Crypto Analyzer",
-      description: "Evaluación post-cuántica de criptografía",
-      category: "Purple Team",
-      status: "new"
-    },
-    {
-      title: "🎭 Deepfake Detection",
-      description: "Motor de detección de contenido generado por IA",
-      category: "Forensics",
-      status: "new"
-    },
-    {
-      title: "☁️ Cloud Native Attacks",
-      description: "Simulador de ataques a contenedores y K8s",
-      category: "Red Team",
-      status: "new"
-    },
-    {
-      title: "🛡️ Zero Trust Validator",
-      description: "Validación de implementaciones Zero Trust",
-      category: "Blue Team",
-      status: "new"
-    }
-  ];
+  const statusColor =
+    overview.system_status === "operational"
+      ? "bg-green-500/20 text-green-300 border-green-400/30"
+      : "bg-yellow-500/20 text-yellow-300 border-yellow-400/30";
 
   return (
     <div className="relative min-h-screen p-6 animate-fade-in">
-      <div className="container mx-auto max-w-7xl">
-        {/* Banner de Bienvenida */}
-        <div className="mb-8">
-          <div className="bofa-card-dark bg-gradient-cyber rounded-xl p-8 mb-6 hover-glow border-primary/20 relative overflow-hidden">
-            {/* Animated Background Pattern */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute w-32 h-32 bg-white rounded-full -top-16 -right-16 animate-float"></div>
-              <div className="absolute w-20 h-20 bg-white rounded-full -bottom-10 -left-10 animate-bounce-slow"></div>
-            </div>
-            
-            <div className="relative z-10">
-              <h1 className="text-4xl font-bold text-white mb-3 font-cyber">
-                ¡Bienvenido a BOFA v2.5.1! 🚀
-              </h1>
-              <p className="text-white/90 text-xl mb-4">
-                La plataforma de ciberseguridad más avanzada con tecnologías 2025
-              </p>
-              <p className="text-white/70 text-sm mb-6">
-                Desarrollado por @descambiado • Neural Security Edge
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
-                  🤖 AI/ML Integration
-                </Badge>
-                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
-                  🔮 Post-Quantum Ready
-                </Badge>
-                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
-                  🛡️ Zero Trust Validation
-                </Badge>
-                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
-                  🔗 Supply Chain Security
-                </Badge>
-                <Badge className="bg-white/20 text-white border-white/30 px-3 py-1 hover-lift">
-                  🧠 Neural Edge Computing
-                </Badge>
+      <div className="container mx-auto max-w-7xl space-y-8">
+        <section className="rounded-3xl border border-primary/20 bg-gradient-to-br from-slate-900 via-cyan-950 to-slate-950 p-8 shadow-2xl shadow-cyan-950/30">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-4">
+              <Badge className={statusColor}>
+                {overview.system_status ?? "unknown"}
+              </Badge>
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight text-white">BOFA Command Dashboard</h1>
+                <p className="mt-2 max-w-2xl text-base text-slate-300">
+                  La plataforma necesita menos marketing vacío y más telemetría accionable. Este panel ahora prioriza
+                  lo que importa: ejecución real, salud del sistema, cola y actividad reciente.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3 text-sm text-slate-300">
+                <span>Módulos: {overview.modules ?? stats?.modules ?? 0}</span>
+                <span>Scripts: {overview.total_scripts ?? stats?.total_scripts ?? 0}</span>
+                <span>Novedades recientes: {overview.scripts_updated_recently ?? stats?.new_scripts_2025 ?? 0}</span>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Métricas Rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {quickStats.map((stat, index) => (
+            <div className="grid min-w-[280px] grid-cols-2 gap-3">
+              <ActionButton
+                icon={<Terminal className="w-5 h-5" />}
+                title="Scripts"
+                description="Ejecutar herramientas"
+                onClick={() => navigate("/scripts")}
+              />
+              <ActionButton
+                icon={<Workflow className="w-5 h-5" />}
+                title="Flows"
+                description="Orquestar cadenas"
+                onClick={() => navigate("/flows")}
+              />
+              <ActionButton
+                icon={<Eye className="w-5 h-5" />}
+                title="Labs"
+                description="Entornos prácticos"
+                onClick={() => navigate("/labs")}
+              />
+              <ActionButton
+                icon={<Clock className="w-5 h-5" />}
+                title="Historial"
+                description="Revisar ejecuciones"
+                onClick={() => navigate("/history")}
+              />
+              <ActionButton
+                icon={<Shield className="w-5 h-5" />}
+                title="Salud"
+                description="Ver observabilidad"
+                onClick={() => navigate("/health")}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {quickStats.map((stat) => (
             <MetricCard
-              key={index}
+              key={stat.title}
               title={stat.title}
               value={stat.value}
               change={stat.change}
@@ -185,143 +133,136 @@ const Dashboard = () => {
               icon={stat.icon}
             />
           ))}
-        </div>
+        </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Acceso Rápido */}
-          <div className="lg:col-span-2">
-            <Card className="bofa-card-dark border-primary/20 hover-glow">
-              <CardHeader>
-                <CardTitle className="text-cyan-400">🚀 Acceso Rápido</CardTitle>
-                <CardDescription>Herramientas principales de BOFA</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <ActionButton
-                    icon={<Terminal className="w-5 h-5" />}
-                    title="Scripts"
-                    description="Ejecutar herramientas"
-                    onClick={() => navigate('/scripts')}
-                  />
-                  <ActionButton
-                    icon={<Eye className="w-5 h-5" />}
-                    title="Laboratorios"
-                    description="Entornos de práctica"
-                    onClick={() => navigate('/labs')}
-                  />
-                  <ActionButton
-                    icon={<Clock className="w-5 h-5" />}
-                    title="Historial"
-                    description="Ver ejecuciones"
-                    onClick={() => navigate('/history')}
-                  />
-                  <ActionButton
-                    icon={<Brain className="w-5 h-5" />}
-                    title="AI Hunter"
-                    description="Detección IA"
-                    onClick={() => navigate('/scripts')}
-                  />
-                  <ActionButton
-                    icon={<Shield className="w-5 h-5" />}
-                    title="Zero Trust"
-                    description="Validación ZT"
-                    onClick={() => navigate('/scripts')}
-                  />
-                  <ActionButton
-                    icon={<Lock className="w-5 h-5" />}
-                    title="Quantum"
-                    description="Crypto post-cuántica"
-                    onClick={() => navigate('/scripts')}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Actividad Reciente */}
-          <Card className="bofa-card-dark border-primary/20 hover-glow">
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <Card className="border-primary/20 bg-slate-900/80 xl:col-span-2">
             <CardHeader>
-              <CardTitle className="text-cyan-400">📊 Actividad Reciente</CardTitle>
+              <CardTitle className="text-cyan-300">Actividad reciente</CardTitle>
+              <CardDescription>Últimas ejecuciones registradas por la API</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-center space-x-3 p-3 bg-gray-700/50 rounded-lg">
-                    <div className={`w-3 h-3 rounded-full ${
-                      activity.status === 'success' ? 'bg-green-400' :
-                      activity.status === 'warning' ? 'bg-yellow-400' : 
-                      activity.status === 'running' ? 'bg-blue-400 animate-pulse' : 'bg-red-400'
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{activity.action}</p>
-                      <p className="text-xs text-gray-400">{activity.time} • {activity.module}</p>
+            <CardContent className="space-y-3">
+              {recentActivity.length === 0 && !isLoading ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
+                  No hay actividad reciente registrada todavía.
+                </div>
+              ) : (
+                recentActivity.map((activity: any) => (
+                  <div key={activity.id} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-white">
+                        {activity.metadata?.script_name || activity.target || activity.requested_action || activity.run_type || "Operacion desconocida"}
+                      </p>
+                      <p className="text-sm text-slate-400">
+                        {(activity.metadata?.module || activity.source || "runtime")} · {activity.created_at ? new Date(activity.created_at).toLocaleString() : "sin fecha"}
+                      </p>
                     </div>
+                    <Badge
+                      className={
+                        activity.status === "success"
+                          ? "bg-green-500/20 text-green-300 border-green-400/30"
+                          : activity.status === "running"
+                            ? "bg-blue-500/20 text-blue-300 border-blue-400/30"
+                            : "bg-yellow-500/20 text-yellow-300 border-yellow-400/30"
+                      }
+                    >
+                      {activity.status ?? "unknown"}
+                    </Badge>
                   </div>
-                ))}
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-slate-900/80">
+            <CardHeader>
+              <CardTitle className="text-cyan-300">Orquestación</CardTitle>
+              <CardDescription>Capacidad real del runtime</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div className="flex items-center justify-between rounded-xl bg-slate-950/70 p-4">
+                <span className="text-slate-400">Concurrentes máximas</span>
+                <span className="font-semibold text-white">{queue.max_concurrent ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-950/70 p-4">
+                <span className="text-slate-400">En cola</span>
+                <span className="font-semibold text-white">{queue.queued ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-950/70 p-4">
+                <span className="text-slate-400">En ejecución</span>
+                <span className="font-semibold text-white">{queue.running ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-950/70 p-4">
+                <span className="text-slate-400">Completadas</span>
+                <span className="font-semibold text-white">{queue.completed ?? 0}</span>
               </div>
             </CardContent>
           </Card>
-        </div>
+        </section>
 
-        {/* Novedades 2025 */}
-        <Card className="bofa-card-dark border-primary/20 hover-glow mb-8">
-          <CardHeader>
-            <CardTitle className="text-primary">✨ Novedades Neural Security Edge</CardTitle>
-            <CardDescription>Las últimas incorporaciones tecnológicas revolucionarias</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {newFeatures2025.map((feature, index) => (
-                <div key={index} className="p-4 bofa-card-dark border-primary/10 hover-lift hover:border-primary/30 transition-all duration-300 group">
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {feature.title}
-                    </h4>
-                    <Badge className="bg-gradient-cyber text-white text-xs animate-pulse">
-                      NUEVO
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-3 group-hover:text-foreground transition-colors">
-                    {feature.description}
-                  </p>
-                  <Badge variant="outline" className="text-xs border-primary/30 text-primary">
-                    {feature.category}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card className="border-primary/20 bg-slate-900/80">
+            <CardHeader>
+              <CardTitle className="text-cyan-300">Fiabilidad</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Éxitos</span>
+                <span className="text-white">{executions.successful ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Fallos</span>
+                <span className="text-white">{executions.failed ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Tasa de éxito</span>
+                <span className="text-white">{executions.success_rate ?? 0}%</span>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Footer del Dashboard */}
-        <Card className="bofa-card-dark border-primary/20 hover-glow">
-          <CardContent className="p-6 text-center">
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Zap className="w-6 h-6 text-primary animate-glow" />
-              <span className="text-primary font-bold text-lg">BOFA Neural Security Edge v2.5.1</span>
-            </div>
-            <p className="text-muted-foreground text-sm mb-4">
-              Desarrollado por @descambiado • La plataforma de ciberseguridad más avanzada del universo
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                🤖 <span className="text-primary">AI/ML Ready</span>
-              </span>
-              <span className="flex items-center gap-1">
-                🔮 <span className="text-secondary">Post-Quantum</span>
-              </span>
-              <span className="flex items-center gap-1">
-                ☁️ <span className="text-accent">Cloud Native</span>
-              </span>
-              <span className="flex items-center gap-1">
-                🛡️ <span className="text-success">Zero Trust</span>
-              </span>
-              <span className="flex items-center gap-1">
-                🧠 <span className="text-warning">Neural Edge</span>
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="border-primary/20 bg-slate-900/80">
+            <CardHeader>
+              <CardTitle className="text-cyan-300">Sistema</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-slate-400"><Cpu className="w-4 h-4" /> CPU</span>
+                <span className="text-white">{system.cpu_percent ?? 0}%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-slate-400"><TimerReset className="w-4 h-4" /> Memoria</span>
+                <span className="text-white">{system.memory_percent ?? 0}%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-slate-400"><HardDrive className="w-4 h-4" /> Disco libre</span>
+                <span className="text-white">{system.disk_free_gb ?? 0} GB</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-slate-900/80">
+            <CardHeader>
+              <CardTitle className="text-cyan-300">Infraestructura</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Labs activos</span>
+                <span className="text-white">{docker.active_labs ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Contenedores</span>
+                <span className="text-white">{docker.containers_running ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-slate-400"><CheckCircle className="w-4 h-4" /> Último scan</span>
+                <span className="text-white">
+                  {overview.last_scan ? new Date(overview.last_scan).toLocaleString() : "n/a"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </div>
   );

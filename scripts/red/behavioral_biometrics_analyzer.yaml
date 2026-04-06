@@ -1,7 +1,7 @@
 name: "Behavioral Biometrics Analyzer"
 description: "Revolutionary biometric authentication testing through behavioral patterns and typing dynamics"
 author: "BOFA Security Team"
-version: "2.5.1"
+version: "2.8.0"
 category: "red"
 difficulty: "expert"
 estimated_time: "20-35 minutes"

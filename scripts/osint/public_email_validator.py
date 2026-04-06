@@ -15,6 +15,8 @@ import dns.resolver
 from datetime import datetime
 import hashlib
 
+from core import cooperative_sleep, raise_if_cancelled
+
 class PublicEmailValidator:
     def __init__(self, verbose=False):
         self.verbose = verbose
@@ -269,6 +271,7 @@ class PublicEmailValidator:
         
         for email in emails:
             try:
+                raise_if_cancelled()
                 result = self.process_email(email.strip())
                 self.results.append(result)
                 
@@ -277,7 +280,7 @@ class PublicEmailValidator:
                     breaches = f"🔴 {len(result['breaches'])} breaches" if result["breaches"] else "✅ Sin breaches"
                     print(f"[RESULT] {email} - {status} - {breaches}")
                     
-                time.sleep(1)  # Rate limiting
+                cooperative_sleep(1)  # Rate limiting
                 
             except Exception as e:
                 print(f"[ERROR] Error procesando {email}: {e}")

@@ -7,10 +7,12 @@ import { AppHeader } from "./components/Navigation/AppHeader";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Scripts from "./pages/Scripts";
+import Flows from "./pages/Flows";
 import Labs from "./pages/Labs";
 import History from "./pages/History";
 import Study from "./pages/Study";
 import Dashboard from "./pages/Dashboard";
+import Health from "./pages/Health";
 import NotFound from "./pages/NotFound";
 import Library from "./pages/Library";
 
@@ -32,7 +34,9 @@ function App() {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/health" element={<ProtectedRoute><Health /></ProtectedRoute>} />
                 <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
+                <Route path="/flows" element={<ProtectedRoute><Flows /></ProtectedRoute>} />
                 <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
                 <Route path="/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
                 <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />

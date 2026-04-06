@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Behavioral Anomaly Detector - BOFA v2.5.1
+Behavioral Anomaly Detector - BOFA v2.8.0
 Detects behavioral anomalies using ML techniques
 Author: @descambiado
 """

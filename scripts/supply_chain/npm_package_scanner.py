@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NPM Package Scanner - BOFA v2.5.1
+NPM Package Scanner - BOFA v2.8.0
 Scans NPM packages for vulnerabilities and security issues
 Author: @descambiado
 """

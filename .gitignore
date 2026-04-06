@@ -30,6 +30,7 @@ __pycache__/
 
 # BOFA generated
 reports/
+data/
 scripts/*/output/
 scripts/**/*_202*.json
 

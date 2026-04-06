@@ -1,167 +1,235 @@
-
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/UI/StatusBadge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ActionButton } from "@/components/UI/ActionButton";
-import { useExecutionHistory } from "@/services/api";
-import { 
-  Clock, 
-  Terminal, 
-  Eye,
-  Download,
-  RefreshCw,
-  XCircle,
-  ArrowLeft
-} from "lucide-react";
+import { useRunDetail, useRuns, apiService, type RunSummary } from "@/services/api";
+import { ArrowLeft, Clock, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, Square, Workflow } from "lucide-react";
+import { toast } from "sonner";
+
+const FINAL_STATUSES = ["success", "failed", "error", "partial", "cancelled"];
+
+const getDisplayStatus = (status?: string) => (status === "cancelling" ? "cancel requested" : status || "unknown");
+const getRootFamilyId = (run: RunSummary) => run.parent_run_id || run.metadata?.retry_of || run.id;
 
 const History = () => {
-  const [selectedExecution, setSelectedExecution] = useState<any>(null);
-  const { data: history, isLoading, refetch } = useExecutionHistory();
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [familyFilter, setFamilyFilter] = useState("all");
+  const { data: runs, isLoading, refetch } = useRuns();
+  const { data: selectedRun, refetch: refetchRun } = useRunDetail(selectedRunId);
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+  const isFinalStatus = (status?: string) => FINAL_STATUSES.includes(status || "");
+  const formatTimestamp = (timestamp?: string) => (timestamp ? new Date(timestamp).toLocaleString("es-ES") : "sin fecha");
+
+  const families = useMemo(() => {
+    const grouped = new Map<string, RunSummary[]>();
+    for (const run of runs || []) {
+      const familyId = getRootFamilyId(run);
+      const current = grouped.get(familyId) || [];
+      current.push(run);
+      grouped.set(familyId, current);
+    }
+    return grouped;
+  }, [runs]);
+
+  const filteredRuns = useMemo(() => {
+    return (runs || []).filter((run) => {
+      const label = `${run.metadata?.script || ""} ${run.metadata?.flow_id || ""} ${run.target || ""} ${run.requested_action || ""} ${run.run_type || ""}`.toLowerCase();
+      const matchesSearch = !searchTerm.trim() || label.includes(searchTerm.trim().toLowerCase());
+      const matchesStatus = statusFilter === "all" || run.status === statusFilter;
+      const matchesType = typeFilter === "all" || run.run_type === typeFilter;
+      const matchesFamily = familyFilter === "all" || getRootFamilyId(run) === familyFilter;
+      return matchesSearch && matchesStatus && matchesType && matchesFamily;
     });
-  };
+  }, [runs, searchTerm, statusFilter, typeFilter, familyFilter]);
 
-  const downloadOutput = (execution: any) => {
-    const content = `BOFA - Historial de Ejecución
-ID: ${execution.id}
-Script: ${execution.script}
-Módulo: ${execution.module}
-Timestamp: ${formatTimestamp(execution.timestamp)}
-Estado: ${execution.status}
-Tiempo: ${execution.execution_time}
-Parámetros: ${JSON.stringify(execution.parameters, null, 2)}
+  const selectedFamilyRuns = useMemo(() => {
+    if (!selectedRun) return [];
+    const familyId = getRootFamilyId(selectedRun);
+    return (families.get(familyId) || []).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, [selectedRun, families]);
 
-=== SALIDA ===
-${execution.output || 'Sin salida'}
-
-=== ERRORES ===
-${execution.error || 'Sin errores'}`;
-
-    const blob = new Blob([content], { type: 'text/plain' });
+  const downloadRun = (run: any) => {
+    const content = JSON.stringify(run, null, 2);
+    const blob = new Blob([content], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `bofa-execution-${execution.id}.txt`;
+    a.download = `bofa-run-${run.id}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  if (selectedExecution) {
+  const copyArtifactPath = async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(path);
+      toast.success("Ruta copiada");
+    } catch {
+      toast.error("No se pudo copiar la ruta");
+    }
+  };
+
+  const handleCancel = async (runId: string) => {
+    try {
+      const result = await apiService.cancelRun(runId);
+      toast.success(result.message || "Run cancelado");
+      refetch();
+      if (selectedRunId === runId) refetchRun();
+    } catch {
+      toast.error("No se pudo cancelar el run");
+    }
+  };
+
+  const handleRetry = async (runId: string) => {
+    try {
+      const result = await apiService.retryRun(runId);
+      toast.success(result.message || "Run reintentado");
+      refetch();
+      if (result.run_id) {
+        setSelectedRunId(result.run_id);
+      }
+    } catch {
+      toast.error("No se pudo reintentar el run");
+    }
+  };
+
+  if (selectedRun && selectedRunId) {
     return (
       <div className="container mx-auto px-6 py-8">
-        <div className="mb-6">
-          <ActionButton
-            icon={<ArrowLeft className="w-4 h-4" />}
-            title="Volver"
-            description="Volver al Historial"
-            onClick={() => setSelectedExecution(null)}
-          />
-          
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2 mt-4">Detalles de Ejecución</h1>
-          <p className="text-gray-300">ID: {selectedExecution.id}</p>
+        <div className="mb-6 flex items-center justify-between">
+          <ActionButton icon={<ArrowLeft className="w-4 h-4" />} title="Volver" description="Volver al historial" onClick={() => setSelectedRunId(null)} />
+          <div className="flex gap-3">
+            <Button variant="outline" disabled={!isFinalStatus(selectedRun.status)} onClick={() => handleRetry(selectedRun.id)} className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50">
+              <RotateCcw className="mr-2 h-4 w-4" /> Reintentar
+            </Button>
+            <Button variant="outline" disabled={isFinalStatus(selectedRun.status) || selectedRun.status === "cancelling"} onClick={() => handleCancel(selectedRun.id)} className="border-red-500/40 text-red-300 hover:bg-red-500/10 disabled:opacity-50">
+              <Square className="mr-2 h-4 w-4" /> Cancelar
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6">
-          {/* Información general */}
           <Card className="bg-gray-800/50 border-gray-700">
             <CardHeader>
-              <CardTitle className="text-cyan-400 flex items-center space-x-2">
-                <StatusBadge status={selectedExecution.status} />
-                <span>Información General</span>
+              <CardTitle className="text-cyan-400 flex items-center justify-between">
+                <span>Run {selectedRun.id}</span>
+                <Badge>{getDisplayStatus(selectedRun.status)}</Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <span className="text-gray-400 text-sm block">Script</span>
-                  <span className="text-white font-mono">{selectedExecution.script}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400 text-sm block">Módulo</span>
-                  <StatusBadge status={selectedExecution.module} text={selectedExecution.module} />
-                </div>
-                <div>
-                  <span className="text-gray-400 text-sm block">Estado</span>
-                  <StatusBadge status={selectedExecution.status} />
-                </div>
-                <div>
-                  <span className="text-gray-400 text-sm block">Duración</span>
-                  <span className="text-white">{selectedExecution.execution_time}</span>
-                </div>
-              </div>
-              
-              <div>
-                <span className="text-gray-400 text-sm block mb-2">Fecha y Hora</span>
-                <span className="text-white">{formatTimestamp(selectedExecution.timestamp)}</span>
-              </div>
-
-              {Object.keys(selectedExecution.parameters).length > 0 && (
-                <div>
-                  <span className="text-gray-400 text-sm block mb-2">Parámetros</span>
-                  <div className="bg-gray-900 p-3 rounded-lg font-mono text-sm">
-                    <pre className="text-gray-300">
-                      {JSON.stringify(selectedExecution.parameters, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
+            <CardContent className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+              <div><span className="text-gray-400 text-sm block">Tipo</span><span className="text-white">{selectedRun.run_type}</span></div>
+              <div><span className="text-gray-400 text-sm block">Acción</span><span className="text-white">{selectedRun.requested_action}</span></div>
+              <div><span className="text-gray-400 text-sm block">Creado</span><span className="text-white">{formatTimestamp(selectedRun.created_at)}</span></div>
+              <div><span className="text-gray-400 text-sm block">Target</span><span className="text-white">{selectedRun.target || "n/a"}</span></div>
+              <div><span className="text-gray-400 text-sm block">Retry of</span><span className="text-white break-all">{selectedRun.parent_run_id || selectedRun.metadata?.retry_of || "n/a"}</span></div>
+              <div><span className="text-gray-400 text-sm block">Retry count</span><span className="text-white">{selectedRun.metadata?.retry_count ?? 0}</span></div>
             </CardContent>
           </Card>
 
-          {/* Salida del script */}
-          {selectedExecution.output && (
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-cyan-400 flex items-center gap-2">
+                <Workflow className="h-5 w-5" />
+                Familia de ejecución
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {selectedFamilyRuns.length ? selectedFamilyRuns.map((run) => (
+                <button
+                  key={run.id}
+                  type="button"
+                  onClick={() => setSelectedRunId(run.id)}
+                  className={`w-full rounded-lg border p-4 text-left transition-all ${
+                    run.id === selectedRun.id ? "border-cyan-400 bg-cyan-500/10" : "border-gray-700 bg-gray-900/60 hover:border-cyan-500/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-white">{run.metadata?.script || run.metadata?.flow_id || run.target || run.requested_action}</p>
+                      <p className="text-sm text-gray-400">{formatTimestamp(run.created_at)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge>{run.run_type}</Badge>
+                      <Badge>{getDisplayStatus(run.status)}</Badge>
+                    </div>
+                  </div>
+                </button>
+              )) : <p className="text-gray-400">Sin runs relacionados.</p>}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-800/50 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-cyan-400">Steps</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {selectedRun.steps?.length ? selectedRun.steps.map((step) => (
+                <div key={step.id} className="rounded-lg border border-gray-700 bg-gray-900/60 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-white">{step.module || step.step_type} / {step.script_name || step.step_key || step.id}</p>
+                      <p className="text-sm text-gray-400">Inicio: {formatTimestamp(step.started_at)} · Fin: {formatTimestamp(step.completed_at)}</p>
+                    </div>
+                    <Badge>{getDisplayStatus(step.status)}</Badge>
+                  </div>
+                  {(step.stdout_preview || step.error_message) && (
+                    <pre className="mt-3 whitespace-pre-wrap rounded bg-black p-3 text-sm text-gray-300">
+                      {step.stdout_preview || step.error_message}
+                    </pre>
+                  )}
+                </div>
+              )) : <p className="text-gray-400">Sin steps registrados.</p>}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 xl:grid-cols-2">
             <Card className="bg-gray-800/50 border-gray-700">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-cyan-400 flex items-center space-x-2">
-                    <Terminal className="w-5 h-5" />
-                    <span>Salida del Script</span>
-                  </CardTitle>
-                  <ActionButton
-                    icon={<Download className="w-4 h-4" />}
-                    title="Descargar"
-                    description="Descargar salida"
-                    onClick={() => downloadOutput(selectedExecution)}
-                  />
-                </div>
+                <CardTitle className="text-cyan-400">Timeline</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="bg-black p-4 rounded-lg font-mono text-sm max-h-64 overflow-y-auto">
-                  <pre className="text-green-400 whitespace-pre-wrap">
-                    {selectedExecution.output}
-                  </pre>
-                </div>
+              <CardContent className="space-y-3">
+                {selectedRun.events?.length ? selectedRun.events.map((event) => (
+                  <div key={event.id} className="rounded-lg border border-gray-700 bg-gray-900/60 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-white">{event.scope_type} · {event.event_type}</span>
+                      <Badge>{getDisplayStatus(event.status)}</Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-300">{event.message || "Sin mensaje"}</p>
+                    <p className="mt-1 text-xs text-gray-500">{formatTimestamp(event.created_at)}</p>
+                  </div>
+                )) : <p className="text-gray-400">Sin eventos registrados.</p>}
               </CardContent>
             </Card>
-          )}
 
-          {/* Errores */}
-          {selectedExecution.error && (
             <Card className="bg-gray-800/50 border-gray-700">
               <CardHeader>
-                <CardTitle className="text-red-400 flex items-center space-x-2">
-                  <XCircle className="w-5 h-5" />
-                  <span>Errores</span>
+                <CardTitle className="text-cyan-400 flex items-center justify-between">
+                  <span>Artifacts</span>
+                  <ActionButton icon={<Download className="w-4 h-4" />} title="Exportar" description="Descargar run" onClick={() => downloadRun(selectedRun)} />
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="bg-black p-4 rounded-lg font-mono text-sm">
-                  <pre className="text-red-400 whitespace-pre-wrap">
-                    {selectedExecution.error}
-                  </pre>
-                </div>
+              <CardContent className="space-y-3">
+                {selectedRun.artifacts?.length ? selectedRun.artifacts.map((artifact) => (
+                  <div key={artifact.id} className="rounded-lg border border-gray-700 bg-gray-900/60 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-white">{artifact.label || artifact.artifact_type}</p>
+                        <p className="mt-1 break-all text-sm text-gray-400">{artifact.path}</p>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => copyArtifactPath(artifact.path)} className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )) : <p className="text-gray-400">Sin artifacts registrados.</p>}
               </CardContent>
             </Card>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -169,81 +237,115 @@ ${execution.error || 'Sin errores'}`;
 
   return (
     <div className="container mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-cyan-400 mb-2">Historial de Ejecución</h1>
-          <p className="text-gray-300">Registro de todos los scripts ejecutados en BOFA</p>
+          <h1 className="text-3xl font-bold text-cyan-400 mb-2">Historial Operativo</h1>
+          <p className="text-gray-300">Runs unificados con filtros tácticos, linaje y artifacts accionables</p>
         </div>
-        <ActionButton
-          icon={<RefreshCw className="w-4 h-4" />}
-          title="Actualizar"
-          description="Refrescar historial"
-          onClick={() => refetch()}
-        />
+        <ActionButton icon={<RefreshCw className="w-4 h-4" />} title="Actualizar" description="Refrescar runs" onClick={() => refetch()} />
       </div>
+
+      <Card className="mb-6 bg-gray-800/50 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-cyan-400 flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Investigación rápida
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Buscar por target, script o acción"
+              className="border-gray-700 bg-gray-900 pl-10 text-white"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="border-gray-700 bg-gray-900 text-white">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="success">success</SelectItem>
+              <SelectItem value="failed">failed</SelectItem>
+              <SelectItem value="partial">partial</SelectItem>
+              <SelectItem value="running">running</SelectItem>
+              <SelectItem value="cancelling">cancelling</SelectItem>
+              <SelectItem value="cancelled">cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="border-gray-700 bg-gray-900 text-white">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tipos</SelectItem>
+              <SelectItem value="script">script</SelectItem>
+              <SelectItem value="flow">flow</SelectItem>
+              <SelectItem value="lab_session">lab_session</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={familyFilter} onValueChange={setFamilyFilter}>
+            <SelectTrigger className="border-gray-700 bg-gray-900 text-white">
+              <SelectValue placeholder="Familia" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las familias</SelectItem>
+              {Array.from(families.keys()).slice(0, 50).map((familyId) => (
+                <SelectItem key={familyId} value={familyId}>{familyId}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
         <div className="text-center py-12">
           <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-gray-400 mt-4">Cargando historial...</p>
+          <p className="text-gray-400 mt-4">Cargando runs...</p>
         </div>
-      ) : !history || history.length === 0 ? (
+      ) : !filteredRuns.length ? (
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="text-center py-12">
             <Clock className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-            <h3 className="text-xl text-gray-400 mb-2">Sin ejecuciones registradas</h3>
-            <p className="text-gray-500">Ejecuta algunos scripts para ver el historial aquí</p>
+            <h3 className="text-xl text-gray-400 mb-2">Sin resultados</h3>
+            <p className="text-gray-500">Ajusta los filtros o ejecuta nuevas operaciones para seguir investigando.</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {history.map((execution) => (
-            <Card 
-              key={execution.id} 
-              className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all cursor-pointer"
-              onClick={() => setSelectedExecution(execution)}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <StatusBadge status={execution.status} />
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">
-                        {execution.script}
-                      </h3>
-                      <p className="text-gray-400 text-sm">
-                        {formatTimestamp(execution.timestamp)}
-                      </p>
+          {filteredRuns.map((run) => {
+            const familyRuns = families.get(getRootFamilyId(run)) || [run];
+            return (
+              <Card key={run.id} className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all cursor-pointer" onClick={() => setSelectedRunId(run.id)}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-lg font-semibold text-white">{run.metadata?.script || run.metadata?.flow_id || run.target || run.requested_action}</h3>
+                      <p className="text-sm text-gray-400">{formatTimestamp(run.created_at)}</p>
+                      {(run.parent_run_id || run.metadata?.retry_of) && (
+                        <p className="text-xs text-yellow-300">retry of {run.parent_run_id || run.metadata?.retry_of}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge>{run.run_type}</Badge>
+                      <Badge>{getDisplayStatus(run.status)}</Badge>
+                      <ActionButton icon={<Eye className="w-4 h-4" />} title="Ver" description="Ver detalle" onClick={() => setSelectedRunId(run.id)} />
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p className="text-gray-400 text-sm">
-                        {execution.execution_time}
-                      </p>
-                    </div>
-                    
-                    <ActionButton
-                      icon={<Eye className="w-4 h-4" />}
-                      title="Ver"
-                      description="Ver detalles"
-                      onClick={() => setSelectedExecution(execution)}
-                    />
+                  <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-400">
+                    <span>Acción: <span className="text-cyan-400">{run.requested_action}</span></span>
+                    <span>Steps: {run.step_count ?? 0}</span>
+                    <span>Eventos: {run.timeline_count ?? 0}</span>
+                    <span>Artifacts: {run.artifact_count ?? 0}</span>
+                    <span>Familia: {familyRuns.length} intentos</span>
                   </div>
-                </div>
-                
-                <div className="mt-4 flex items-center space-x-4 text-sm text-gray-400">
-                  <span>Módulo: <span className="text-cyan-400">{execution.module}</span></span>
-                  {Object.keys(execution.parameters).length > 0 && (
-                    <span>
-                      Parámetros: {Object.keys(execution.parameters).length} configurados
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-interface WebSocketMessage {
-  type: string;
-  data: string;
-  timestamp: number;
+export interface WebSocketMessage {
+  run_id: string;
+  scope_type: string;
+  scope_id?: string;
+  event_type: string;
+  status?: string;
+  message?: string;
+  payload?: Record<string, any>;
+  timestamp: string;
 }
 
 interface UseWebSocketOptions {
@@ -13,50 +18,43 @@ interface UseWebSocketOptions {
   onError?: (error: Event) => void;
 }
 
-export const useWebSocket = (executionId: string | null, options: UseWebSocketOptions = {}) => {
+export const useWebSocket = (runId: string | null, options: UseWebSocketOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState<WebSocketMessage[]>([]);
   const ws = useRef<WebSocket | null>(null);
 
   const connect = useCallback(() => {
-    if (!executionId) return;
-
+    if (!runId) return;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:8000/ws/execute/${executionId}`;
-    
+    const wsUrl = `${protocol}//${window.location.hostname}:8000/ws/runs/${runId}`;
+
     try {
       ws.current = new WebSocket(wsUrl);
-
       ws.current.onopen = () => {
-        console.log('✅ WebSocket connected');
         setIsConnected(true);
         options.onOpen?.();
       };
-
       ws.current.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          if ((message as any).type === 'pong') return;
           setMessages((prev) => [...prev, message]);
           options.onMessage?.(message);
-        } catch (e) {
-          console.error('Failed to parse WebSocket message:', e);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
         }
       };
-
       ws.current.onclose = () => {
-        console.log('🔌 WebSocket disconnected');
         setIsConnected(false);
         options.onClose?.();
       };
-
       ws.current.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
         options.onError?.(error);
       };
     } catch (error) {
       console.error('Failed to create WebSocket:', error);
     }
-  }, [executionId, options]);
+  }, [runId, options]);
 
   const disconnect = useCallback(() => {
     if (ws.current) {
@@ -72,20 +70,9 @@ export const useWebSocket = (executionId: string | null, options: UseWebSocketOp
   }, []);
 
   useEffect(() => {
-    if (executionId) {
-      connect();
-    }
+    if (runId) connect();
+    return () => disconnect();
+  }, [runId, connect, disconnect]);
 
-    return () => {
-      disconnect();
-    };
-  }, [executionId, connect, disconnect]);
-
-  return {
-    isConnected,
-    messages,
-    sendMessage,
-    connect,
-    disconnect
-  };
+  return { isConnected, messages, sendMessage, connect, disconnect };
 };
