@@ -76,7 +76,7 @@ export const ScriptExecutionConsole = ({ script, isRunning, runId }: ScriptExecu
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Terminal className="w-5 h-5 text-cyan-400" />
-            <CardTitle className="text-cyan-400">Consola de Ejecución</CardTitle>
+            <CardTitle className="text-cyan-400">Consola Operativa</CardTitle>
             {isRunning && (
               <div className="flex items-center space-x-2">
                 <Activity className="w-4 h-4 text-green-400 animate-pulse" />
@@ -99,7 +99,7 @@ export const ScriptExecutionConsole = ({ script, isRunning, runId }: ScriptExecu
       <CardContent>
         <ScrollArea className="h-96" ref={scrollRef}>
           <div className="font-mono text-sm space-y-1">
-            {output.length === 0 && !isRunning && <div className="text-gray-500 italic">Presiona "Ejecutar Script" para ver el output aquí...</div>}
+            {output.length === 0 && !isRunning && <div className="text-gray-500 italic">Inicia una ejecución para ver el timeline aquí...</div>}
             {output.map((line, index) => (
               <div key={index} className={getLineColor(line)}>
                 <span className="text-gray-500 mr-2">{new Date().toLocaleTimeString()}</span>
