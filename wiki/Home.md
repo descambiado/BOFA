@@ -58,4 +58,4 @@ En el repositorio:
 
 ---
 
-*Por [@descambiado](https://github.com/descambiado). Versión: **v2.6.0**.*
+*Por [@descambiado](https://github.com/descambiado). Versión: **v2.8.0**.*

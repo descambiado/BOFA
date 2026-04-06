@@ -1,6 +1,6 @@
-# 📖 BOFA v2.5.1 Usage Guide
+# 📖 BOFA v2.8.0 Usage Guide
 
-Complete guide for using BOFA Extended Systems v2.5.1 - Professional Cybersecurity Platform
+Complete guide for using BOFA Extended Systems v2.8.0 - Professional Cybersecurity Platform
 
 ## 🎯 Platform Overview
 

@@ -1,5 +1,5 @@
 /**
- * BOFA v2.5.1 - Neural Security Edge
+ * BOFA v2.8.0 - Operational Control Plane
  * Configuración centralizada de la aplicación
  */
 
@@ -7,9 +7,9 @@ export const APP_CONFIG = {
   // Información de la aplicación
   name: "BOFA",
   fullName: "Best Of All Cybersecurity Suite",
-  version: "2.5.1",
-  codename: "Neural Security Edge",
-  releaseDate: "2025-01-08",
+  version: "2.8.0",
+  codename: "Operational Control Plane",
+  releaseDate: "2026-04-06",
   
   // Información del desarrollador
   developer: {

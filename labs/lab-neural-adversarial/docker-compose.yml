@@ -25,7 +25,7 @@ services:
     working_dir: /workspace
     command: >
       bash -c "
-        echo '🧠 Starting BOFA Neural Adversarial Lab v2.5.1...' &&
+        echo '🧠 Starting BOFA Neural Adversarial Lab v2.8.0...' &&
         pip install --quiet jupyter tensorboard flask numpy tensorflow scikit-learn matplotlib seaborn pillow &&
         echo '🎯 Installing adversarial attack libraries...' &&
         pip install --quiet cleverhans foolbox adversarial-robustness-toolbox art &&

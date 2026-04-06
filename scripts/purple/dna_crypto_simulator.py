@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BOFA DNA-based Cryptography Simulator v2.5.1
+BOFA DNA-based Cryptography Simulator v2.8.0
 Revolutionary biological cryptography using DNA sequences and genetic algorithms
 """
 
@@ -398,7 +398,7 @@ class DNACryptographySimulator:
         """Generate comprehensive DNA cryptography report"""
         report = {
             'timestamp': datetime.now().isoformat(),
-            'version': '2.5.1',
+            'version': '2.8.0',
             'test_suite': 'DNA_Cryptography',
             'results': {},
             'security_analysis': {},
@@ -470,7 +470,7 @@ class DNACryptographySimulator:
 
 def main():
     """Main execution function"""
-    print("🧬 BOFA DNA-based Cryptography Simulator v2.5.1")
+    print("🧬 BOFA DNA-based Cryptography Simulator v2.8.0")
     print("=" * 60)
     
     simulator = DNACryptographySimulator()

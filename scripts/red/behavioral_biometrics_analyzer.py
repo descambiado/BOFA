@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🧬 Behavioral Biometrics Analyzer v2.5.1
+🧬 Behavioral Biometrics Analyzer v2.8.0
 Revolutionary biometric authentication testing through behavioral patterns
 By @descambiado for BOFA Security Suite
 """
@@ -386,7 +386,7 @@ class BehavioralBiometricsAnalyzer:
         """Generate comprehensive behavioral analysis report"""
         report = {
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'tool': 'BOFA Behavioral Biometrics Analyzer v2.5.1',
+            'tool': 'BOFA Behavioral Biometrics Analyzer v2.8.0',
             'author': '@descambiado',
             'analysis_summary': {
                 'total_users': len(self.user_profiles),
@@ -488,7 +488,7 @@ class BehavioralBiometricsAnalyzer:
 
 async def main():
     """Main execution function"""
-    parser = argparse.ArgumentParser(description="BOFA Behavioral Biometrics Analyzer v2.5.1")
+    parser = argparse.ArgumentParser(description="BOFA Behavioral Biometrics Analyzer v2.8.0")
     parser.add_argument("--mode", choices=["profile", "authenticate", "demo"], 
                        default="demo", help="Operation mode")
     parser.add_argument("--user-id", default="user001", help="User identifier")
@@ -504,7 +504,7 @@ async def main():
     
     args = parser.parse_args()
     
-    print("🧬 BOFA Behavioral Biometrics Analyzer v2.5.1")
+    print("🧬 BOFA Behavioral Biometrics Analyzer v2.8.0")
     print("=" * 60)
     print("Revolutionary biometric authentication testing")
     print("By @descambiado for BOFA Security Suite")

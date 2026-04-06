@@ -25,7 +25,7 @@ services:
     working_dir: /workspace
     command: >
       bash -c "
-        echo '⚛️ Starting BOFA Quantum Computing Simulator v2.5.1...' &&
+        echo '⚛️ Starting BOFA Quantum Computing Simulator v2.8.0...' &&
         echo '📦 Installing quantum computing frameworks...' &&
         pip install --quiet qiskit[visualization] cirq pennylane pennylane-qiskit &&
         pip install --quiet qiskit-aer qiskit-ibmq-provider qiskit-optimization &&

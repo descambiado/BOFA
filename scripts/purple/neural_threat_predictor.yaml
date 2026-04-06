@@ -1,7 +1,7 @@
 name: "Neural Threat Predictor"
 description: "Advanced AI-powered threat prediction using deep learning models and neural networks"
 author: "BOFA Security Team"
-version: "2.5.1"
+version: "2.8.0"
 category: "purple"
 difficulty: "expert"
 estimated_time: "15-30 minutes"
