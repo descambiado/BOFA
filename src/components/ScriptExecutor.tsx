@@ -41,7 +41,7 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
     const interval = setInterval(async () => {
       try {
         const status = await apiService.getExecutionStatus(executionId);
-        if (["success", "error", "cancelled", "completed", "finished"].includes(status.status)) {
+        if (["success", "error", "failed", "cancelled", "completed", "finished"].includes(status.status)) {
           setIsRunning(false);
           setExecutionResult({
             script: script.name,

@@ -58,6 +58,10 @@ class RunManager:
         self.db.update_run(run_id, status="running", started_at=datetime.utcnow().isoformat())
         self.add_event(run_id, "run", run_id, "status_changed", "running", message)
 
+    def mark_run_cancelling(self, run_id: str, message: str = "Run cancellation requested", payload: Dict[str, Any] = None):
+        self.db.update_run(run_id, status="cancelling")
+        self.add_event(run_id, "run", run_id, "cancel_requested", "cancelling", message, payload or {})
+
     def mark_run_finished(self, run_id: str, status: str, message: str = None, metadata: Dict[str, Any] = None):
         self.db.update_run(
             run_id,

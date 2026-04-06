@@ -14,3 +14,7 @@ Este módulo proporciona la infraestructura base del framework:
 
 __version__ = "1.0.0"
 __author__ = "@descambiado"
+
+from .cancellation import check_cancelled, cooperative_sleep, raise_if_cancelled
+
+__all__ = ["check_cancelled", "cooperative_sleep", "raise_if_cancelled"]

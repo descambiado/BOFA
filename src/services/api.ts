@@ -129,7 +129,7 @@ export interface Lab {
   description: string;
   category: string;
   difficulty: string;
-  status: 'stopped' | 'running' | 'starting' | 'error';
+  status: 'stopped' | 'running' | 'starting' | 'error' | 'cancelling';
   estimated_time?: string;
   port?: number;
   url?: string;

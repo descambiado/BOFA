@@ -11,6 +11,7 @@ const History = () => {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const { data: runs, isLoading, refetch } = useRuns();
   const { data: selectedRun, refetch: refetchRun } = useRunDetail(selectedRunId);
+  const isFinalStatus = (status?: string) => ["success", "failed", "error", "partial", "cancelled"].includes(status || "");
 
   const formatTimestamp = (timestamp?: string) => (timestamp ? new Date(timestamp).toLocaleString("es-ES") : "sin fecha");
 
@@ -52,10 +53,10 @@ const History = () => {
         <div className="mb-6 flex items-center justify-between">
           <ActionButton icon={<ArrowLeft className="w-4 h-4" />} title="Volver" description="Volver al historial" onClick={() => setSelectedRunId(null)} />
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => handleRetry(selectedRun.id)} className="border-gray-600 text-gray-300 hover:bg-gray-700">
+            <Button variant="outline" disabled={!isFinalStatus(selectedRun.status)} onClick={() => handleRetry(selectedRun.id)} className="border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-50">
               <RotateCcw className="mr-2 h-4 w-4" /> Reintentar
             </Button>
-            <Button variant="outline" onClick={() => handleCancel(selectedRun.id)} className="border-red-500/40 text-red-300 hover:bg-red-500/10">
+            <Button variant="outline" disabled={isFinalStatus(selectedRun.status) || selectedRun.status === "cancelling"} onClick={() => handleCancel(selectedRun.id)} className="border-red-500/40 text-red-300 hover:bg-red-500/10 disabled:opacity-50">
               <Square className="mr-2 h-4 w-4" /> Cancelar
             </Button>
           </div>
@@ -66,7 +67,7 @@ const History = () => {
             <CardHeader>
               <CardTitle className="text-cyan-400 flex items-center justify-between">
                 <span>Run {selectedRun.id}</span>
-                <Badge>{selectedRun.status}</Badge>
+                <Badge>{selectedRun.status === "cancelling" ? "cancel requested" : selectedRun.status}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-4">
@@ -89,7 +90,7 @@ const History = () => {
                       <p className="font-medium text-white">{step.module || step.step_type} / {step.script_name || step.step_key || step.id}</p>
                       <p className="text-sm text-gray-400">Inicio: {formatTimestamp(step.started_at)} · Fin: {formatTimestamp(step.completed_at)}</p>
                     </div>
-                    <Badge>{step.status}</Badge>
+                    <Badge>{step.status === "cancelling" ? "cancel requested" : step.status}</Badge>
                   </div>
                   {(step.stdout_preview || step.error_message) && (
                     <pre className="mt-3 whitespace-pre-wrap rounded bg-black p-3 text-sm text-gray-300">
@@ -110,7 +111,7 @@ const History = () => {
                 <div key={event.id} className="rounded-lg border border-gray-700 bg-gray-900/60 p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-white">{event.scope_type} · {event.event_type}</span>
-                    <Badge>{event.status || "info"}</Badge>
+                    <Badge>{event.status === "cancelling" ? "cancel requested" : event.status || "info"}</Badge>
                   </div>
                   <p className="mt-2 text-sm text-gray-300">{event.message || "Sin mensaje"}</p>
                   <p className="mt-1 text-xs text-gray-500">{formatTimestamp(event.created_at)}</p>
@@ -175,7 +176,7 @@ const History = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge>{run.run_type}</Badge>
-                    <Badge>{run.status}</Badge>
+                    <Badge>{run.status === "cancelling" ? "cancel requested" : run.status}</Badge>
                     <ActionButton icon={<Eye className="w-4 h-4" />} title="Ver" description="Ver detalle" onClick={() => setSelectedRunId(run.id)} />
                   </div>
                 </div>
