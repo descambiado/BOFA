@@ -435,7 +435,7 @@ async def _execute_script_step(item: Dict[str, Any]):
     _clear_cancel_marker(control["step_cancel_file"])
 
     if _is_run_cancelling(run_id):
-        await execution_queue.cancel(execution_id)
+        await execution_queue.mark_cancelled(execution_id, {"status": "cancelled", "run_id": run_id, "step_id": step_id})
         db.create_execution(execution_id, item["user_id"], module, script, parameters, run_id=run_id, step_id=step_id)
         db.update_execution(execution_id, "cancelled", error_message="Execution cancelled before start")
         run_manager.update_step(step_id, run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution cancelled before start")
@@ -464,6 +464,7 @@ async def _execute_script_step(item: Dict[str, Any]):
             command.extend([f"--{key}", str(value)])
 
     db.create_execution(execution_id, item["user_id"], module, script, parameters, run_id=run_id, step_id=step_id)
+    await execution_queue.mark_process_launching(execution_id)
     process = await asyncio.create_subprocess_exec(
         *command,
         stdout=asyncio.subprocess.PIPE,
@@ -481,6 +482,12 @@ async def _execute_script_step(item: Dict[str, Any]):
     run_lookup_by_execution[execution_id] = run_id
     control["process"] = process
     await execution_queue.mark_process_started(execution_id)
+
+    if _is_run_cancelling(run_id):
+        try:
+            process.terminate()
+        except ProcessLookupError:
+            pass
 
     stdout_chunks: List[str] = []
     stderr_chunks: List[str] = []
@@ -749,6 +756,10 @@ def _normalize_history_from_runs(runs: List[Dict[str, Any]]) -> List[Dict[str, A
     return items
 
 
+def _legacy_execution_status(status: Optional[str]) -> Optional[str]:
+    return "error" if status == "failed" else status
+
+
 def _normalize_legacy_history(user_id: Optional[int], limit: int = 50) -> List[Dict[str, Any]]:
     items = []
     for item in db.get_execution_history(user_id, limit=limit * 4):
@@ -778,6 +789,39 @@ def _merge_history_items(run_items: List[Dict[str, Any]], legacy_items: List[Dic
     merged = run_items + legacy_items
     merged.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
     return merged[:limit]
+
+
+async def _wait_for_flow_task_drain(run_id: str, task: Optional[asyncio.Task]) -> Dict[str, Any]:
+    if not task:
+        return db.get_run_detail(run_id) or {}
+
+    try:
+        await asyncio.wait_for(asyncio.shield(task), timeout=CANCEL_GRACE_SECONDS)
+    except asyncio.TimeoutError:
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "force_kill",
+            "cancelling",
+            "Flow cancellation still draining after grace period",
+            {"forced": False, "signal_sent": "cancel_marker"},
+        )
+    except asyncio.CancelledError:
+        pass
+    except Exception as exc:
+        logger.warning("Flow task raised while draining during cancellation", extra={"run_id": run_id, "error": str(exc)})
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "task_error",
+            "failed",
+            "Flow task raised while cancellation was in progress",
+            {"error": str(exc)},
+        )
+
+    return db.get_run_detail(run_id) or {}
 
 
 @app.on_event("startup")
@@ -1074,23 +1118,7 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
         }
 
     if run.get("run_type") == "flow":
-        task = control.get("task")
-        if task:
-            try:
-                await asyncio.wait_for(asyncio.shield(task), timeout=CANCEL_GRACE_SECONDS)
-            except asyncio.TimeoutError:
-                await _emit_and_persist(
-                    run_id,
-                    "run",
-                    run_id,
-                    "force_kill",
-                    "cancelling",
-                    "Flow cancellation still draining after grace period",
-                    {"forced": False, "signal_sent": "cancel_marker"},
-                )
-            except asyncio.CancelledError:
-                pass
-        updated = db.get_run_detail(run_id) or {}
+        updated = await _wait_for_flow_task_drain(run_id, control.get("task"))
         return {
             "run_id": run_id,
             "status": updated.get("status", "cancelling"),
@@ -1216,9 +1244,7 @@ async def get_execution_status(execution_id: str, current_user: Dict[str, Any] =
         if current_user["role"] != "admin" and run and run.get("user_id") != current_user["user_id"]:
             raise HTTPException(status_code=403, detail="Access denied")
         step = next((item for item in (run or {}).get("steps", []) if item["id"] == status["step_id"]), None)
-        legacy_status = step.get("status") if step else status.get("status")
-        if legacy_status == "failed":
-            legacy_status = "error"
+        legacy_status = _legacy_execution_status(step.get("status") if step else status.get("status"))
         return {
             "id": execution_id,
             "run_id": status["run_id"],
