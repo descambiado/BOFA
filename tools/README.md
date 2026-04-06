@@ -13,8 +13,18 @@ python3 tools/verify_bofa.py
 - **Modo completo**: `python3 tools/verify_bofa.py --full` — lista todos los módulos/scripts, valida y ejecuta los que aceptan parámetros vacíos o tienen parámetros seguros. Los que necesitan parámetros no se ejecutan (se marcan como "Necesitan parámetros"). Algunos se omiten por ser de larga duración o con dependencias de entorno (no cuentan como fallo).
 - **Comprobar MCP (opcional)**: `python3 tools/verify_bofa.py --mcp` — además del modo rápido, comprueba que las herramientas MCP responden si tienes instalado `pip install .[mcp]`. Si no tienes MCP instalado, se marca como "SKIP" y no cuenta como fallo.
 - **Comprobar agente (opcional)**: `python3 tools/verify_bofa.py --agent` — verifica que el módulo del agente autónomo se importa correctamente (sin ejecutar LLM).
+- **Comprobar hardening del runtime**: `python3 tools/verify_runtime_hardening.py` — valida cancelación de cola, compatibilidad legacy de estados/historial, drenaje seguro de flows y preservación del timeout real en el engine.
 
 Código de salida: 0 = todo OK, 1 = hay fallos (revisar la salida).
+
+### Flujo recomendado para releases del runtime
+
+```bash
+python3 tools/verify_bofa.py
+python3 tools/verify_runtime_hardening.py
+```
+
+Si ambos terminan en OK, el control plane queda validado a nivel básico antes de mergear o taggear una release.
 
 ## Agente autónomo
 
