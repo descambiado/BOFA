@@ -4,6 +4,28 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.8.0 (2026-04-06) - Operational Control Plane
+
+### Runtime y trazabilidad
+- **Runs unificados**: nuevo modelo operativo con `operation_runs`, `run_steps`, `run_labs`, `run_events` y `run_artifacts` como verdad del sistema.
+- **Timeline persistente**: scripts, flows y labs comparten `run_id`, eventos persistidos y artifacts registrados de extremo a extremo.
+- **Artifacts de runtime**: salidas `stdout` y `stderr` se guardan bajo `reports/runs/<run_id>/` y quedan vinculadas al historial operativo.
+
+### Control operativo
+- **Cancelación real**: política `graceful then kill` con estado `cancelling`, markers de cancelación y eventos `cancel_requested`, `force_kill` y `cancelled`.
+- **Retry con linaje**: reintentos seguros con `parent_run_id`, metadata de origen y seguimiento por familia de ejecuciones.
+- **Compatibilidad legacy**: `/execute`, `/labs/*` y `/history` siguen funcionando como wrappers hacia el control plane.
+
+### UI operativa
+- **Dashboard**: salud, cola, runs activos y estado de la plataforma más coherentes con el backend real.
+- **Flows y Labs**: ejecución desde UI sobre `POST /runs`, consola live enlazada por `run_id` y seguimiento persistente.
+- **Historial táctico**: filtros, familias de retries, artifacts rápidos y detalle operativo por run.
+
+### Release
+- **Versionado unificado**: frontend, API, CLI, Docker, docs, labs y metadatos de scripts alineados bajo `v2.8.0`.
+
+---
+
 ## v2.7.0 (2026-02) - CLI navegable y mensaje MCP unificado
 
 ### Documentación: MCP y "hablar con la IA"

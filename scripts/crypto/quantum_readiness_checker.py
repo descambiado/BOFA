@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Quantum Readiness Checker - BOFA v2.5.1
+Quantum Readiness Checker - BOFA v2.8.0
 Verifies cryptographic readiness for post-quantum era
 Author: @descambiado
 """

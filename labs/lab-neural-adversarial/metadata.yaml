@@ -1,6 +1,6 @@
 name: "Neural Network Adversarial Laboratory"
 description: "Advanced laboratory for generating and defending against adversarial attacks on neural networks"
-version: "2.5.1"
+version: "2.8.0"
 category: "ai_security"
 difficulty: "expert"
 estimated_time: "60-120 minutes"

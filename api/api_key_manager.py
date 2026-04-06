@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-API Key Manager - BOFA v2.5.1
+API Key Manager - BOFA v2.8.0
 Manages API keys for external services with encryption and caching
 Author: @descambiado
 """

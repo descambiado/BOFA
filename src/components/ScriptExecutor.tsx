@@ -26,6 +26,7 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
   const [showAlert, setShowAlert] = useState(true);
   const [executionResult, setExecutionResult] = useState<any>(null);
   const [executionId, setExecutionId] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
 
   const handleParameterChange = (paramName: string, value: string) => {
     setParameters(prev => ({
@@ -40,7 +41,7 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
     const interval = setInterval(async () => {
       try {
         const status = await apiService.getExecutionStatus(executionId);
-        if (["success", "error", "cancelled", "completed", "finished"].includes(status.status)) {
+        if (["success", "error", "failed", "cancelled", "completed", "finished"].includes(status.status)) {
           setIsRunning(false);
           setExecutionResult({
             script: script.name,
@@ -52,6 +53,7 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
             status: status.status,
           });
           setExecutionId(null);
+          setRunId(null);
           if (onExecutionComplete) onExecutionComplete();
           clearInterval(interval);
         }
@@ -73,12 +75,13 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
     try {
       setIsRunning(true);
       setExecutionResult(null);
-      const { execution_id } = await apiService.startExecution({
+      const { execution_id, run_id } = await apiService.startExecution({
         module,
         script: script.name,
         parameters,
       });
       setExecutionId(execution_id);
+      setRunId(run_id);
     } catch (e) {
       setIsRunning(false);
     }
@@ -89,6 +92,7 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
       try { await apiService.stopExecution(executionId); } catch {}
     }
     setIsRunning(false);
+    setRunId(null);
   };
 
   const generateScriptOutput = (script: ScriptConfig): string => {
@@ -443,7 +447,7 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
           <ScriptExecutionConsole 
             script={script} 
             isRunning={isRunning}
-            executionId={executionId}
+            runId={runId}
           />
           </div>
         </div>

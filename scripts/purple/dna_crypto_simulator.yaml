@@ -1,7 +1,7 @@
 name: "DNA-based Cryptography Simulator"
 description: "Revolutionary biological cryptography using DNA sequences and genetic algorithms"
 author: "BOFA Biotechnology Security Team"
-version: "2.5.1"
+version: "2.8.0"
 category: "purple"
 difficulty: "expert"
 estimated_time: "25-40 minutes"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BOFA Neural Threat Prediction Engine v2.5.1
+BOFA Neural Threat Prediction Engine v2.8.0
 Advanced AI-powered threat prediction using deep learning models
 """
 
@@ -223,7 +223,7 @@ class NeuralThreatPredictor:
         """Generate comprehensive threat prediction report"""
         report = {
             'timestamp': datetime.now().isoformat(),
-            'version': '2.5.1',
+            'version': '2.8.0',
             'neural_engine': 'active',
             'predictions': predictions,
             'summary': {
@@ -251,7 +251,7 @@ class NeuralThreatPredictor:
 
 async def main():
     """Main execution function"""
-    print("🧠 BOFA Neural Threat Prediction Engine v2.5.1")
+    print("🧠 BOFA Neural Threat Prediction Engine v2.8.0")
     print("=" * 50)
     
     predictor = NeuralThreatPredictor()

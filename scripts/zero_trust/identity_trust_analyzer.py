@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Identity Trust Analyzer - BOFA v2.5.1
+Identity Trust Analyzer - BOFA v2.8.0
 Analyzes identity trust levels and access patterns
 Author: @descambiado
 """

@@ -1,4 +1,4 @@
-# 🤝 Contributing to BOFA v2.7.0
+# 🤝 Contributing to BOFA v2.8.0
 
 Thank you for your interest in contributing to BOFA Extended Systems! This guide will help you get started with contributing to our professional cybersecurity platform.
 

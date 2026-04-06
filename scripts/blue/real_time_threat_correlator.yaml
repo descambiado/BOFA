@@ -1,7 +1,7 @@
 name: "Real-Time Threat Correlator"
 description: "Advanced threat intelligence correlation engine with ML-powered analysis and attack pattern recognition"
 author: "BOFA Security Team"
-version: "2.5.1"
+version: "2.8.0"
 category: "blue"
 difficulty: "expert"
 estimated_time: "25-40 minutes"

@@ -29,6 +29,7 @@ export interface Module {
 
 export interface ExecutionResult {
   id: string;
+  run_id?: string;
   module: string;
   script: string;
   parameters: Record<string, string>;
@@ -39,16 +40,103 @@ export interface ExecutionResult {
   error?: string;
 }
 
+export interface RunEvent {
+  id: string;
+  run_id: string;
+  scope_type: string;
+  scope_id?: string;
+  event_type: string;
+  status?: string;
+  message?: string;
+  payload?: Record<string, any>;
+  created_at: string;
+}
+
+export interface RunArtifact {
+  id: string;
+  run_id: string;
+  artifact_type: string;
+  path: string;
+  label?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface RunStep {
+  id: string;
+  run_id: string;
+  step_type: string;
+  step_key?: string;
+  module?: string;
+  script_name?: string;
+  status: string;
+  step_index: number;
+  parameters?: Record<string, any>;
+  started_at?: string;
+  completed_at?: string;
+  exit_code?: number;
+  duration?: number;
+  stdout_preview?: string;
+  stderr_preview?: string;
+  error_message?: string;
+}
+
+export interface RunLab {
+  id: string;
+  run_id: string;
+  lab_id: string;
+  status: string;
+  container_id?: string;
+  port?: number;
+  started_at?: string;
+  stopped_at?: string;
+}
+
+export interface RunSummary {
+  id: string;
+  run_type: string;
+  source: string;
+  status: string;
+  target?: string;
+  requested_action: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  parent_run_id?: string;
+  metadata?: Record<string, any>;
+  timeline_count?: number;
+  step_count?: number;
+  artifact_count?: number;
+  lab_count?: number;
+}
+
+export interface RunDetail extends RunSummary {
+  steps: RunStep[];
+  labs: RunLab[];
+  events: RunEvent[];
+  artifacts: RunArtifact[];
+}
+
+export interface FlowSummary {
+  id: string;
+  name: string;
+  description: string;
+  steps_count: number;
+}
+
 export interface Lab {
   id: string;
   name: string;
   description: string;
   category: string;
   difficulty: string;
-  status: 'stopped' | 'running' | 'starting' | 'error';
+  status: 'stopped' | 'running' | 'starting' | 'error' | 'cancelling';
   estimated_time?: string;
   port?: number;
   url?: string;
+  technologies?: string[];
+  features?: string[];
+  message?: string;
 }
 
 export interface StudyLesson {
@@ -452,7 +540,7 @@ export const apiService = {
   },
 
   // Ejecución real con control manual (start/poll/stop)
-  startExecution: async (data: { module: string; script: string; parameters: Record<string, string>; }): Promise<{ execution_id: string }> => {
+  startExecution: async (data: { module: string; script: string; parameters: Record<string, string>; }): Promise<{ execution_id: string; run_id: string }> => {
     if (!authService.isAuthenticated()) throw new Error('Debe autenticarse para ejecutar scripts');
     try {
       const response = await fetch(`${API_BASE}/execute`, {
@@ -463,10 +551,11 @@ export const apiService = {
       });
       if (!response.ok) throw new Error('API not available');
       const result = await response.json();
-      return { execution_id: result.execution_id };
+      return { execution_id: result.execution_id, run_id: result.run_id || result.execution_id };
     } catch (error) {
       console.warn(`⚠️ API: Simulando inicio de ejecución de ${data.script}`);
-      return { execution_id: `mock-${Date.now()}` };
+      const id = `mock-${Date.now()}`;
+      return { execution_id: id, run_id: id };
     }
   },
 
@@ -517,6 +606,160 @@ export const apiService = {
     }
   },
 
+  getRuns: async (): Promise<RunSummary[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!response.ok) throw new Error('API not available');
+      return await response.json();
+    } catch (error) {
+      return mockHistory.map((item) => ({
+        id: item.id,
+        run_type: 'script',
+        source: 'demo',
+        status: item.status,
+        requested_action: 'execute_script',
+        created_at: item.timestamp,
+        metadata: {
+          module: item.module,
+          script: item.script,
+          parameters: item.parameters,
+        },
+        step_count: 1,
+        timeline_count: 2,
+        artifact_count: item.output ? 1 : 0,
+        lab_count: 0,
+      }));
+    }
+  },
+
+  getRun: async (runId: string): Promise<RunDetail> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo obtener el detalle del run');
+      return await response.json();
+    } catch (error) {
+      return {
+        id: runId,
+        run_type: runId.startsWith('mock-flow') ? 'flow' : 'script',
+        source: 'demo',
+        status: 'running',
+        target: 'demo-target',
+        requested_action: runId.startsWith('mock-flow') ? 'execute_flow' : 'execute_script',
+        created_at: new Date().toISOString(),
+        metadata: {
+          flow_id: runId.startsWith('mock-flow') ? 'demo-flow' : undefined,
+        },
+        steps: [],
+        labs: [],
+        events: [],
+        artifacts: [],
+      };
+    }
+  },
+
+  getRunTimeline: async (runId: string): Promise<{ run_id: string; events: RunEvent[]; artifacts: RunArtifact[] }> => {
+    const response = await fetch(`${API_BASE}/runs/${runId}/timeline`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener el timeline del run');
+    return await response.json();
+  },
+
+  cancelRun: async (runId: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/cancel`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo cancelar el run');
+      return await response.json();
+    } catch (error) {
+      return { run_id: runId, status: 'cancelled', message: 'Run cancelado en modo demo' };
+    }
+  },
+
+  retryRun: async (runId: string): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/retry`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo reintentar el run');
+      return await response.json();
+    } catch (error) {
+      return { run_id: `retry-${runId}`, status: 'running', message: 'Retry lanzado en modo demo' };
+    }
+  },
+
+  getFlows: async (): Promise<FlowSummary[]> => {
+    try {
+      const response = await fetch(`${API_BASE}/flows`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!response.ok) throw new Error('API not available');
+      return await response.json();
+    } catch (error) {
+      return [
+        {
+          id: 'full_recon',
+          name: 'full_recon',
+          description: 'Recon completo sobre un target con descubrimiento, cabeceras, robots.txt y CVE lookup',
+          steps_count: 4,
+        },
+        {
+          id: 'vuln_triage',
+          name: 'vuln_triage',
+          description: 'Triaging rápido para findings y priorización operativa',
+          steps_count: 3,
+        },
+        {
+          id: 'blue_daily',
+          name: 'blue_daily',
+          description: 'Cadena defensiva diaria para revisar señales, resúmenes y correlación',
+          steps_count: 4,
+        },
+      ];
+    }
+  },
+
+  startFlow: async (flowId: string, target: string): Promise<{ run_id: string; status: string; message: string }> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          run_type: 'flow',
+          source: 'ui',
+          requested_action: 'execute_flow',
+          target,
+          metadata: {
+            flow_id: flowId,
+            target,
+          },
+        }),
+        signal: AbortSignal.timeout(APP_CONFIG.api.timeout)
+      });
+      if (!response.ok) throw new Error('API not available');
+      return await response.json();
+    } catch (error) {
+      return {
+        run_id: `mock-flow-${Date.now()}`,
+        status: 'running',
+        message: `Flow ${flowId} iniciado en modo demo`,
+      };
+    }
+  },
+
   // Labs
   getLabs: async (): Promise<Lab[]> => {
     try {
@@ -534,7 +777,7 @@ export const apiService = {
     }
   },
 
-  startLab: async (labId: string): Promise<{ status: string; message: string }> => {
+  startLab: async (labId: string): Promise<{ status: string; message: string; run_id?: string; lab_run_id?: string; url?: string; port?: number }> => {
     try {
       const response = await fetch(`${API_BASE}/labs/${labId}/start`, {
         method: 'POST',
@@ -547,11 +790,11 @@ export const apiService = {
       return result;
     } catch (error) {
       console.warn(`⚠️ API: Simulating lab ${labId} start`);
-      return { status: 'success', message: `Lab ${labId} iniciado exitosamente (simulado)` };
+      return { status: 'success', message: `Lab ${labId} iniciado exitosamente (simulado)`, run_id: `mock-lab-${Date.now()}` };
     }
   },
 
-  stopLab: async (labId: string): Promise<{ status: string; message: string }> => {
+  stopLab: async (labId: string): Promise<{ status: string; message: string; run_id?: string; lab_run_id?: string }> => {
     try {
       const response = await fetch(`${API_BASE}/labs/${labId}/stop`, {
         method: 'POST',
@@ -564,7 +807,7 @@ export const apiService = {
       return result;
     } catch (error) {
       console.warn(`⚠️ API: Simulating lab ${labId} stop`);
-      return { status: 'success', message: `Lab ${labId} detenido exitosamente (simulado)` };
+      return { status: 'success', message: `Lab ${labId} detenido exitosamente (simulado)`, run_id: `mock-lab-stop-${Date.now()}` };
     }
   },
 
@@ -609,17 +852,71 @@ export const apiService = {
       });
       if (!response.ok) throw new Error('API not available');
       const data = await response.json();
-      console.log('✅ API: Dashboard stats loaded from server');
+      console.log('API: Dashboard stats loaded from server');
       return data;
     } catch (error) {
-      console.warn('⚠️ API: Using simulated dashboard stats');
+      console.warn('API: Using simulated dashboard stats');
+      const activeLabs = mockLabs.filter(lab => lab.status === 'running').length;
+      const totalExecutions = mockHistory.length;
+      const successful = mockHistory.filter(item => item.status === 'success').length;
+      const failed = mockHistory.filter(item => item.status !== 'success').length;
+      const successRate = totalExecutions > 0 ? Number(((successful / totalExecutions) * 100).toFixed(1)) : 0;
+
       return {
         total_scripts: getAllScripts().length,
-        total_executions: mockHistory.length,
-        active_labs: mockLabs.filter(lab => lab.status === 'running').length,
-        completion_rate: 78,
+        total_executions: totalExecutions,
+        active_labs: activeLabs,
+        completion_rate: successRate,
         threat_level: "MEDIUM",
-        last_scan: new Date().toISOString()
+        last_scan: new Date().toISOString(),
+        modules: mockModules.length,
+        system_status: "demo",
+        overview: {
+          total_scripts: getAllScripts().length,
+          modules: mockModules.length,
+          scripts_updated_recently: getAllScripts().filter(script => script.last_updated === "2025-01-20").length,
+          system_status: "demo",
+          threat_level: "MEDIUM",
+          last_scan: new Date().toISOString()
+        },
+        executions: {
+          total_executions: totalExecutions,
+          successful,
+          failed,
+          queued: 0,
+          running: 0,
+          success_rate: successRate
+        },
+        docker: {
+          active_labs: activeLabs,
+          containers_running: activeLabs
+        },
+        system: {
+          cpu_percent: 0,
+          memory_percent: 0,
+          active_executions: 0,
+          disk_free_gb: 0
+        },
+        queue: {
+          queued: 0,
+          running: 0,
+          completed: totalExecutions,
+          max_concurrent: APP_CONFIG.limits.maxConcurrentScripts
+        },
+        recent_activity: mockHistory.slice(0, 10).map(item => ({
+          id: item.id,
+          run_type: 'script',
+          source: 'demo',
+          status: item.status,
+          target: item.script,
+          requested_action: 'execute_script',
+          created_at: item.timestamp,
+          metadata: {
+            module: item.module,
+            script_name: item.script,
+            output: item.output,
+          },
+        }))
       };
     }
   },
@@ -690,6 +987,35 @@ export const useExecutionHistory = () => {
     refetchInterval: 30000,
     retry: 1,
     staleTime: 10 * 1000,
+  });
+};
+
+export const useRuns = () => {
+  return useQuery({
+    queryKey: ['runs'],
+    queryFn: apiService.getRuns,
+    refetchInterval: 15000,
+    retry: 1,
+    staleTime: 10 * 1000,
+  });
+};
+
+export const useFlows = () => {
+  return useQuery({
+    queryKey: ['flows'],
+    queryFn: apiService.getFlows,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useRunDetail = (runId: string | null) => {
+  return useQuery({
+    queryKey: ['run', runId],
+    queryFn: () => apiService.getRun(runId as string),
+    enabled: !!runId,
+    retry: 1,
+    staleTime: 5 * 1000,
   });
 };
 

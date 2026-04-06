@@ -1,6 +1,6 @@
 name: "Edge AI Security Laboratory"
 description: "Comprehensive security testing laboratory for Edge AI and IoT systems"
-version: "2.5.1"
+version: "2.8.0"
 category: "iot_security"
 difficulty: "expert"
 estimated_time: "120-240 minutes"

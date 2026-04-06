@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.5.1 - Docker Lab Management
+BOFA Extended Systems v2.8.0 - Docker Lab Management
 Docker container orchestration for security labs
 """
 
