@@ -609,17 +609,65 @@ export const apiService = {
       });
       if (!response.ok) throw new Error('API not available');
       const data = await response.json();
-      console.log('✅ API: Dashboard stats loaded from server');
+      console.log('API: Dashboard stats loaded from server');
       return data;
     } catch (error) {
-      console.warn('⚠️ API: Using simulated dashboard stats');
+      console.warn('API: Using simulated dashboard stats');
+      const activeLabs = mockLabs.filter(lab => lab.status === 'running').length;
+      const totalExecutions = mockHistory.length;
+      const successful = mockHistory.filter(item => item.status === 'success').length;
+      const failed = mockHistory.filter(item => item.status !== 'success').length;
+      const successRate = totalExecutions > 0 ? Number(((successful / totalExecutions) * 100).toFixed(1)) : 0;
+
       return {
         total_scripts: getAllScripts().length,
-        total_executions: mockHistory.length,
-        active_labs: mockLabs.filter(lab => lab.status === 'running').length,
-        completion_rate: 78,
+        total_executions: totalExecutions,
+        active_labs: activeLabs,
+        completion_rate: successRate,
         threat_level: "MEDIUM",
-        last_scan: new Date().toISOString()
+        last_scan: new Date().toISOString(),
+        modules: mockModules.length,
+        system_status: "demo",
+        overview: {
+          total_scripts: getAllScripts().length,
+          modules: mockModules.length,
+          scripts_updated_recently: getAllScripts().filter(script => script.last_updated === "2025-01-20").length,
+          system_status: "demo",
+          threat_level: "MEDIUM",
+          last_scan: new Date().toISOString()
+        },
+        executions: {
+          total_executions: totalExecutions,
+          successful,
+          failed,
+          queued: 0,
+          running: 0,
+          success_rate: successRate
+        },
+        docker: {
+          active_labs: activeLabs,
+          containers_running: activeLabs
+        },
+        system: {
+          cpu_percent: 0,
+          memory_percent: 0,
+          active_executions: 0,
+          disk_free_gb: 0
+        },
+        queue: {
+          queued: 0,
+          running: 0,
+          completed: totalExecutions,
+          max_concurrent: APP_CONFIG.limits.maxConcurrentScripts
+        },
+        recent_activity: mockHistory.slice(0, 10).map(item => ({
+          id: item.id,
+          module: item.module,
+          script: item.script,
+          status: item.status,
+          timestamp: item.timestamp,
+          output: item.output
+        }))
       };
     }
   },

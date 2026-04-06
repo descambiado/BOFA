@@ -11,6 +11,7 @@ import Labs from "./pages/Labs";
 import History from "./pages/History";
 import Study from "./pages/Study";
 import Dashboard from "./pages/Dashboard";
+import Health from "./pages/Health";
 import NotFound from "./pages/NotFound";
 import Library from "./pages/Library";
 
@@ -32,6 +33,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/health" element={<ProtectedRoute><Health /></ProtectedRoute>} />
                 <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
                 <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
                 <Route path="/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />

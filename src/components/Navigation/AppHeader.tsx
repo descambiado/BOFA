@@ -26,7 +26,8 @@ import {
   Server,
   User,
   LogOut,
-  Code
+  Code,
+  Activity
 } from "lucide-react";
 import { APP_CONFIG } from "@/config/app";
 import { authService } from "@/services/api";
@@ -78,6 +79,7 @@ export const AppHeader = () => {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
+    { name: "Salud", href: "/health", icon: Activity },
     { name: "Scripts", href: "/scripts", icon: Terminal },
     { name: "Biblioteca", href: "/library", icon: Code },
     { name: "Labs", href: "/labs", icon: Eye },
