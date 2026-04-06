@@ -1,83 +1,38 @@
-
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/UI/StatusBadge";
 import { ActionButton } from "@/components/UI/ActionButton";
-import { useLabs } from "@/services/api";
-import { 
-  Beaker, 
-  Play, 
-  Square, 
-  Settings,
-  Monitor,
-  Smartphone,
+import { ScriptExecutionConsole } from "@/components/ScriptExecutionConsole";
+import { apiService, useLabs, useRunDetail } from "@/services/api";
+import {
+  Activity,
+  Beaker,
   Cloud,
-  Shield,
+  Eye,
+  Monitor,
+  Play,
+  RefreshCw,
+  Settings,
+  Smartphone,
+  Square,
+  Users,
   Zap,
-  Users
 } from "lucide-react";
-
-interface Lab {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  difficulty: string;
-  status: 'stopped' | 'running' | 'starting' | 'error';
-  port?: number;
-  url?: string;
-  estimatedTime: string;
-  technologies: string[];
-}
+import { toast } from "sonner";
 
 const Labs = () => {
-  const [labs, setLabs] = useState<Lab[]>([
-    {
-      id: "internal-network",
-      name: "Red Interna Corporativa",
-      description: "Simula una red corporativa completa con AD, servidores web y bases de datos",
-      category: "network",
-      difficulty: "intermediate",
-      status: "stopped",
-      port: 8080,
-      estimatedTime: "45-60 min",
-      technologies: ["Active Directory", "Windows Server", "Apache", "MySQL"]
-    },
-    {
-      id: "android-emulation",
-      name: "Android Security Lab",
-      description: "Emulador Android con aplicaciones vulnerables para análisis móvil",
-      category: "mobile",
-      difficulty: "advanced",
-      status: "running",
-      port: 5554,
-      url: "http://localhost:5554",
-      estimatedTime: "30-45 min",
-      technologies: ["Android", "APK Analysis", "Frida", "ADB"]
-    },
-    {
-      id: "cloud-misconfig",
-      name: "Cloud Misconfiguration",
-      description: "Infraestructura cloud con configuraciones erróneas comunes",
-      category: "cloud",
-      difficulty: "beginner",
-      status: "stopped",
-      estimatedTime: "20-30 min",
-      technologies: ["AWS", "S3", "IAM", "CloudTrail"]
-    },
-    {
-      id: "ctf-generator",
-      name: "CTF Challenge Generator",
-      description: "Generador automático de retos CTF personalizables",
-      category: "ctf",
-      difficulty: "intermediate",
-      status: "stopped",
-      estimatedTime: "Variable",
-      technologies: ["Python", "Docker", "Web Challenges", "Crypto"]
-    }
-  ]);
+  const navigate = useNavigate();
+  const { data: labs, isLoading, refetch } = useLabs();
+  const [pendingLabId, setPendingLabId] = useState<string | null>(null);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const { data: activeRun } = useRunDetail(activeRunId);
+
+  const runningLabs = useMemo(() => (labs || []).filter((lab) => lab.status === "running"), [labs]);
+  const advancedLabs = useMemo(() => (labs || []).filter((lab) => lab.difficulty === "advanced"), [labs]);
+  const intermediateLabs = useMemo(() => (labs || []).filter((lab) => lab.difficulty === "intermediate"), [labs]);
 
   const getCategoryIcon = (category: string) => {
     const icons = {
@@ -85,8 +40,10 @@ const Labs = () => {
       mobile: Smartphone,
       cloud: Cloud,
       ctf: Zap,
-      web: Shield,
-      purple: Users
+      web: Eye,
+      web_security: Eye,
+      purple: Users,
+      cloud_native: Cloud,
     };
     return icons[category as keyof typeof icons] || Beaker;
   };
@@ -94,196 +51,233 @@ const Labs = () => {
   const getDifficultyColor = (difficulty: string) => {
     const colors = {
       beginner: "bg-green-500",
-      intermediate: "bg-yellow-500",
-      advanced: "bg-red-500"
+      intermediate: "bg-yellow-500 text-black",
+      advanced: "bg-red-500",
+      expert: "bg-fuchsia-600",
     };
     return colors[difficulty as keyof typeof colors] || "bg-gray-500";
   };
 
-  const handleLabAction = (labId: string, action: 'start' | 'stop' | 'restart') => {
-    setLabs(prev => prev.map(lab => {
-      if (lab.id === labId) {
-        if (action === 'start') {
-          return { ...lab, status: 'starting' as const };
-        } else if (action === 'stop') {
-          return { ...lab, status: 'stopped' as const };
-        }
+  const handleLabAction = async (labId: string, action: "start" | "stop") => {
+    try {
+      setPendingLabId(labId);
+      const result = action === "start" ? await apiService.startLab(labId) : await apiService.stopLab(labId);
+      if (result.run_id) {
+        setActiveRunId(result.run_id);
       }
-      return lab;
-    }));
-
-    // Simulate lab startup/shutdown
-    if (action === 'start') {
-      setTimeout(() => {
-        setLabs(prev => prev.map(lab => 
-          lab.id === labId ? { ...lab, status: 'running' as const, url: `http://localhost:${lab.port}` } : lab
-        ));
-      }, 3000);
+      toast.success(result.message);
+      await refetch();
+    } catch (error) {
+      toast.error(action === "start" ? "No se pudo iniciar el lab" : "No se pudo detener el lab");
+    } finally {
+      setPendingLabId(null);
     }
   };
 
   return (
-    <div className="container mx-auto px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-cyan-400 mb-2">🧪 Laboratorios de Práctica</h1>
-        <p className="text-gray-300">
-          Entornos controlados para practicar técnicas de ciberseguridad de forma segura
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card className="bg-gray-800/50 border-gray-700">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-cyan-400">{labs.length}</div>
-            <div className="text-sm text-gray-400">Labs Disponibles</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gray-800/50 border-gray-700">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-400">
-              {labs.filter(l => l.status === 'running').length}
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-900 to-black text-white p-6">
+      <div className="container mx-auto max-w-7xl space-y-8">
+        <section className="rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-slate-900 via-cyan-950/50 to-slate-950 p-8 shadow-2xl shadow-cyan-950/30">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="space-y-4">
+              <Badge className="border-cyan-400/30 bg-cyan-500/20 text-cyan-200">
+                Lab Runtime
+              </Badge>
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight text-white">Laboratorios conectados al control plane</h1>
+                <p className="mt-2 max-w-3xl text-base text-slate-300">
+                  Cada arranque y parada genera un <span className="text-cyan-300">run</span> trazable. Ya no es una
+                  demo de estados locales: el runtime de BOFA gobierna los labs como recursos operativos reales.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3 text-sm text-slate-300">
+                <span>Labs disponibles: {labs?.length ?? 0}</span>
+                <span>Activos: {runningLabs.length}</span>
+                <span>Último run: {activeRunId ?? "ninguno"}</span>
+              </div>
             </div>
-            <div className="text-sm text-gray-400">Activos</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gray-800/50 border-gray-700">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-400">
-              {labs.filter(l => l.difficulty === 'intermediate').length}
-            </div>
-            <div className="text-sm text-gray-400">Intermedios</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gray-800/50 border-gray-700">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-400">
-              {labs.filter(l => l.difficulty === 'advanced').length}
-            </div>
-            <div className="text-sm text-gray-400">Avanzados</div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Labs Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {labs.map((lab) => {
-          const CategoryIcon = getCategoryIcon(lab.category);
-          
-          return (
-            <Card key={lab.id} className="bg-gray-800/50 border-gray-700 hover:border-cyan-400 transition-all">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <CategoryIcon className="w-8 h-8 text-cyan-400" />
-                    <div>
-                      <CardTitle className="text-cyan-400">{lab.name}</CardTitle>
-                      <CardDescription className="text-gray-300 mt-1">
-                        {lab.description}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <StatusBadge status={lab.status} />
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Badge className={`${getDifficultyColor(lab.difficulty)} text-white`}>
-                    {lab.difficulty}
-                  </Badge>
-                  <span className="text-sm text-gray-400">⏱️ {lab.estimatedTime}</span>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-400">Tecnologías:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {lab.technologies.map((tech) => (
-                      <Badge key={tech} variant="outline" className="text-xs border-gray-600 text-gray-300">
-                        {tech}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {lab.status === 'running' && lab.url && (
-                  <div className="bg-gray-900 p-3 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">URL de Acceso:</div>
-                    <a 
-                      href={lab.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-cyan-400 hover:text-cyan-300 font-mono text-sm"
-                    >
-                      {lab.url}
-                    </a>
-                  </div>
-                )}
-
-                <div className="flex items-center space-x-3">
-                  {lab.status === 'stopped' && (
-                    <ActionButton
-                      icon={<Play className="w-4 h-4" />}
-                      title="Iniciar Lab"
-                      description="Iniciar laboratorio"
-                      onClick={() => handleLabAction(lab.id, 'start')}
-                      className="bg-green-600 hover:bg-green-700 flex-1"
-                    />
-                  )}
-                  
-                  {lab.status === 'starting' && (
-                    <Button disabled className="flex-1">
-                      <div className="animate-spin w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full mr-2"></div>
-                      Iniciando...
-                    </Button>
-                  )}
-                  
-                  {lab.status === 'running' && (
-                    <>
-                      <ActionButton
-                        icon={<Square className="w-4 h-4" />}
-                        title="Detener"
-                        description="Detener laboratorio"
-                        onClick={() => handleLabAction(lab.id, 'stop')}
-                        className="bg-red-600 hover:bg-red-700 flex-1"
-                      />
-                      <ActionButton
-                        icon={<Settings className="w-4 h-4" />}
-                        title="Configurar"
-                        description="Configurar laboratorio"
-                        onClick={() => {}}
-                      />
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Quick Start Guide */}
-      <Card className="bg-gray-800/50 border-gray-700 mt-8">
-        <CardHeader>
-          <CardTitle className="text-cyan-400">🚀 Guía Rápida</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <h4 className="text-green-400 font-semibold mb-2">1. Selecciona un Lab</h4>
-              <p className="text-gray-400">Elige según tu nivel y área de interés</p>
-            </div>
-            <div>
-              <h4 className="text-yellow-400 font-semibold mb-2">2. Inicia el Entorno</h4>
-              <p className="text-gray-400">Los contenedores se configuran automáticamente</p>
-            </div>
-            <div>
-              <h4 className="text-cyan-400 font-semibold mb-2">3. Practica Seguro</h4>
-              <p className="text-gray-400">Experimenta sin riesgo en entornos aislados</p>
+            <div className="grid min-w-[280px] grid-cols-2 gap-3">
+              <ActionButton
+                icon={<RefreshCw className="w-5 h-5" />}
+                title="Recargar"
+                description="Refrescar estado"
+                onClick={() => refetch()}
+              />
+              <ActionButton
+                icon={<Activity className="w-5 h-5" />}
+                title="Historial"
+                description="Ver runs"
+                onClick={() => navigate("/history")}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <Card className="border-gray-800 bg-gray-900/70">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-cyan-400">{labs?.length ?? 0}</div>
+              <div className="text-sm text-gray-400">Labs disponibles</div>
+            </CardContent>
+          </Card>
+          <Card className="border-gray-800 bg-gray-900/70">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-400">{runningLabs.length}</div>
+              <div className="text-sm text-gray-400">Activos</div>
+            </CardContent>
+          </Card>
+          <Card className="border-gray-800 bg-gray-900/70">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-yellow-400">{intermediateLabs.length}</div>
+              <div className="text-sm text-gray-400">Intermedios</div>
+            </CardContent>
+          </Card>
+          <Card className="border-gray-800 bg-gray-900/70">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-red-400">{advancedLabs.length}</div>
+              <div className="text-sm text-gray-400">Avanzados</div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <Card key={index} className="border-gray-800 bg-gray-900/70 animate-pulse">
+                  <CardContent className="p-6">
+                    <div className="h-6 w-2/3 rounded bg-gray-800" />
+                    <div className="mt-3 h-4 w-full rounded bg-gray-900" />
+                    <div className="mt-2 h-4 w-4/5 rounded bg-gray-900" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              (labs || []).map((lab) => {
+                const CategoryIcon = getCategoryIcon(lab.category);
+                const isPending = pendingLabId === lab.id;
+
+                return (
+                  <Card key={lab.id} className="border-gray-800 bg-gray-900/70 hover:border-cyan-500/40 transition-all">
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <CategoryIcon className="h-8 w-8 text-cyan-400" />
+                          <div>
+                            <CardTitle className="text-cyan-300">{lab.name}</CardTitle>
+                            <CardDescription className="mt-1 text-gray-400">{lab.description}</CardDescription>
+                          </div>
+                        </div>
+                        <StatusBadge status={isPending ? "starting" : lab.status} />
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <Badge className={`${getDifficultyColor(lab.difficulty)} text-white`}>
+                          {lab.difficulty}
+                        </Badge>
+                        <span className="text-sm text-gray-400">⏱ {lab.estimated_time || "n/a"}</span>
+                      </div>
+
+                      {!!lab.technologies?.length && (
+                        <div className="space-y-2">
+                          <div className="text-sm text-gray-400">Tecnologías</div>
+                          <div className="flex flex-wrap gap-2">
+                            {lab.technologies.map((tech) => (
+                              <Badge key={tech} variant="outline" className="border-gray-700 text-gray-300">
+                                {tech}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {lab.status === "running" && (lab.url || lab.port) && (
+                        <div className="rounded-xl bg-black/40 p-3">
+                          <div className="text-sm text-gray-400">Acceso</div>
+                          <div className="mt-1 break-all font-mono text-cyan-300">
+                            {lab.url || `http://localhost:${lab.port}`}
+                          </div>
+                        </div>
+                      )}
+
+                      {lab.message && (
+                        <div className="rounded-xl border border-gray-800 bg-black/30 p-3 text-sm text-gray-400">
+                          {lab.message}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3">
+                        {lab.status !== "running" ? (
+                          <ActionButton
+                            icon={<Play className="w-4 h-4" />}
+                            title={isPending ? "Iniciando" : "Iniciar"}
+                            description="Arrancar lab"
+                            onClick={() => handleLabAction(lab.id, "start")}
+                            className="flex-1 bg-green-600 hover:bg-green-700"
+                          />
+                        ) : (
+                          <ActionButton
+                            icon={<Square className="w-4 h-4" />}
+                            title={isPending ? "Deteniendo" : "Detener"}
+                            description="Parar lab"
+                            onClick={() => handleLabAction(lab.id, "stop")}
+                            className="flex-1 bg-red-600 hover:bg-red-700"
+                          />
+                        )}
+                        <ActionButton
+                          icon={<Settings className="w-4 h-4" />}
+                          title="Runs"
+                          description="Ver historial"
+                          onClick={() => navigate("/history")}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <Card className="border-gray-800 bg-gray-900/70">
+              <CardHeader>
+                <CardTitle className="text-cyan-300">Última operación de lab</CardTitle>
+                <CardDescription>El control plane persiste start/stop como runs con timeline y estado final</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <div className="rounded-2xl border border-gray-800 bg-black/30 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-400">Run activo</span>
+                    <Badge className="border-gray-700 bg-gray-800 text-cyan-300">{activeRun?.status ?? "idle"}</Badge>
+                  </div>
+                  <p className="mt-2 break-all font-mono text-cyan-300">{activeRunId ?? "sin run reciente"}</p>
+                  <div className="mt-3 flex flex-wrap gap-3 text-gray-400">
+                    <span>Labs enlazados: {activeRun?.labs?.length ?? 0}</span>
+                    <span>Eventos: {activeRun?.events?.length ?? 0}</span>
+                    <span>Artifacts: {activeRun?.artifacts?.length ?? 0}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-700 text-gray-200 hover:bg-gray-800"
+                  onClick={() => navigate("/history")}
+                >
+                  Abrir historial operativo
+                </Button>
+              </CardContent>
+            </Card>
+
+            <ScriptExecutionConsole
+              script={{ name: "lab-runtime", category: "labs" }}
+              isRunning={Boolean(activeRunId && !["success", "failed", "partial", "cancelled"].includes(activeRun?.status || ""))}
+              runId={activeRunId}
+            />
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

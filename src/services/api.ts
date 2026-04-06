@@ -133,6 +133,9 @@ export interface Lab {
   estimated_time?: string;
   port?: number;
   url?: string;
+  technologies?: string[];
+  features?: string[];
+  message?: string;
 }
 
 export interface StudyLesson {
@@ -773,7 +776,7 @@ export const apiService = {
     }
   },
 
-  startLab: async (labId: string): Promise<{ status: string; message: string }> => {
+  startLab: async (labId: string): Promise<{ status: string; message: string; run_id?: string; lab_run_id?: string; url?: string; port?: number }> => {
     try {
       const response = await fetch(`${API_BASE}/labs/${labId}/start`, {
         method: 'POST',
@@ -786,11 +789,11 @@ export const apiService = {
       return result;
     } catch (error) {
       console.warn(`⚠️ API: Simulating lab ${labId} start`);
-      return { status: 'success', message: `Lab ${labId} iniciado exitosamente (simulado)` };
+      return { status: 'success', message: `Lab ${labId} iniciado exitosamente (simulado)`, run_id: `mock-lab-${Date.now()}` };
     }
   },
 
-  stopLab: async (labId: string): Promise<{ status: string; message: string }> => {
+  stopLab: async (labId: string): Promise<{ status: string; message: string; run_id?: string; lab_run_id?: string }> => {
     try {
       const response = await fetch(`${API_BASE}/labs/${labId}/stop`, {
         method: 'POST',
@@ -803,7 +806,7 @@ export const apiService = {
       return result;
     } catch (error) {
       console.warn(`⚠️ API: Simulating lab ${labId} stop`);
-      return { status: 'success', message: `Lab ${labId} detenido exitosamente (simulado)` };
+      return { status: 'success', message: `Lab ${labId} detenido exitosamente (simulado)`, run_id: `mock-lab-stop-${Date.now()}` };
     }
   },
 
