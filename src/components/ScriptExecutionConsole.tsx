@@ -121,6 +121,8 @@ export const ScriptExecutionConsole = ({ script, isRunning, runId }: ScriptExecu
 
 const getLineColor = (line: string): string => {
   if (line.includes("failed") || line.includes("[STEP|STDERR]")) return "text-red-400";
+  if (line.includes("force_kill")) return "text-orange-400";
+  if (line.includes("cancelling")) return "text-yellow-300";
   if (line.includes("cancelled")) return "text-yellow-400";
   if (line.includes("success") || line.includes("completed")) return "text-green-400";
   if (line.includes("running")) return "text-blue-400";

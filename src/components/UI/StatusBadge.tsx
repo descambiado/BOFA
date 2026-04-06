@@ -2,7 +2,7 @@
 import { CheckCircle, XCircle, Clock, AlertTriangle, Square } from "lucide-react";
 
 interface StatusBadgeProps {
-  status: "success" | "error" | "warning" | "pending" | "running" | "stopped" | "starting";
+  status: "success" | "error" | "warning" | "pending" | "running" | "stopped" | "starting" | "cancelling";
   text?: string;
   showIcon?: boolean;
 }
@@ -51,6 +51,12 @@ export const StatusBadge = ({ status, text, showIcon = true }: StatusBadgeProps)
           icon: Clock,
           className: "bg-orange-500/20 text-orange-400 border-orange-500/30 animate-pulse",
           text: text || "Iniciando"
+        };
+      case "cancelling":
+        return {
+          icon: AlertTriangle,
+          className: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 animate-pulse",
+          text: text || "Cancelando"
         };
       default:
         return {

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import re
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
@@ -133,6 +133,9 @@ def run_flow(
     output_dir: Optional[Path] = None,
     run_manager=None,
     run_id: Optional[str] = None,
+    cancel_file: Optional[str] = None,
+    cancel_check_interval: float = 0.5,
+    cancellation_hooks: Optional[Dict[str, Callable[..., Any]]] = None,
 ):
     flow = load_flow(flow_id)
     steps_spec = flow.get("steps", [])
@@ -157,11 +160,25 @@ def run_flow(
     steps_results = []
     any_error = False
     for index, step in enumerate(steps_spec, start=1):
+        should_cancel = cancellation_hooks.get("should_cancel") if cancellation_hooks else None
+        if (should_cancel and should_cancel()) or (cancel_file and Path(cancel_file).exists()):
+            return {
+                "flow_id": flow_id,
+                "target": target,
+                "status": "cancelled",
+                "steps": steps_results,
+                "report_path": None,
+                "report_json_path": None,
+                "report_json": None,
+                "cancelled_at_step": index,
+            }
+
         module = step.get("module")
         script = step.get("script")
         parameters = _substitute_target(step.get("parameters") or {}, target)
         parameters = _substitute_step_placeholders(parameters, steps_results)
         step_id = None
+        step_cancel_file = cancel_file
         if run_manager and run_id:
             step_id = run_manager.create_step(
                 run_id=run_id,
@@ -174,6 +191,9 @@ def run_flow(
                 metadata={"flow_id": flow_id},
             )
             run_manager.update_step(step_id, run_id, status="running", started_at=datetime.utcnow().isoformat(), message=f"Flow step {index} started")
+            if cancellation_hooks and cancellation_hooks.get("set_active_step"):
+                step_cancel_file = str(Path(cancel_file).with_name(f"{run_id}_{step_id}.cancel")) if cancel_file else None
+                cancellation_hooks["set_active_step"](step_id, step_cancel_file, {"index": index, "module": module, "script": script})
 
         step_result = {
             "index": index,
@@ -195,6 +215,12 @@ def run_flow(
                 parameters=parameters,
                 timeout=timeout_per_script or config.execution_timeout,
                 execution_id=step_id or None,
+                extra_env={
+                    "BOFA_RUN_ID": run_id or "",
+                    "BOFA_STEP_ID": step_id or "",
+                },
+                cancel_file=step_cancel_file,
+                cancel_check_interval=cancel_check_interval,
             )
             step_result["status"] = result.status
             step_result["exit_code"] = result.exit_code
@@ -207,7 +233,7 @@ def run_flow(
                 run_manager.update_step(
                     step_id,
                     run_id,
-                    status="success" if result.exit_code == 0 else "failed",
+                    status="cancelled" if result.status == "cancelled" else "success" if result.exit_code == 0 else "failed",
                     completed_at=datetime.utcnow().isoformat(),
                     exit_code=result.exit_code,
                     duration=result.duration,
@@ -216,6 +242,19 @@ def run_flow(
                     error_message=result.error,
                     message=f"Flow step {index} completed",
                 )
+            if result.status == "cancelled":
+                if cancellation_hooks and cancellation_hooks.get("clear_active_step"):
+                    cancellation_hooks["clear_active_step"](step_id)
+                return {
+                    "flow_id": flow_id,
+                    "target": target,
+                    "status": "cancelled",
+                    "steps": steps_results + [step_result],
+                    "report_path": None,
+                    "report_json_path": None,
+                    "report_json": None,
+                    "cancelled_at_step": index,
+                }
             if result.exit_code != 0:
                 any_error = True
         except Exception as exc:
@@ -231,7 +270,21 @@ def run_flow(
                     error_message=str(exc),
                     message=f"Flow step {index} failed",
                 )
+        finally:
+            if cancellation_hooks and cancellation_hooks.get("clear_active_step"):
+                cancellation_hooks["clear_active_step"](step_id)
         steps_results.append(step_result)
+
+    if cancel_file and Path(cancel_file).exists():
+        return {
+            "flow_id": flow_id,
+            "target": target,
+            "status": "cancelled",
+            "steps": steps_results,
+            "report_path": None,
+            "report_json_path": None,
+            "report_json": None,
+        }
 
     status = "error" if any_error else "success"
     if any_error and any(step["status"] == "success" for step in steps_results):
@@ -282,7 +335,7 @@ def run_flow(
     post_process = flow.get("post_process") or {}
     post_script = post_process.get("script")
     post_params = post_process.get("params") or {}
-    if post_script:
+    if post_script and status != "cancelled":
         try:
             module_name, script_name = post_script.split("/")
             resolved = dict(post_params)

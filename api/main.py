@@ -34,8 +34,11 @@ LOGS_DIR = Path(os.getenv("BOFA_LOGS_DIR", APP_ROOT / "logs"))
 DATA_DIR = Path(os.getenv("BOFA_DATA_DIR", APP_ROOT / "data"))
 TEMP_DIR = Path(os.getenv("BOFA_TEMP_DIR", APP_ROOT / "temp"))
 UPLOADS_DIR = Path(os.getenv("BOFA_UPLOADS_DIR", APP_ROOT / "uploads"))
+CANCEL_DIR = TEMP_DIR / "cancellation"
+CANCEL_GRACE_SECONDS = float(os.getenv("BOFA_CANCEL_GRACE_SECONDS", "4"))
+CANCEL_CHECK_INTERVAL = float(os.getenv("BOFA_CANCEL_CHECK_INTERVAL", "0.5"))
 
-for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR):
+for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -69,6 +72,7 @@ run_manager = RunManager(db)
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
 execution_tasks: Dict[str, asyncio.subprocess.Process] = {}
 run_lookup_by_execution: Dict[str, str] = {}
+runtime_controls: Dict[str, Dict[str, Any]] = {}
 
 
 class LoginRequest(BaseModel):
@@ -197,7 +201,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
     )
     runs = db.list_runs(None if current_user["role"] == "admin" else current_user["user_id"], limit=200)
     total_runs = len(runs)
-    active_runs = len([run for run in runs if run.get("status") in {"queued", "running", "waiting"}])
+    active_runs = len([run for run in runs if run.get("status") in {"queued", "running", "waiting", "cancelling"}])
     failed_runs = len([run for run in runs if run.get("status") in {"failed", "error", "partial"}])
     successful_runs = len([run for run in runs if run.get("status") == "success"])
     success_rate = round((successful_runs / total_runs * 100), 1) if total_runs else 0.0
@@ -219,7 +223,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
             "successful": successful_runs,
             "failed": failed_runs,
             "queued": active_runs,
-            "running": len([run for run in runs if run.get("status") == "running"]),
+            "running": len([run for run in runs if run.get("status") in {"running", "cancelling"}]),
             "success_rate": success_rate,
         },
         "docker": {
@@ -259,6 +263,59 @@ def _resolve_run_identifier(identifier: str) -> Optional[str]:
     return run_lookup_by_execution.get(identifier)
 
 
+def _cancel_file_path(run_id: str, step_id: Optional[str] = None) -> Path:
+    suffix = step_id or "run"
+    return CANCEL_DIR / f"{run_id}_{suffix}.cancel"
+
+
+def _get_runtime_control(run_id: str, run_type: Optional[str] = None) -> Dict[str, Any]:
+    control = runtime_controls.setdefault(
+        run_id,
+        {
+            "run_id": run_id,
+            "run_type": run_type,
+            "cancel_requested": False,
+            "cancel_requested_at": None,
+            "force_kill_deadline": None,
+            "run_cancel_file": str(_cancel_file_path(run_id)),
+            "step_cancel_file": None,
+            "step_id": None,
+            "execution_id": None,
+            "process": None,
+            "task": None,
+        },
+    )
+    if run_type and not control.get("run_type"):
+        control["run_type"] = run_type
+    return control
+
+
+def _write_cancel_marker(path_str: Optional[str], payload: Optional[Dict[str, Any]] = None):
+    if not path_str:
+        return
+    path = Path(path_str)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload or {"cancelled_at": datetime.utcnow().isoformat()}), encoding="utf-8")
+
+
+def _clear_cancel_marker(path_str: Optional[str]):
+    if not path_str:
+        return
+    path = Path(path_str)
+    if path.exists():
+        path.unlink()
+
+
+def _is_run_cancelling(run_id: str) -> bool:
+    control = runtime_controls.get(run_id) or {}
+    if control.get("cancel_requested"):
+        return True
+    run = db.get_run(run_id)
+    if not run:
+        return False
+    return run.get("status") == "cancelling" or Path(_cancel_file_path(run_id)).exists()
+
+
 async def _emit_and_persist(
     run_id: str,
     scope_type: str,
@@ -272,6 +329,84 @@ async def _emit_and_persist(
     await ws_manager.emit(run_id, scope_type, scope_id, event_type, status, message, payload or {})
 
 
+async def _request_runtime_cancellation(run: Dict[str, Any], reason: str = "user_requested") -> Dict[str, Any]:
+    run_id = run["id"]
+    control = _get_runtime_control(run_id, run.get("run_type"))
+    if control.get("cancel_requested"):
+        return control
+
+    control["cancel_requested"] = True
+    control["cancel_requested_at"] = datetime.utcnow().isoformat()
+    control["force_kill_deadline"] = (datetime.utcnow().timestamp() + CANCEL_GRACE_SECONDS)
+
+    run_manager.mark_run_cancelling(
+        run_id,
+        message="Run cancellation requested",
+        payload={"cancel_reason": reason, "grace_timeout": CANCEL_GRACE_SECONDS},
+    )
+
+    _write_cancel_marker(control.get("run_cancel_file"), {"run_id": run_id, "reason": reason})
+    _write_cancel_marker(control.get("step_cancel_file"), {"run_id": run_id, "step_id": control.get("step_id"), "reason": reason})
+
+    for step in run.get("steps", []):
+        if step.get("status") not in RUN_STATUSES_FINAL:
+            run_manager.update_step(
+                step["id"],
+                run_id,
+                status="cancelling",
+                message="Cancellation requested for step",
+                metadata={"cancel_reason": reason, "grace_timeout": CANCEL_GRACE_SECONDS},
+            )
+    for lab in run.get("labs", []):
+        if lab.get("status") not in RUN_STATUSES_FINAL:
+            run_manager.update_lab(
+                lab["id"],
+                run_id,
+                status="cancelling",
+                message="Cancellation requested for lab operation",
+                metadata={"cancel_reason": reason, "grace_timeout": CANCEL_GRACE_SECONDS},
+            )
+
+    await _emit_and_persist(
+        run_id,
+        "run",
+        run_id,
+        "cancelling",
+        "cancelling",
+        "Run cancellation requested",
+        {"cancel_reason": reason, "grace_timeout": CANCEL_GRACE_SECONDS},
+    )
+    return control
+
+
+async def _force_stop_process(run_id: str, execution_id: str, process: asyncio.subprocess.Process):
+    await _emit_and_persist(
+        run_id,
+        "run",
+        run_id,
+        "force_kill",
+        "cancelling",
+        "Grace period expired, forcing process termination",
+        {"forced": True, "signal_sent": "terminate"},
+    )
+    process.terminate()
+    try:
+        await asyncio.wait_for(process.wait(), timeout=1.0)
+    except asyncio.TimeoutError:
+        process.kill()
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "force_kill",
+            "cancelling",
+            "Process still alive after terminate; kill issued",
+            {"forced": True, "signal_sent": "kill"},
+        )
+        await process.wait()
+    execution_tasks.pop(execution_id, None)
+
+
 async def _execute_script_step(item: Dict[str, Any]):
     run_id = item["run_id"]
     step_id = item["step_id"]
@@ -280,6 +415,22 @@ async def _execute_script_step(item: Dict[str, Any]):
     script = item["script"]
     parameters = item["parameters"]
     script_file = SCRIPTS_DIR / module / f"{script}.py"
+    control = _get_runtime_control(run_id, "script")
+    control["execution_id"] = execution_id
+    control["step_id"] = step_id
+    control["run_cancel_file"] = str(_cancel_file_path(run_id))
+    control["step_cancel_file"] = str(_cancel_file_path(run_id, step_id))
+    _clear_cancel_marker(control["run_cancel_file"])
+    _clear_cancel_marker(control["step_cancel_file"])
+
+    if _is_run_cancelling(run_id):
+        await execution_queue.cancel(execution_id)
+        db.create_execution(execution_id, item["user_id"], module, script, parameters, run_id=run_id, step_id=step_id)
+        db.update_execution(execution_id, "cancelled", error_message="Execution cancelled before start")
+        run_manager.update_step(step_id, run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution cancelled before start")
+        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before script start")
+        await _emit_and_persist(run_id, "step", step_id, "cancelled", "cancelled", f"{module}/{script} cancelled before start")
+        return
 
     run_manager.mark_run_started(run_id, f"Running script {module}/{script}")
     run_manager.update_step(step_id, run_id, status="running", started_at=datetime.utcnow().isoformat(), message=f"Script step started: {module}/{script}")
@@ -307,9 +458,17 @@ async def _execute_script_step(item: Dict[str, Any]):
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=str(APP_ROOT),
+        env={
+            **os.environ,
+            "BOFA_RUN_ID": run_id,
+            "BOFA_STEP_ID": step_id,
+            "BOFA_CANCEL_FILE": control["step_cancel_file"],
+            "BOFA_CANCEL_CHECK_INTERVAL": str(CANCEL_CHECK_INTERVAL),
+        },
     )
     execution_tasks[execution_id] = process
     run_lookup_by_execution[execution_id] = run_id
+    control["process"] = process
 
     stdout_chunks: List[str] = []
     stderr_chunks: List[str] = []
@@ -335,7 +494,27 @@ async def _execute_script_step(item: Dict[str, Any]):
     output = "\n".join(stdout_chunks)
     error_output = "\n".join(stderr_chunks) or output
 
-    if process.returncode == 0:
+    cancelled = (control.get("cancel_requested") and process.returncode != 0) or process.returncode in {-15, -9, 130}
+
+    if cancelled:
+        result_status = "cancelled"
+        await execution_queue.mark_completed(execution_id, {"status": result_status, "run_id": run_id, "step_id": step_id})
+        db.update_execution(execution_id, "cancelled", error_message="Execution cancelled", execution_time=duration)
+        run_manager.update_step(
+            step_id,
+            run_id,
+            status=result_status,
+            completed_at=datetime.utcnow().isoformat(),
+            exit_code=process.returncode,
+            duration=duration,
+            stdout_preview=stdout_preview,
+            stderr_preview=stderr_preview,
+            error_message="Execution cancelled",
+            message=f"Script step cancelled: {module}/{script}",
+        )
+        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} cancelled", metadata={"execution_id": execution_id})
+        await _emit_and_persist(run_id, "step", step_id, "cancelled", result_status, f"{module}/{script} cancelled", {"exit_code": process.returncode, "duration": duration})
+    elif process.returncode == 0:
         result_status = "success"
         await execution_queue.mark_completed(execution_id, {"status": result_status, "exit_code": process.returncode, "run_id": run_id, "step_id": step_id})
         db.update_execution(execution_id, result_status, output=output, execution_time=duration)
@@ -351,6 +530,8 @@ async def _execute_script_step(item: Dict[str, Any]):
             message=f"Script step finished: {module}/{script}",
         )
         run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} completed", metadata={"execution_id": execution_id})
+        if control.get("cancel_requested"):
+            await _emit_and_persist(run_id, "run", run_id, "cancel_requested", "success", "Cancel requested after process completed", {"forced": False})
         await _emit_and_persist(run_id, "step", step_id, "completed", result_status, f"{module}/{script} completed", {"exit_code": process.returncode, "duration": duration})
     else:
         result_status = "failed"
@@ -370,6 +551,11 @@ async def _execute_script_step(item: Dict[str, Any]):
         )
         run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} failed", metadata={"execution_id": execution_id, "exit_code": process.returncode})
         await _emit_and_persist(run_id, "step", step_id, "completed", result_status, error_output, {"exit_code": process.returncode, "duration": duration})
+
+    _clear_cancel_marker(control.get("step_cancel_file"))
+    if result_status in RUN_STATUSES_FINAL:
+        _clear_cancel_marker(control.get("run_cancel_file"))
+    control["process"] = None
 
 
 async def process_execution_queue():
@@ -413,20 +599,45 @@ async def _start_flow_run(current_user: Dict[str, Any], flow_id: str, target: st
         metadata={"flow_id": flow_id},
         status="queued",
     )
+    control = _get_runtime_control(run_id, "flow")
+    control["run_cancel_file"] = str(_cancel_file_path(run_id))
+    _clear_cancel_marker(control["run_cancel_file"])
     run_manager.mark_run_started(run_id, f"Flow {flow_id} started")
     await _emit_and_persist(run_id, "run", run_id, "status_changed", "running", f"Flow {flow_id} started", {"flow_id": flow_id, "target": target})
 
     async def _runner():
         try:
-            result = await asyncio.to_thread(run_flow, flow_id, target, None, None, run_manager, run_id)
+            result = await asyncio.to_thread(
+                run_flow,
+                flow_id,
+                target,
+                None,
+                None,
+                run_manager,
+                run_id,
+                control["run_cancel_file"],
+                CANCEL_CHECK_INTERVAL,
+                {
+                    "should_cancel": lambda: _is_run_cancelling(run_id),
+                    "set_active_step": lambda step_id, step_cancel_file, metadata=None: control.update(
+                        {"step_id": step_id, "step_cancel_file": step_cancel_file, "active_step": metadata or {}}
+                    ),
+                    "clear_active_step": lambda step_id=None: control.update({"active_step": None, "step_cancel_file": None}),
+                },
+            )
             final_status = result.get("status", "failed")
             run_manager.mark_run_finished(run_id, final_status, f"Flow {flow_id} completed", metadata={"flow_id": flow_id})
-            await _emit_and_persist(run_id, "run", run_id, "completed", final_status, f"Flow {flow_id} completed", {"flow_id": flow_id})
+            await _emit_and_persist(run_id, "run", run_id, "cancelled" if final_status == "cancelled" else "completed", final_status, f"Flow {flow_id} completed", {"flow_id": flow_id})
         except Exception as exc:
             run_manager.mark_run_finished(run_id, "failed", f"Flow {flow_id} failed", metadata={"error": str(exc)})
             await _emit_and_persist(run_id, "run", run_id, "completed", "failed", str(exc), {"flow_id": flow_id})
+        finally:
+            _clear_cancel_marker(control.get("run_cancel_file"))
+            _clear_cancel_marker(control.get("step_cancel_file"))
+            control["task"] = None
 
-    asyncio.create_task(_runner())
+    task = asyncio.create_task(_runner())
+    control["task"] = task
     return {"run_id": run_id, "status": "running", "message": f"Flow {flow_id} started"}
 
 
@@ -728,22 +939,79 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
     if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     if run.get("status") in RUN_STATUSES_FINAL:
-        return {"run_id": run_id, "status": run.get("status"), "message": "Run already finished"}
+        return {
+            "run_id": run_id,
+            "status": run.get("status"),
+            "message": "Run already finished",
+            "cancel_mode": "noop",
+            "grace_period_seconds": CANCEL_GRACE_SECONDS,
+        }
 
-    cancelled = False
-    for step in run.get("steps", []):
-        execution_id = f"exec_{step['id']}"
-        queue_item = await execution_queue.cancel(execution_id)
-        if queue_item:
-            cancelled = True
-            process = execution_tasks.get(execution_id)
-            if process and process.returncode is None:
-                process.terminate()
-            db.update_execution(execution_id, "cancelled", error_message="Execution stopped by user")
-            run_manager.update_step(step["id"], run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution stopped by user")
-    run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled by user")
-    await _emit_and_persist(run_id, "run", run_id, "completed", "cancelled", "Run cancelled by user")
-    return {"run_id": run_id, "status": "cancelled", "message": "Run cancelled" if cancelled else "Run marked as cancelled"}
+    control = await _request_runtime_cancellation(run, reason="user_requested")
+
+    if run.get("status") == "queued":
+        for step in run.get("steps", []):
+            execution_id = f"exec_{step['id']}"
+            await execution_queue.cancel(execution_id)
+            db.create_execution(execution_id, current_user["user_id"], step.get("module") or "unknown", step.get("script_name") or step.get("step_key") or step["id"], step.get("parameters") or {}, run_id=run_id, step_id=step["id"])
+            db.update_execution(execution_id, "cancelled", error_message="Execution cancelled before start")
+            run_manager.update_step(step["id"], run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution cancelled before start")
+        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before execution")
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Run cancelled before execution")
+        _clear_cancel_marker(control.get("run_cancel_file"))
+        return {
+            "run_id": run_id,
+            "status": "cancelled",
+            "message": "Run cancelled before execution",
+            "cancel_mode": "graceful_then_kill",
+            "grace_period_seconds": CANCEL_GRACE_SECONDS,
+        }
+
+    process = control.get("process")
+    execution_id = control.get("execution_id")
+    if run.get("run_type") == "script" and process and execution_id and process.returncode is None:
+        try:
+            await asyncio.wait_for(process.wait(), timeout=CANCEL_GRACE_SECONDS)
+        except asyncio.TimeoutError:
+            await _force_stop_process(run_id, execution_id, process)
+
+        updated = db.get_run_detail(run_id) or {}
+        return {
+            "run_id": run_id,
+            "status": updated.get("status", "cancelling"),
+            "message": "Run cancellation requested",
+            "cancel_mode": "graceful_then_kill",
+            "grace_period_seconds": CANCEL_GRACE_SECONDS,
+        }
+
+    if run.get("run_type") == "flow":
+        return {
+            "run_id": run_id,
+            "status": "cancelling",
+            "message": "Flow cancellation requested",
+            "cancel_mode": "graceful_then_kill",
+            "grace_period_seconds": CANCEL_GRACE_SECONDS,
+        }
+
+    if run.get("run_type") == "lab_session":
+        run_manager.mark_run_finished(run_id, "cancelled", "Lab cancellation requested", metadata={"cancelled": True})
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Lab cancellation requested")
+        _clear_cancel_marker(control.get("run_cancel_file"))
+        return {
+            "run_id": run_id,
+            "status": "cancelled",
+            "message": "Lab run cancelled",
+            "cancel_mode": "graceful_then_kill",
+            "grace_period_seconds": CANCEL_GRACE_SECONDS,
+        }
+
+    return {
+        "run_id": run_id,
+        "status": "cancelling",
+        "message": "Run cancellation requested",
+        "cancel_mode": "graceful_then_kill",
+        "grace_period_seconds": CANCEL_GRACE_SECONDS,
+    }
 
 
 @app.post("/runs/{run_id}/retry")
