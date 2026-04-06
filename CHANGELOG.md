@@ -4,6 +4,24 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.8.1 (2026-04-06) - Runtime Hardening
+
+### Fiabilidad operacional
+- **Cancelación endurecida**: la cola conserva control del proceso durante `launching` y `process_started`, evitando slots colgados y procesos huérfanos al cancelar.
+- **Flows más seguros**: `POST /runs/{run_id}/cancel` drena tasks de flow sin propagar errores internos como 500, dejando eventos y estados coherentes.
+- **Timeout real**: el motor vuelve a preservar `ExecutionError` de timeout con su metadata correcta (`timeout`, `duration`) sin reenvolverlo.
+
+### Compatibilidad y observabilidad
+- **Historial híbrido**: `/history` mezcla runs nuevos con ejecuciones legacy que aún no estaban correlacionadas con `run_id`.
+- **Contrato legacy estable**: `/execute/{id}` mantiene `status=error` para clientes antiguos cuando el run operativo real está en `failed`.
+- **Permisos y acciones de labs**: `lab_session` exige `manage_labs` y solo acepta acciones válidas de `start_lab` y `stop_lab`.
+
+### Verificación de release
+- **Checks reutilizables**: nuevo `tools/verify_runtime_hardening.py` para validar timeout efectivo, cancelación segura, compatibilidad legacy y mezcla de historial.
+- **Runbook de tools**: `tools/README.md` documenta la verificación recomendada antes de merge y versionado.
+
+---
+
 ## v2.8.0 (2026-04-06) - Operational Control Plane
 
 ### Runtime y trazabilidad

@@ -1,5 +1,5 @@
 /**
- * BOFA v2.8.0 - Operational Control Plane
+ * BOFA v2.8.1 - Runtime Hardening
  * Configuración centralizada de la aplicación
  */
 
@@ -7,8 +7,8 @@ export const APP_CONFIG = {
   // Información de la aplicación
   name: "BOFA",
   fullName: "Best Of All Cybersecurity Suite",
-  version: "2.8.0",
-  codename: "Operational Control Plane",
+  version: "2.8.1",
+  codename: "Runtime Hardening",
   releaseDate: "2026-04-06",
   
   // Información del desarrollador
