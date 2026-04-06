@@ -65,7 +65,7 @@ class BOFAcli:
     La CLI solo muestra menús, pide input y muestra resultados.
     """
 
-    VERSION = "2.7.0"
+    VERSION = "2.8.0"
     AUTHOR = "@descambiado"
 
     # Número de módulos mostrados en el menú principal (el resto vía L)

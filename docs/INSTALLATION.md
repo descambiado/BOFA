@@ -1,6 +1,6 @@
-# 📦 BOFA v2.5.1 Installation Guide
+# 📦 BOFA v2.8.0 Installation Guide
 
-Complete installation guide for BOFA Extended Systems v2.5.1 - Professional Cybersecurity Platform
+Complete installation guide for BOFA Extended Systems v2.8.0 - Professional Cybersecurity Platform
 
 ## 🔧 Prerequisites
 

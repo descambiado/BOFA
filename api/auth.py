@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.5.1 - Authentication and Authorization
+BOFA Extended Systems v2.8.0 - Authentication and Authorization
 JWT-based authentication system
 """
 

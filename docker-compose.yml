@@ -11,7 +11,7 @@ services:
       - "3000:3000"
     environment:
       - VITE_APP_NAME=BOFA Extended Systems
-      - VITE_APP_VERSION=2.5.1
+      - VITE_APP_VERSION=2.8.0
       - VITE_API_URL=http://localhost:8000
       - NODE_ENV=production
     volumes:
@@ -39,7 +39,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./data/bofa.db
       - JWT_SECRET=${JWT_SECRET:-bofa_jwt_secret_change_in_production_2025}
-      - API_VERSION=v2.5.1
+      - API_VERSION=v2.8.0
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO
     volumes:
