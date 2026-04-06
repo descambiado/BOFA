@@ -238,6 +238,8 @@ class BOFAEngine:
                 script_name=script_name,
                 details={"timeout": timeout, "duration": duration},
             )
+        except ExecutionError:
+            raise
         except Exception as exc:
             duration = (datetime.utcnow() - start_time).total_seconds()
             logger.exception(
