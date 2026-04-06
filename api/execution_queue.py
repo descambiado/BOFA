@@ -57,8 +57,35 @@ class ExecutionQueue:
             item = self.queue.popleft()
             item["status"] = "running"
             item["started_at"] = datetime.utcnow().isoformat()
+            item["launching"] = False
+            item["process_started"] = False
+            item["cancel_requested"] = False
             self.running[item["execution_id"]] = item
             return item
+
+    async def mark_process_launching(self, execution_id: str):
+        async with self.lock:
+            if execution_id in self.running:
+                self.running[execution_id]["launching"] = True
+
+    async def mark_process_started(self, execution_id: str):
+        async with self.lock:
+            if execution_id in self.running:
+                self.running[execution_id]["launching"] = False
+                self.running[execution_id]["process_started"] = True
+
+    async def mark_cancelled(self, execution_id: str, result: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        async with self.lock:
+            if execution_id in self.running:
+                item = self.running.pop(execution_id)
+                item["completed_at"] = datetime.utcnow().isoformat()
+                item["status"] = "cancelled"
+                item["result"] = result or {"status": "cancelled"}
+                self.completed[execution_id] = item
+                return item
+            if execution_id in self.completed:
+                return self.completed[execution_id]
+            return None
 
     async def mark_completed(self, execution_id: str, result: Dict[str, Any]):
         async with self.lock:
@@ -88,7 +115,16 @@ class ExecutionQueue:
                     self.completed[execution_id] = item
                     return item
             if execution_id in self.running:
-                return self.running[execution_id]
+                item = self.running[execution_id]
+                item["cancel_requested"] = True
+                item["cancel_requested_at"] = datetime.utcnow().isoformat()
+                if not item.get("launching") and not item.get("process_started"):
+                    item = self.running.pop(execution_id)
+                    item["status"] = "cancelled"
+                    item["completed_at"] = datetime.utcnow().isoformat()
+                    self.completed[execution_id] = item
+                    return item
+                return item
             return None
 
     async def get_status(self, execution_id: str) -> Optional[Dict[str, Any]]:
