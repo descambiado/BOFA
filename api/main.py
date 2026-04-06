@@ -37,8 +37,9 @@ UPLOADS_DIR = Path(os.getenv("BOFA_UPLOADS_DIR", APP_ROOT / "uploads"))
 CANCEL_DIR = TEMP_DIR / "cancellation"
 CANCEL_GRACE_SECONDS = float(os.getenv("BOFA_CANCEL_GRACE_SECONDS", "4"))
 CANCEL_CHECK_INTERVAL = float(os.getenv("BOFA_CANCEL_CHECK_INTERVAL", "0.5"))
+RUNTIME_REPORTS_DIR = APP_ROOT / "reports" / "runs"
 
-for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR):
+for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR, RUNTIME_REPORTS_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -407,6 +408,16 @@ async def _force_stop_process(run_id: str, execution_id: str, process: asyncio.s
     execution_tasks.pop(execution_id, None)
 
 
+def _write_runtime_artifact(run_id: str, step_id: str, kind: str, content: str) -> Optional[str]:
+    if not content:
+        return None
+    artifact_dir = RUNTIME_REPORTS_DIR / run_id
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = artifact_dir / f"{step_id}_{kind}.log"
+    artifact_path.write_text(content, encoding="utf-8", errors="replace")
+    return str(artifact_path)
+
+
 async def _execute_script_step(item: Dict[str, Any]):
     run_id = item["run_id"]
     step_id = item["step_id"]
@@ -493,6 +504,12 @@ async def _execute_script_step(item: Dict[str, Any]):
     stderr_preview = "\n".join(stderr_chunks)[-1000:]
     output = "\n".join(stdout_chunks)
     error_output = "\n".join(stderr_chunks) or output
+    stdout_artifact = _write_runtime_artifact(run_id, step_id, "stdout", output)
+    stderr_artifact = _write_runtime_artifact(run_id, step_id, "stderr", "\n".join(stderr_chunks))
+    if stdout_artifact:
+        run_manager.add_artifact(run_id, "stdout_log", stdout_artifact, label=f"stdout {module}/{script}", metadata={"step_id": step_id, "execution_id": execution_id})
+    if stderr_artifact:
+        run_manager.add_artifact(run_id, "stderr_log", stderr_artifact, label=f"stderr {module}/{script}", metadata={"step_id": step_id, "execution_id": execution_id})
 
     cancelled = (control.get("cancel_requested") and process.returncode != 0) or process.returncode in {-15, -9, 130}
 
@@ -572,14 +589,26 @@ async def process_execution_queue():
             await _emit_and_persist(item["run_id"], "step", item["step_id"], "completed", "failed", str(exc))
 
 
-async def _start_script_run(current_user: Dict[str, Any], module: str, script: str, parameters: Dict[str, Any], source: str = "api") -> Dict[str, Any]:
+async def _start_script_run(
+    current_user: Dict[str, Any],
+    module: str,
+    script: str,
+    parameters: Dict[str, Any],
+    source: str = "api",
+    parent_run_id: Optional[str] = None,
+    metadata_extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    metadata = {"module": module, "script": script, "parameters": parameters}
+    if metadata_extra:
+        metadata.update(metadata_extra)
     run_id = run_manager.create_run(
         user_id=current_user["user_id"],
         run_type="script",
         source=source,
         requested_action="execute_script",
         target=parameters.get("target") or parameters.get("url"),
-        metadata={"module": module, "script": script, "parameters": parameters},
+        parent_run_id=parent_run_id,
+        metadata=metadata,
         status="queued",
     )
     step_id = run_manager.create_step(run_id, "script", 1, "script_1", module, script, parameters, {"source": source})
@@ -589,14 +618,25 @@ async def _start_script_run(current_user: Dict[str, Any], module: str, script: s
     return {"run_id": run_id, "step_id": step_id, "execution_id": execution_id, "status": "queued", "message": f"Script {script} queued"}
 
 
-async def _start_flow_run(current_user: Dict[str, Any], flow_id: str, target: str, source: str = "api") -> Dict[str, Any]:
+async def _start_flow_run(
+    current_user: Dict[str, Any],
+    flow_id: str,
+    target: str,
+    source: str = "api",
+    parent_run_id: Optional[str] = None,
+    metadata_extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    metadata = {"flow_id": flow_id}
+    if metadata_extra:
+        metadata.update(metadata_extra)
     run_id = run_manager.create_run(
         user_id=current_user["user_id"],
         run_type="flow",
         source=source,
         requested_action="execute_flow",
         target=target,
-        metadata={"flow_id": flow_id},
+        parent_run_id=parent_run_id,
+        metadata=metadata,
         status="queued",
     )
     control = _get_runtime_control(run_id, "flow")
@@ -641,14 +681,25 @@ async def _start_flow_run(current_user: Dict[str, Any], flow_id: str, target: st
     return {"run_id": run_id, "status": "running", "message": f"Flow {flow_id} started"}
 
 
-async def _start_lab_run(current_user: Dict[str, Any], lab_id: str, action: str, source: str = "api") -> Dict[str, Any]:
+async def _start_lab_run(
+    current_user: Dict[str, Any],
+    lab_id: str,
+    action: str,
+    source: str = "api",
+    parent_run_id: Optional[str] = None,
+    metadata_extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    metadata = {"lab_id": lab_id, "action": action}
+    if metadata_extra:
+        metadata.update(metadata_extra)
     run_id = run_manager.create_run(
         user_id=current_user["user_id"],
         run_type="lab_session",
         source=source,
         requested_action=action,
         target=lab_id,
-        metadata={"lab_id": lab_id, "action": action},
+        parent_run_id=parent_run_id,
+        metadata=metadata,
         status="running",
     )
     lab_run_id = run_manager.attach_lab(run_id, lab_id, status="running" if action == "start_lab" else "waiting")
@@ -1021,17 +1072,73 @@ async def retry_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_man
         raise HTTPException(status_code=404, detail="Run not found")
     if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
+    if run.get("status") not in {"failed", "error", "partial", "cancelled"}:
+        raise HTTPException(status_code=400, detail="Retry only supported for failed, partial or cancelled runs")
     payload = run_manager.retry_payload(run_id)
     if not payload:
         raise HTTPException(status_code=400, detail="Retry payload unavailable")
     metadata = payload.get("metadata") or {}
+    retry_metadata = {
+        "retry_of": run_id,
+        "retry_count": payload.get("retry_count", 1),
+        "retry_reason": run.get("status"),
+        "last_non_success_step": payload.get("last_non_success_step"),
+    }
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "retry_requested",
+        "success",
+        "Retry requested for run",
+        retry_metadata,
+    )
     if payload["run_type"] == "script":
-        return await _start_script_run(current_user, metadata.get("module"), metadata.get("script"), metadata.get("parameters", {}), source="retry")
-    if payload["run_type"] == "flow":
-        return await _start_flow_run(current_user, metadata.get("flow_id"), payload.get("target"), source="retry")
-    if payload["run_type"] == "lab_session":
-        return await _start_lab_run(current_user, metadata.get("lab_id"), payload.get("requested_action") or metadata.get("action") or "start_lab", source="retry")
-    raise HTTPException(status_code=400, detail="Retry not supported for this run")
+        result = await _start_script_run(
+            current_user,
+            metadata.get("module"),
+            metadata.get("script"),
+            metadata.get("parameters", {}),
+            source="retry",
+            parent_run_id=run_id,
+            metadata_extra=retry_metadata,
+        )
+    elif payload["run_type"] == "flow":
+        result = await _start_flow_run(
+            current_user,
+            metadata.get("flow_id"),
+            payload.get("target"),
+            source="retry",
+            parent_run_id=run_id,
+            metadata_extra=retry_metadata,
+        )
+    elif payload["run_type"] == "lab_session":
+        result = await _start_lab_run(
+            current_user,
+            metadata.get("lab_id"),
+            payload.get("requested_action") or metadata.get("action") or "start_lab",
+            source="retry",
+            parent_run_id=run_id,
+            metadata_extra=retry_metadata,
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Retry not supported for this run")
+
+    run_manager.add_event(
+        result["run_id"],
+        "run",
+        result["run_id"],
+        "retried_from",
+        "queued" if result.get("status") == "queued" else result.get("status", "running"),
+        "Run created from retry",
+        {"parent_run_id": run_id, "retry_count": retry_metadata["retry_count"]},
+    )
+    return {
+        **result,
+        "parent_run_id": run_id,
+        "retry_count": retry_metadata["retry_count"],
+        "retry_reason": run.get("status"),
+    }
 
 
 @app.post("/execute")

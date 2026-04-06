@@ -50,7 +50,7 @@ class RunManager:
             event_type="created",
             status=status,
             message=f"Run created for {requested_action}",
-            payload={"run_type": run_type, "source": source, "target": target},
+            payload={"run_type": run_type, "source": source, "target": target, "parent_run_id": parent_run_id},
         )
         return run_id
 
@@ -244,10 +244,26 @@ class RunManager:
         if not run:
             return None
         metadata = run.get("metadata") or {}
+        detail = self.db.get_run_detail(run_id) or run
+        retry_count = int(metadata.get("retry_count", 0)) + 1
+        last_non_success_step = None
+        for step in detail.get("steps", []):
+            if step.get("status") not in {"success"}:
+                last_non_success_step = {
+                    "id": step.get("id"),
+                    "module": step.get("module"),
+                    "script_name": step.get("script_name"),
+                    "status": step.get("status"),
+                    "error_message": step.get("error_message"),
+                }
+                break
         return {
+            "retry_of": run_id,
+            "retry_count": retry_count,
             "run_type": run.get("run_type"),
             "source": run.get("source"),
             "requested_action": run.get("requested_action"),
             "target": run.get("target"),
             "metadata": metadata,
+            "last_non_success_step": last_non_success_step,
         }
