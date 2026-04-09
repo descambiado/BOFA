@@ -7,6 +7,7 @@ import asyncio
 from datetime import datetime
 import json
 import logging
+import mimetypes
 import os
 from pathlib import Path
 import sys
@@ -71,6 +72,9 @@ lab_manager = LabManager(db)
 run_manager = RunManager(db)
 
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
+ARTIFACT_PREVIEW_LIMIT = 4000
+ARTIFACT_TAIL_PREVIEW_TYPES = {"stdout_log", "stderr_log"}
+ARTIFACT_HEAD_PREVIEW_TYPES = {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown", "post_process_output"}
 execution_tasks: Dict[str, asyncio.subprocess.Process] = {}
 run_lookup_by_execution: Dict[str, str] = {}
 runtime_controls: Dict[str, Dict[str, Any]] = {}
@@ -185,14 +189,198 @@ def _labs_health() -> Dict[str, Any]:
 def _serialize_run(run: Dict[str, Any]) -> Dict[str, Any]:
     status = run.get("status", "unknown")
     events = run.get("events", [])
+    artifacts = _serialize_artifacts(run.get("artifacts", []), run)
     return {
         **run,
+        "artifacts": artifacts,
         "timeline_count": len(events),
         "step_count": len(run.get("steps", [])),
-        "artifact_count": len(run.get("artifacts", [])),
+        "artifact_count": len(artifacts),
         "lab_count": len(run.get("labs", [])),
         "status": status,
     }
+
+
+def _artifact_role(artifact_type: Optional[str]) -> str:
+    if artifact_type in {"stdout_log", "stderr_log"}:
+        return "execution_log"
+    if artifact_type in {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown"}:
+        return "summary"
+    if artifact_type == "post_process_output":
+        return "post_process"
+    return "evidence"
+
+
+def _artifact_content_type(path_str: Optional[str], artifact_type: Optional[str]) -> str:
+    if artifact_type in {"stdout_log", "stderr_log"}:
+        return "text/plain"
+    if artifact_type in {"report_json", "flow_summary_json"}:
+        return "application/json"
+    if artifact_type in {"report_markdown", "flow_summary_markdown"}:
+        return "text/markdown"
+    if path_str:
+        guessed, _ = mimetypes.guess_type(path_str)
+        if guessed:
+            return guessed
+        suffix = Path(path_str).suffix.lower()
+        if suffix in {".log", ".txt"}:
+            return "text/plain"
+        if suffix == ".md":
+            return "text/markdown"
+        if suffix == ".json":
+            return "application/json"
+        if suffix in {".yaml", ".yml"}:
+            return "application/x-yaml"
+    return "application/octet-stream"
+
+
+def _is_previewable_content_type(content_type: Optional[str]) -> bool:
+    if not content_type:
+        return False
+    return content_type.startswith("text/") or content_type in {"application/json", "application/x-yaml", "application/xml"}
+
+
+def _artifact_preview_mode(artifact_type: Optional[str], content_type: Optional[str]) -> Optional[str]:
+    if not _is_previewable_content_type(content_type):
+        return None
+    if artifact_type in ARTIFACT_TAIL_PREVIEW_TYPES:
+        return "tail"
+    if artifact_type in ARTIFACT_HEAD_PREVIEW_TYPES:
+        return "head"
+    return "head"
+
+
+def _artifact_size_bytes(path_str: Optional[str]) -> Optional[int]:
+    if not path_str:
+        return None
+    path = Path(path_str)
+    if not path.exists() or not path.is_file():
+        return None
+    try:
+        return path.stat().st_size
+    except OSError:
+        return None
+
+
+def _build_runtime_artifact_metadata(
+    path_str: str,
+    artifact_type: str,
+    run_status: str,
+    step_status: Optional[str] = None,
+    step_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    partial: Optional[bool] = None,
+) -> Dict[str, Any]:
+    content_type = _artifact_content_type(path_str, artifact_type)
+    preview_mode = _artifact_preview_mode(artifact_type, content_type)
+    return {
+        "step_id": step_id,
+        "execution_id": execution_id,
+        "run_status": run_status,
+        "step_status": step_status or run_status,
+        "artifact_role": _artifact_role(artifact_type),
+        "previewable": preview_mode is not None,
+        "preview_mode": preview_mode,
+        "content_type": content_type,
+        "size_bytes": _artifact_size_bytes(path_str),
+        "partial": (run_status in {"partial", "cancelled", "failed", "error"}) if partial is None else partial,
+    }
+
+
+def _serialize_artifact(artifact: Dict[str, Any], run: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    serialized = dict(artifact)
+    metadata = dict(serialized.get("metadata") or {})
+    step_lookup = {step["id"]: step for step in (run.get("steps", []) if run else [])}
+    step = step_lookup.get(metadata.get("step_id")) if metadata.get("step_id") else None
+    run_status = metadata.get("run_status") or (run.get("status") if run else None)
+    step_status = metadata.get("step_status") or (step.get("status") if step else None)
+    content_type = metadata.get("content_type") or _artifact_content_type(serialized.get("path"), serialized.get("artifact_type"))
+    preview_mode = metadata.get("preview_mode") or _artifact_preview_mode(serialized.get("artifact_type"), content_type)
+    size_bytes = metadata.get("size_bytes")
+    if size_bytes is None:
+        size_bytes = _artifact_size_bytes(serialized.get("path"))
+    partial = metadata.get("partial")
+    if partial is None:
+        partial = (run_status in {"partial", "cancelled"}) or (step_status in {"failed", "cancelled"})
+    serialized["metadata"] = {
+        **metadata,
+        "step_id": metadata.get("step_id"),
+        "execution_id": metadata.get("execution_id"),
+        "run_status": run_status,
+        "step_status": step_status,
+        "artifact_role": metadata.get("artifact_role") or _artifact_role(serialized.get("artifact_type")),
+        "previewable": metadata.get("previewable") if "previewable" in metadata else preview_mode is not None,
+        "preview_mode": preview_mode,
+        "content_type": content_type,
+        "size_bytes": size_bytes,
+        "partial": bool(partial),
+    }
+    return serialized
+
+
+def _serialize_artifacts(artifacts: List[Dict[str, Any]], run: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    return [_serialize_artifact(artifact, run) for artifact in artifacts]
+
+
+def _build_artifact_preview_payload(run_id: str, artifact: Dict[str, Any], run: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    serialized = _serialize_artifact(artifact, run)
+    metadata = dict(serialized.get("metadata") or {})
+    preview_mode = metadata.get("preview_mode")
+    base_payload = {
+        "run_id": run_id,
+        "artifact": serialized,
+        "previewable": bool(metadata.get("previewable")),
+        "preview": None,
+        "truncated": False,
+        "preview_mode": preview_mode,
+        "content_type": metadata.get("content_type"),
+        "size_bytes": metadata.get("size_bytes"),
+        "reason": None,
+    }
+
+    if not base_payload["previewable"]:
+        return {**base_payload, "reason": "binary_or_unsupported"}
+
+    path = Path(serialized.get("path") or "")
+    if not path.exists() or not path.is_file():
+        return {**base_payload, "previewable": False, "reason": "artifact_not_found"}
+
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {**base_payload, "previewable": False, "reason": "artifact_unreadable"}
+
+    limit = ARTIFACT_PREVIEW_LIMIT
+    if preview_mode == "tail":
+        preview = content[-limit:]
+    else:
+        preview = content[:limit]
+        preview_mode = preview_mode or "head"
+
+    return {
+        **base_payload,
+        "previewable": True,
+        "preview": preview,
+        "truncated": len(content) > limit,
+        "preview_mode": preview_mode,
+    }
+
+
+def _build_run_completion_payload(run_id: str, status: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    detail = db.get_run_detail(run_id) or {}
+    steps = detail.get("steps", [])
+    payload = {
+        "run_status": status,
+        "step_count": len(steps),
+        "completed_steps": len([step for step in steps if step.get("status") == "success"]),
+        "failed_steps": len([step for step in steps if step.get("status") in {"failed", "error"}]),
+        "cancelled_steps": len([step for step in steps if step.get("status") == "cancelled"]),
+        "artifact_count": len(detail.get("artifacts", [])),
+        "lab_count": len(detail.get("labs", [])),
+    }
+    if extra:
+        payload.update({key: value for key, value in extra.items() if value is not None})
+    return payload
 
 
 def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
@@ -439,7 +627,13 @@ async def _execute_script_step(item: Dict[str, Any]):
         db.create_execution(execution_id, item["user_id"], module, script, parameters, run_id=run_id, step_id=step_id)
         db.update_execution(execution_id, "cancelled", error_message="Execution cancelled before start")
         run_manager.update_step(step_id, run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution cancelled before start")
-        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before script start")
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            "cancelled",
+            {"execution_id": execution_id, "step_id": step_id, "module": module, "script": script, "reason": "cancelled_before_start"},
+        )
+        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before script start", metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", f"{module}/{script} cancelled before start", completion_payload)
         await _emit_and_persist(run_id, "step", step_id, "cancelled", "cancelled", f"{module}/{script} cancelled before start")
         return
 
@@ -451,7 +645,13 @@ async def _execute_script_step(item: Dict[str, Any]):
         error_message = f"Script not found: {script_file}"
         await execution_queue.mark_failed(execution_id, error_message)
         run_manager.update_step(step_id, run_id, status="failed", completed_at=datetime.utcnow().isoformat(), error_message=error_message)
-        run_manager.mark_run_finished(run_id, "failed", error_message)
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            "failed",
+            {"execution_id": execution_id, "step_id": step_id, "module": module, "script": script, "reason": error_message},
+        )
+        run_manager.mark_run_finished(run_id, "failed", error_message, metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "completed", "failed", error_message, completion_payload)
         await _emit_and_persist(run_id, "step", step_id, "status_changed", "failed", error_message)
         return
 
@@ -512,17 +712,43 @@ async def _execute_script_step(item: Dict[str, Any]):
     stderr_preview = "\n".join(stderr_chunks)[-1000:]
     output = "\n".join(stdout_chunks)
     error_output = "\n".join(stderr_chunks) or output
+    cancelled = (control.get("cancel_requested") and process.returncode != 0) or process.returncode in {-15, -9, 130}
+    result_status = "cancelled" if cancelled else "success" if process.returncode == 0 else "failed"
+
     stdout_artifact = _write_runtime_artifact(run_id, step_id, "stdout", output)
     stderr_artifact = _write_runtime_artifact(run_id, step_id, "stderr", "\n".join(stderr_chunks))
     if stdout_artifact:
-        run_manager.add_artifact(run_id, "stdout_log", stdout_artifact, label=f"stdout {module}/{script}", metadata={"step_id": step_id, "execution_id": execution_id})
+        run_manager.add_artifact(
+            run_id,
+            "stdout_log",
+            stdout_artifact,
+            label=f"stdout {module}/{script}",
+            metadata=_build_runtime_artifact_metadata(
+                stdout_artifact,
+                "stdout_log",
+                result_status,
+                step_status=result_status,
+                step_id=step_id,
+                execution_id=execution_id,
+            ),
+        )
     if stderr_artifact:
-        run_manager.add_artifact(run_id, "stderr_log", stderr_artifact, label=f"stderr {module}/{script}", metadata={"step_id": step_id, "execution_id": execution_id})
-
-    cancelled = (control.get("cancel_requested") and process.returncode != 0) or process.returncode in {-15, -9, 130}
+        run_manager.add_artifact(
+            run_id,
+            "stderr_log",
+            stderr_artifact,
+            label=f"stderr {module}/{script}",
+            metadata=_build_runtime_artifact_metadata(
+                stderr_artifact,
+                "stderr_log",
+                result_status,
+                step_status=result_status,
+                step_id=step_id,
+                execution_id=execution_id,
+            ),
+        )
 
     if cancelled:
-        result_status = "cancelled"
         await execution_queue.mark_completed(execution_id, {"status": result_status, "run_id": run_id, "step_id": step_id})
         db.update_execution(execution_id, "cancelled", error_message="Execution cancelled", execution_time=duration)
         run_manager.update_step(
@@ -537,10 +763,31 @@ async def _execute_script_step(item: Dict[str, Any]):
             error_message="Execution cancelled",
             message=f"Script step cancelled: {module}/{script}",
         )
-        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} cancelled", metadata={"execution_id": execution_id})
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            result_status,
+            {
+                "execution_id": execution_id,
+                "step_id": step_id,
+                "module": module,
+                "script": script,
+                "exit_code": process.returncode,
+                "duration": duration,
+                "reason": "Execution cancelled",
+            },
+        )
+        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} cancelled", metadata=completion_payload)
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "cancelled",
+            result_status,
+            f"Script {module}/{script} cancelled",
+            completion_payload,
+        )
         await _emit_and_persist(run_id, "step", step_id, "cancelled", result_status, f"{module}/{script} cancelled", {"exit_code": process.returncode, "duration": duration})
     elif process.returncode == 0:
-        result_status = "success"
         await execution_queue.mark_completed(execution_id, {"status": result_status, "exit_code": process.returncode, "run_id": run_id, "step_id": step_id})
         db.update_execution(execution_id, result_status, output=output, execution_time=duration)
         run_manager.update_step(
@@ -554,12 +801,32 @@ async def _execute_script_step(item: Dict[str, Any]):
             stderr_preview=stderr_preview,
             message=f"Script step finished: {module}/{script}",
         )
-        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} completed", metadata={"execution_id": execution_id})
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            result_status,
+            {
+                "execution_id": execution_id,
+                "step_id": step_id,
+                "module": module,
+                "script": script,
+                "exit_code": process.returncode,
+                "duration": duration,
+            },
+        )
+        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} completed", metadata=completion_payload)
         if control.get("cancel_requested"):
             await _emit_and_persist(run_id, "run", run_id, "cancel_requested", "success", "Cancel requested after process completed", {"forced": False})
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "completed",
+            result_status,
+            f"Script {module}/{script} completed",
+            completion_payload,
+        )
         await _emit_and_persist(run_id, "step", step_id, "completed", result_status, f"{module}/{script} completed", {"exit_code": process.returncode, "duration": duration})
     else:
-        result_status = "failed"
         await execution_queue.mark_failed(execution_id, error_output)
         db.update_execution(execution_id, "error", error_message=error_output, execution_time=duration)
         run_manager.update_step(
@@ -574,7 +841,29 @@ async def _execute_script_step(item: Dict[str, Any]):
             error_message=error_output,
             message=f"Script step failed: {module}/{script}",
         )
-        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} failed", metadata={"execution_id": execution_id, "exit_code": process.returncode})
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            result_status,
+            {
+                "execution_id": execution_id,
+                "step_id": step_id,
+                "module": module,
+                "script": script,
+                "exit_code": process.returncode,
+                "duration": duration,
+                "reason": error_output,
+            },
+        )
+        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} failed", metadata=completion_payload)
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "completed",
+            result_status,
+            f"Script {module}/{script} failed",
+            completion_payload,
+        )
         await _emit_and_persist(run_id, "step", step_id, "completed", result_status, error_output, {"exit_code": process.returncode, "duration": duration})
 
     _clear_cancel_marker(control.get("step_cancel_file"))
@@ -593,7 +882,19 @@ async def process_execution_queue():
         except Exception as exc:
             await execution_queue.mark_failed(item["execution_id"], str(exc))
             run_manager.update_step(item["step_id"], item["run_id"], status="failed", completed_at=datetime.utcnow().isoformat(), error_message=str(exc))
-            run_manager.mark_run_finished(item["run_id"], "failed", f"Execution error: {exc}")
+            completion_payload = _build_run_completion_payload(
+                item["run_id"],
+                "failed",
+                {
+                    "execution_id": item["execution_id"],
+                    "step_id": item["step_id"],
+                    "module": item["module"],
+                    "script": item["script"],
+                    "reason": str(exc),
+                },
+            )
+            run_manager.mark_run_finished(item["run_id"], "failed", f"Execution error: {exc}", metadata=completion_payload)
+            await _emit_and_persist(item["run_id"], "run", item["run_id"], "completed", "failed", str(exc), completion_payload)
             await _emit_and_persist(item["run_id"], "step", item["step_id"], "completed", "failed", str(exc))
 
 
@@ -674,11 +975,25 @@ async def _start_flow_run(
                 },
             )
             final_status = result.get("status", "failed")
-            run_manager.mark_run_finished(run_id, final_status, f"Flow {flow_id} completed", metadata={"flow_id": flow_id})
-            await _emit_and_persist(run_id, "run", run_id, "cancelled" if final_status == "cancelled" else "completed", final_status, f"Flow {flow_id} completed", {"flow_id": flow_id})
+            completion_payload = _build_run_completion_payload(
+                run_id,
+                final_status,
+                {"flow_id": flow_id, "cancelled_at_step": result.get("cancelled_at_step"), "cause": result.get("cause")},
+            )
+            run_manager.mark_run_finished(run_id, final_status, f"Flow {flow_id} completed", metadata=completion_payload)
+            await _emit_and_persist(
+                run_id,
+                "run",
+                run_id,
+                "cancelled" if final_status == "cancelled" else "completed",
+                final_status,
+                f"Flow {flow_id} completed",
+                completion_payload,
+            )
         except Exception as exc:
-            run_manager.mark_run_finished(run_id, "failed", f"Flow {flow_id} failed", metadata={"error": str(exc)})
-            await _emit_and_persist(run_id, "run", run_id, "completed", "failed", str(exc), {"flow_id": flow_id})
+            completion_payload = _build_run_completion_payload(run_id, "failed", {"flow_id": flow_id, "cause": str(exc)})
+            run_manager.mark_run_finished(run_id, "failed", f"Flow {flow_id} failed", metadata=completion_payload)
+            await _emit_and_persist(run_id, "run", run_id, "completed", "failed", str(exc), completion_payload)
         finally:
             _clear_cancel_marker(control.get("run_cancel_file"))
             _clear_cancel_marker(control.get("step_cancel_file"))
@@ -1056,12 +1371,25 @@ async def get_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_manag
 
 @app.get("/runs/{run_id}/timeline")
 async def get_run_timeline(run_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
-    run = db.get_run(run_id)
+    run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    return {"run_id": run_id, "events": db.get_run_events(run_id), "artifacts": db.get_run_artifacts(run_id)}
+    return {"run_id": run_id, "events": db.get_run_events(run_id), "artifacts": _serialize_artifacts(run.get("artifacts", []), run)}
+
+
+@app.get("/runs/{run_id}/artifacts/{artifact_id}/preview")
+async def get_run_artifact_preview(run_id: str, artifact_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    artifact = next((item for item in run.get("artifacts", []) if item.get("id") == artifact_id), None)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return _build_artifact_preview_payload(run_id, artifact, run)
 
 
 @app.post("/runs/{run_id}/cancel")
@@ -1089,8 +1417,9 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
             db.create_execution(execution_id, current_user["user_id"], step.get("module") or "unknown", step.get("script_name") or step.get("step_key") or step["id"], step.get("parameters") or {}, run_id=run_id, step_id=step["id"])
             db.update_execution(execution_id, "cancelled", error_message="Execution cancelled before start")
             run_manager.update_step(step["id"], run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution cancelled before start")
-        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before execution")
-        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Run cancelled before execution")
+        completion_payload = _build_run_completion_payload(run_id, "cancelled", {"reason": "cancelled_before_execution"})
+        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before execution", metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Run cancelled before execution", completion_payload)
         _clear_cancel_marker(control.get("run_cancel_file"))
         return {
             "run_id": run_id,
@@ -1128,8 +1457,9 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
         }
 
     if run.get("run_type") == "lab_session":
-        run_manager.mark_run_finished(run_id, "cancelled", "Lab cancellation requested", metadata={"cancelled": True})
-        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Lab cancellation requested")
+        completion_payload = _build_run_completion_payload(run_id, "cancelled", {"cancelled": True, "reason": "lab_cancellation_requested"})
+        run_manager.mark_run_finished(run_id, "cancelled", "Lab cancellation requested", metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Lab cancellation requested", completion_payload)
         _clear_cancel_marker(control.get("run_cancel_file"))
         return {
             "run_id": run_id,

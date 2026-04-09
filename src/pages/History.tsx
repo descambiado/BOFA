@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ActionButton } from "@/components/UI/ActionButton";
-import { useRunDetail, useRuns, apiService, type RunSummary } from "@/services/api";
-import { ArrowLeft, Clock, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, Square, Workflow } from "lucide-react";
+import { useRunDetail, useRuns, apiService, type RunArtifact, type RunArtifactPreview, type RunSummary } from "@/services/api";
+import { ArrowLeft, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, Square, Workflow } from "lucide-react";
 import { toast } from "sonner";
 
 const FINAL_STATUSES = ["success", "failed", "error", "partial", "cancelled"];
@@ -20,11 +20,26 @@ const History = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [familyFilter, setFamilyFilter] = useState("all");
+  const [artifactPreview, setArtifactPreview] = useState<RunArtifactPreview | null>(null);
+  const [artifactPreviewId, setArtifactPreviewId] = useState<string | null>(null);
+  const [isArtifactPreviewLoading, setIsArtifactPreviewLoading] = useState(false);
   const { data: runs, isLoading, refetch } = useRuns();
   const { data: selectedRun, refetch: refetchRun } = useRunDetail(selectedRunId);
 
   const isFinalStatus = (status?: string) => FINAL_STATUSES.includes(status || "");
   const formatTimestamp = (timestamp?: string) => (timestamp ? new Date(timestamp).toLocaleString("es-ES") : "sin fecha");
+  const formatBytes = (value?: number) => {
+    if (!value && value !== 0) return "tamano n/a";
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  useEffect(() => {
+    setArtifactPreview(null);
+    setArtifactPreviewId(null);
+    setIsArtifactPreviewLoading(false);
+  }, [selectedRunId]);
 
   const families = useMemo(() => {
     const grouped = new Map<string, RunSummary[]>();
@@ -71,6 +86,29 @@ const History = () => {
       toast.success("Ruta copiada");
     } catch {
       toast.error("No se pudo copiar la ruta");
+    }
+  };
+
+  const handleArtifactPreview = async (artifact: RunArtifact) => {
+    if (!selectedRunId) return;
+    if (artifactPreviewId === artifact.id) {
+      setArtifactPreview(null);
+      setArtifactPreviewId(null);
+      return;
+    }
+
+    setIsArtifactPreviewLoading(true);
+    try {
+      const preview = await apiService.getRunArtifactPreview(selectedRunId, artifact.id);
+      setArtifactPreview(preview);
+      setArtifactPreviewId(artifact.id);
+      if (!preview.previewable && preview.reason) {
+        toast.info(`Preview no disponible: ${preview.reason}`);
+      }
+    } catch {
+      toast.error("No se pudo cargar el preview del artifact");
+    } finally {
+      setIsArtifactPreviewLoading(false);
     }
   };
 
@@ -200,6 +238,11 @@ const History = () => {
                       <Badge>{getDisplayStatus(event.status)}</Badge>
                     </div>
                     <p className="mt-2 text-sm text-gray-300">{event.message || "Sin mensaje"}</p>
+                    {!!Object.keys(event.payload || {}).length && (
+                      <pre className="mt-3 whitespace-pre-wrap rounded bg-black/70 p-3 text-xs text-cyan-100">
+                        {JSON.stringify(event.payload, null, 2)}
+                      </pre>
+                    )}
                     <p className="mt-1 text-xs text-gray-500">{formatTimestamp(event.created_at)}</p>
                   </div>
                 )) : <p className="text-gray-400">Sin eventos registrados.</p>}
@@ -219,14 +262,63 @@ const History = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-medium text-white">{artifact.label || artifact.artifact_type}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <Badge>{artifact.artifact_type}</Badge>
+                          {artifact.metadata?.step_status && <Badge>{getDisplayStatus(artifact.metadata.step_status)}</Badge>}
+                          {artifact.metadata?.partial && <Badge className="bg-amber-500/20 text-amber-200">evidence partial</Badge>}
+                        </div>
+                        <p className="mt-2 text-xs text-gray-400">
+                          {artifact.metadata?.artifact_role || "evidence"} · {artifact.metadata?.content_type || "content-type n/a"} · {formatBytes(artifact.metadata?.size_bytes)}
+                        </p>
                         <p className="mt-1 break-all text-sm text-gray-400">{artifact.path}</p>
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => copyArtifactPath(artifact.path)} className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {artifact.metadata?.previewable && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isArtifactPreviewLoading && artifactPreviewId === artifact.id}
+                            onClick={() => handleArtifactPreview(artifact)}
+                            className="border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => copyArtifactPath(artifact.path)} className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )) : <p className="text-gray-400">Sin artifacts registrados.</p>}
+                {artifactPreview && (
+                  <div className="rounded-lg border border-cyan-500/30 bg-black/60 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-white">{artifactPreview.artifact.label || artifactPreview.artifact.artifact_type}</p>
+                      <Badge>{artifactPreview.preview_mode || "preview"}</Badge>
+                      {artifactPreview.artifact.metadata?.partial && (
+                        <Badge className="bg-amber-500/20 text-amber-200">
+                          {selectedRun.status === "cancelled" ? "cancelled evidence" : "partial evidence"}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-400">
+                      {artifactPreview.content_type || artifactPreview.artifact.metadata?.content_type || "content-type n/a"} · {formatBytes(artifactPreview.size_bytes || artifactPreview.artifact.metadata?.size_bytes)}
+                    </p>
+                    {artifactPreview.previewable && artifactPreview.preview ? (
+                      <>
+                        <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded bg-black p-3 text-sm text-cyan-100">
+                          {artifactPreview.preview}
+                        </pre>
+                        {artifactPreview.truncated && (
+                          <p className="mt-2 text-xs text-amber-300">Preview truncado para mantenerlo ligero.</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm text-gray-300">No hay preview disponible para este artifact. Motivo: {artifactPreview.reason || "binary_or_unsupported"}.</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

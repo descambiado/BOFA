@@ -9,11 +9,13 @@ and legacy history compatibility. Designed to run without external services.
 import ast
 import asyncio
 import json
+import mimetypes
 import os
 import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Dict, List
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -28,13 +30,15 @@ from api.database import DatabaseManager
 from api.run_manager import RunManager
 
 
-def _load_main_functions(*names):
-    source = (_ROOT / "api" / "main.py").read_text(encoding="utf-8")
-    tree = ast.parse(source, filename="api/main.py")
+def _load_python_functions(source_path: Path, *names):
+    source = source_path.read_text(encoding="utf-8")
+    filename = str(source_path.relative_to(_ROOT))
+    tree = ast.parse(source, filename=filename)
     selected = {}
     base_globals = {
         "asyncio": asyncio,
         "json": json,
+        "mimetypes": mimetypes,
         "Path": Path,
         "datetime": datetime,
         "timedelta": timedelta,
@@ -46,14 +50,22 @@ def _load_main_functions(*names):
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
                 module = ast.Module(body=[node], type_ignores=[])
-                code = compile(module, filename="api/main.py", mode="exec")
+                code = compile(module, filename=filename, mode="exec")
                 namespace = dict(base_globals)
                 exec(code, namespace)
                 selected[name] = namespace[name]
                 break
         else:
-            raise RuntimeError(f"Function {name} not found in api/main.py")
+            raise RuntimeError(f"Function {name} not found in {filename}")
     return selected
+
+
+def _load_main_functions(*names):
+    return _load_python_functions(_ROOT / "api" / "main.py", *names)
+
+
+def _load_flow_functions(*names):
+    return _load_python_functions(_ROOT / "flows" / "flow_runner.py", *names)
 
 
 def _make_runtime():
@@ -511,9 +523,219 @@ async def _check_runtime_cancellation_is_idempotent():
     )
 
 
+def _check_flow_partial_summary_artifacts():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="flow",
+        source="verify_control_plane",
+        requested_action="execute_flow",
+        target="partial.local",
+        status="running",
+    )
+    loaded = _load_flow_functions(
+        "_flow_artifact_content_type",
+        "_flow_artifact_metadata",
+        "_build_flow_summary",
+        "_build_flow_markdown",
+        "_finalize_flow_result",
+    )
+    loaded["_flow_artifact_metadata"].__globals__["Path"] = Path
+    loaded["_flow_artifact_metadata"].__globals__["_flow_artifact_content_type"] = loaded["_flow_artifact_content_type"]
+    loaded["_flow_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_build_flow_summary"].__globals__["datetime"] = datetime
+    loaded["_build_flow_markdown"].__globals__["datetime"] = datetime
+    finalize = loaded["_finalize_flow_result"]
+    finalize.__globals__["datetime"] = datetime
+    finalize.__globals__["json"] = json
+    finalize.__globals__["Path"] = Path
+    finalize.__globals__["_ROOT"] = _ROOT
+    finalize.__globals__["_build_flow_summary"] = loaded["_build_flow_summary"]
+    finalize.__globals__["_build_flow_markdown"] = loaded["_build_flow_markdown"]
+    finalize.__globals__["_flow_artifact_metadata"] = loaded["_flow_artifact_metadata"]
+
+    result = finalize(
+        "verify_flow",
+        {"name": "verify_flow"},
+        "partial.local",
+        artifact_dir,
+        SimpleNamespace(execute_script=lambda **kwargs: None),
+        SimpleNamespace(execution_timeout=60),
+        [
+            {"index": 1, "module": "examples", "script": "example_info", "status": "success", "exit_code": 0, "duration": 0.1, "stdout_preview": "ok", "stderr_preview": "", "error": None},
+            {"index": 2, "module": "examples", "script": "example_fail", "status": "failed", "exit_code": 1, "duration": 0.2, "stdout_preview": "partial", "stderr_preview": "boom", "error": "boom"},
+        ],
+        "partial",
+        run_manager=manager,
+        run_id=run_id,
+        cause="Synthetic partial flow",
+    )
+
+    detail = db.get_run_detail(run_id)
+    artifact_types = {artifact.get("artifact_type") for artifact in detail.get("artifacts", [])}
+    summary_artifact = next((artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "flow_summary_json"), None)
+    return (
+        result.get("status") == "partial"
+        and result.get("artifact_count") == 2
+        and Path(result["report_path"]).exists()
+        and Path(result["report_json_path"]).exists()
+        and {"flow_summary_json", "flow_summary_markdown"}.issubset(artifact_types)
+        and summary_artifact is not None
+        and (summary_artifact.get("metadata") or {}).get("partial") is True
+        and result.get("report_json", {}).get("failed_steps") == 1
+        and result.get("report_json", {}).get("cause") == "Synthetic partial flow"
+    )
+
+
+def _check_flow_cancelled_summary_and_post_process_skip():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="flow",
+        source="verify_control_plane",
+        requested_action="execute_flow",
+        target="cancelled.local",
+        status="running",
+    )
+    loaded = _load_flow_functions(
+        "_flow_artifact_content_type",
+        "_flow_artifact_metadata",
+        "_build_flow_summary",
+        "_build_flow_markdown",
+        "_finalize_flow_result",
+    )
+    loaded["_flow_artifact_metadata"].__globals__["Path"] = Path
+    loaded["_flow_artifact_metadata"].__globals__["_flow_artifact_content_type"] = loaded["_flow_artifact_content_type"]
+    loaded["_flow_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_build_flow_summary"].__globals__["datetime"] = datetime
+    loaded["_build_flow_markdown"].__globals__["datetime"] = datetime
+    finalize = loaded["_finalize_flow_result"]
+    finalize.__globals__["datetime"] = datetime
+    finalize.__globals__["json"] = json
+    finalize.__globals__["Path"] = Path
+    finalize.__globals__["_ROOT"] = _ROOT
+    finalize.__globals__["_build_flow_summary"] = loaded["_build_flow_summary"]
+    finalize.__globals__["_build_flow_markdown"] = loaded["_build_flow_markdown"]
+    finalize.__globals__["_flow_artifact_metadata"] = loaded["_flow_artifact_metadata"]
+
+    result = finalize(
+        "verify_cancelled_flow",
+        {"name": "verify_cancelled_flow", "post_process": {"script": "reporting/flow_report_aggregator", "params": {"output": "reports/skip.md"}}},
+        "cancelled.local",
+        artifact_dir,
+        SimpleNamespace(execute_script=lambda **kwargs: None),
+        SimpleNamespace(execution_timeout=60),
+        [
+            {"index": 1, "module": "examples", "script": "example_info", "status": "success", "exit_code": 0, "duration": 0.1, "stdout_preview": "ok", "stderr_preview": "", "error": None},
+            {"index": 2, "module": "examples", "script": "example_params", "status": "cancelled", "exit_code": -15, "duration": 0.2, "stdout_preview": "partial", "stderr_preview": "", "error": "cancelled"},
+        ],
+        "cancelled",
+        run_manager=manager,
+        run_id=run_id,
+        cancelled_at_step=2,
+        cause="Synthetic cancellation",
+    )
+
+    detail = db.get_run_detail(run_id)
+    return (
+        result.get("status") == "cancelled"
+        and result.get("cancelled_at_step") == 2
+        and Path(result["report_path"]).exists()
+        and Path(result["report_json_path"]).exists()
+        and any(event.get("event_type") == "post_process_skipped" for event in detail.get("events", []))
+        and any((artifact.get("metadata") or {}).get("partial") is True for artifact in detail.get("artifacts", []))
+    )
+
+
+def _check_artifact_preview_helpers():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="artifact.local",
+        status="cancelled",
+    )
+    step_id = manager.create_step(
+        run_id=run_id,
+        step_type="script",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_info",
+        parameters={},
+        status="cancelled",
+    )
+    manager.mark_run_finished(run_id, "cancelled", "Cancelled for artifact smoke", metadata={"reason": "smoke"})
+
+    stdout_path = artifact_dir / "stdout.log"
+    stdout_path.write_text("line\n" * 1200, encoding="utf-8")
+    manager.add_artifact(run_id, "stdout_log", str(stdout_path), label="stdout smoke", metadata={"step_id": step_id, "execution_id": "exec_smoke"})
+
+    summary_path = artifact_dir / "summary.json"
+    summary_path.write_text(json.dumps({"status": "partial", "steps": [1, 2, 3]}, indent=2), encoding="utf-8")
+    manager.add_artifact(run_id, "flow_summary_json", str(summary_path), label="summary smoke", metadata={"partial": True})
+
+    binary_path = artifact_dir / "capture.bin"
+    binary_path.write_bytes(b"\x00\x01\x02\x03")
+    manager.add_artifact(run_id, "binary_capture", str(binary_path), label="binary smoke", metadata={})
+
+    detail = db.get_run_detail(run_id)
+    loaded = _load_main_functions(
+        "_artifact_role",
+        "_artifact_content_type",
+        "_is_previewable_content_type",
+        "_artifact_preview_mode",
+        "_artifact_size_bytes",
+        "_serialize_artifact",
+        "_build_artifact_preview_payload",
+    )
+    loaded["_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_artifact_content_type"].__globals__["Path"] = Path
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_TAIL_PREVIEW_TYPES"] = {"stdout_log", "stderr_log"}
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_HEAD_PREVIEW_TYPES"] = {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown", "post_process_output"}
+    loaded["_artifact_preview_mode"].__globals__["_is_previewable_content_type"] = loaded["_is_previewable_content_type"]
+    loaded["_artifact_size_bytes"].__globals__["Path"] = Path
+    loaded["_serialize_artifact"].__globals__["Path"] = Path
+    loaded["_serialize_artifact"].__globals__["_artifact_role"] = loaded["_artifact_role"]
+    loaded["_serialize_artifact"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    loaded["_serialize_artifact"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
+    loaded["_serialize_artifact"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_build_artifact_preview_payload"].__globals__["Path"] = Path
+    loaded["_build_artifact_preview_payload"].__globals__["ARTIFACT_PREVIEW_LIMIT"] = 4000
+    loaded["_build_artifact_preview_payload"].__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
+
+    stdout_artifact = next(artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "stdout_log")
+    summary_artifact = next(artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "flow_summary_json")
+    binary_artifact = next(artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "binary_capture")
+
+    serialized_stdout = loaded["_serialize_artifact"](stdout_artifact, detail)
+    stdout_preview = loaded["_build_artifact_preview_payload"](run_id, stdout_artifact, detail)
+    summary_preview = loaded["_build_artifact_preview_payload"](run_id, summary_artifact, detail)
+    binary_preview = loaded["_build_artifact_preview_payload"](run_id, binary_artifact, detail)
+
+    return (
+        (serialized_stdout.get("metadata") or {}).get("run_status") == "cancelled"
+        and (serialized_stdout.get("metadata") or {}).get("step_status") == "cancelled"
+        and (serialized_stdout.get("metadata") or {}).get("preview_mode") == "tail"
+        and (serialized_stdout.get("metadata") or {}).get("partial") is True
+        and stdout_preview.get("previewable") is True
+        and stdout_preview.get("preview_mode") == "tail"
+        and stdout_preview.get("truncated") is True
+        and summary_preview.get("previewable") is True
+        and summary_preview.get("preview_mode") == "head"
+        and binary_preview.get("previewable") is False
+        and binary_preview.get("reason") == "binary_or_unsupported"
+    )
+
+
 def main():
     checks = [
         ("run lifecycle persists steps labs events and artifacts", _check_run_lifecycle_persistence()),
+        ("flow partial summaries persist artifacts", _check_flow_partial_summary_artifacts()),
+        ("flow cancelled summaries skip post-process cleanly", _check_flow_cancelled_summary_and_post_process_skip()),
+        ("artifact helpers enrich and preview runtime evidence", _check_artifact_preview_helpers()),
         ("retry payload preserves lineage and last failed step", _check_retry_lineage()),
         ("retry events link original and child runs", _check_retry_event_lineage()),
         ("run listing filters by status and type", _check_run_listing_filters()),
