@@ -4,6 +4,7 @@ BOFA API - operational control plane.
 """
 
 import asyncio
+import base64
 from datetime import datetime
 import hashlib
 import json
@@ -16,6 +17,10 @@ import sys
 import zipfile
 from typing import Any, Dict, List, Optional
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
 from fastapi import Depends, FastAPI, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -42,8 +47,11 @@ CANCEL_DIR = TEMP_DIR / "cancellation"
 CANCEL_GRACE_SECONDS = float(os.getenv("BOFA_CANCEL_GRACE_SECONDS", "4"))
 CANCEL_CHECK_INTERVAL = float(os.getenv("BOFA_CANCEL_CHECK_INTERVAL", "0.5"))
 RUNTIME_REPORTS_DIR = APP_ROOT / "reports" / "runs"
+EVIDENCE_KEYS_DIR = DATA_DIR / "evidence_keys"
+EVIDENCE_PRIVATE_KEY_PATH = EVIDENCE_KEYS_DIR / "evidence_ed25519_private.pem"
+EVIDENCE_PUBLIC_KEY_PATH = EVIDENCE_KEYS_DIR / "evidence_ed25519_public.pem"
 
-for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR, RUNTIME_REPORTS_DIR):
+for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR, RUNTIME_REPORTS_DIR, EVIDENCE_KEYS_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -84,9 +92,18 @@ ARTIFACT_HEAD_PREVIEW_TYPES = {
     "flow_summary_markdown",
     "post_process_output",
     "evidence_manifest_json",
+    "evidence_signature",
+    "evidence_public_key_pem",
 }
-EVIDENCE_EXPORT_ARTIFACT_TYPES = {"evidence_bundle_zip", "evidence_manifest_json"}
+EVIDENCE_EXPORT_ARTIFACT_TYPES = {
+    "evidence_bundle_zip",
+    "evidence_manifest_json",
+    "evidence_signature",
+    "evidence_public_key_pem",
+}
 EVIDENCE_BUNDLE_VERSION = "1.0"
+EVIDENCE_SIGNING_ALGORITHM = "Ed25519"
+EVIDENCE_SIGNATURE_SCOPE = "canonical_manifest_without_manifest_sha256_and_self_referential_files"
 execution_tasks: Dict[str, asyncio.subprocess.Process] = {}
 run_lookup_by_execution: Dict[str, str] = {}
 runtime_controls: Dict[str, Dict[str, Any]] = {}
@@ -232,6 +249,8 @@ def _artifact_content_type(path_str: Optional[str], artifact_type: Optional[str]
         return "application/zip"
     if artifact_type == "evidence_manifest_json":
         return "application/json"
+    if artifact_type in {"evidence_signature", "evidence_public_key_pem"}:
+        return "text/plain"
     if artifact_type in {"report_json", "flow_summary_json"}:
         return "application/json"
     if artifact_type in {"report_markdown", "flow_summary_markdown"}:
@@ -431,6 +450,82 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _sha256_bytes(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _canonical_json_bytes(payload: Dict[str, Any]) -> bytes:
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _canonical_file_entry(content: bytes, content_type: str) -> Dict[str, Any]:
+    return {
+        "sha256": _sha256_bytes(content),
+        "size_bytes": len(content),
+        "content_type": content_type,
+    }
+
+
+def _manifest_signature_payload(manifest: Dict[str, Any]) -> Dict[str, Any]:
+    payload = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+    canonical_files = payload.get("canonical_files")
+    if canonical_files:
+        payload["canonical_files"] = {
+            name: value for name, value in canonical_files.items() if name not in {"manifest.json", "manifest.sig"}
+        }
+    return payload
+
+
+def _load_or_create_evidence_signing_keypair(create_if_missing: bool = True) -> Optional[Dict[str, Any]]:
+    private_exists = EVIDENCE_PRIVATE_KEY_PATH.exists()
+    if not private_exists and not create_if_missing:
+        return None
+
+    generated = False
+    if private_exists:
+        private_key = load_pem_private_key(EVIDENCE_PRIVATE_KEY_PATH.read_bytes(), password=None)
+    else:
+        private_key = Ed25519PrivateKey.generate()
+        private_bytes = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        EVIDENCE_PRIVATE_KEY_PATH.write_bytes(private_bytes)
+        generated = True
+
+    public_key = private_key.public_key()
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    if not EVIDENCE_PUBLIC_KEY_PATH.exists() or EVIDENCE_PUBLIC_KEY_PATH.read_bytes() != public_key_pem:
+        EVIDENCE_PUBLIC_KEY_PATH.write_bytes(public_key_pem)
+
+    return {
+        "private_key": private_key,
+        "public_key": public_key,
+        "public_key_pem": public_key_pem,
+        "private_key_path": str(EVIDENCE_PRIVATE_KEY_PATH),
+        "public_key_path": str(EVIDENCE_PUBLIC_KEY_PATH),
+        "public_key_fingerprint": _sha256_bytes(public_key_pem),
+        "generated": generated,
+    }
+
+
+def _get_evidence_public_key_info(create_if_missing: bool = True) -> Optional[Dict[str, Any]]:
+    keypair = _load_or_create_evidence_signing_keypair(create_if_missing=create_if_missing)
+    if not keypair:
+        return None
+    return {
+        "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+        "public_key_fingerprint": keypair["public_key_fingerprint"],
+        "public_key_pem": keypair["public_key_pem"].decode("utf-8"),
+        "path": keypair["public_key_path"],
+        "trust_anchor": f"sha256:{keypair['public_key_fingerprint']}",
+    }
+
+
 def _build_evidence_bundle_readme(run: Dict[str, Any], manifest: Dict[str, Any]) -> str:
     return "\n".join(
         [
@@ -444,9 +539,13 @@ def _build_evidence_bundle_readme(run: Dict[str, Any], manifest: Dict[str, Any])
             f"Run status: {run.get('status')}",
             f"Exported at: {manifest.get('exported_at')}",
             f"Bundle version: {manifest.get('bundle_version')}",
+            f"Signing algorithm: {manifest.get('signing_algorithm')}",
+            f"Public key fingerprint: {manifest.get('public_key_fingerprint')}",
             "",
             "Bundle contents:",
             "- manifest.json: canonical export manifest with checksums and inclusion status",
+            "- manifest.sig: detached Ed25519 signature for the canonical manifest payload",
+            "- public_key.pem: embedded public key for portable verification",
             "- run.json: serialized run snapshot",
             "- timeline.json: persisted run events",
             "- steps.json: persisted run steps",
@@ -454,7 +553,8 @@ def _build_evidence_bundle_readme(run: Dict[str, Any], manifest: Dict[str, Any])
             "- artifacts/: evidence files included in this export",
             "",
             "Integrity guidance:",
-            "- Use manifest.json as the source of truth for included artifacts",
+            "- Verify manifest.sig against the canonical manifest payload before trusting the bundle",
+            "- Use manifest.json as the source of truth for included artifacts and canonical file hashes",
             "- Validate sha256 values before reusing or sharing evidence",
             "- Missing or omitted artifacts are explicitly documented in manifest.json",
         ]
@@ -477,16 +577,24 @@ def _find_existing_evidence_export(run: Dict[str, Any]) -> Optional[Dict[str, An
         group = export_groups[export_timestamp]
         bundle_artifact = group.get("evidence_bundle_zip")
         manifest_artifact = group.get("evidence_manifest_json")
-        if not bundle_artifact or not manifest_artifact:
+        signature_artifact = group.get("evidence_signature")
+        public_key_artifact = group.get("evidence_public_key_pem")
+        if not bundle_artifact or not manifest_artifact or not signature_artifact or not public_key_artifact:
             continue
         bundle_path = Path(bundle_artifact.get("path") or "")
         manifest_path = Path(manifest_artifact.get("path") or "")
-        if bundle_path.exists() and manifest_path.exists():
+        signature_path = Path(signature_artifact.get("path") or "")
+        public_key_path = Path(public_key_artifact.get("path") or "")
+        if bundle_path.exists() and manifest_path.exists() and signature_path.exists() and public_key_path.exists():
             return {
                 "bundle_artifact": bundle_artifact,
                 "manifest_artifact": manifest_artifact,
+                "signature_artifact": signature_artifact,
+                "public_key_artifact": public_key_artifact,
                 "bundle_path": str(bundle_path),
                 "manifest_path": str(manifest_path),
+                "signature_path": str(signature_path),
+                "public_key_path": str(public_key_path),
                 "export_timestamp": export_timestamp,
                 "created": False,
             }
@@ -507,6 +615,8 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
     export_dir = RUNTIME_REPORTS_DIR / run_id / "exports"
     export_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = export_dir / f"manifest_{run_id}_{export_timestamp}.json"
+    signature_path = export_dir / f"manifest_{run_id}_{export_timestamp}.sig"
+    public_key_export_path = export_dir / f"public_key_{run_id}_{export_timestamp}.pem"
     bundle_path = export_dir / f"bofa_evidence_{run_id}_{export_timestamp}.zip"
 
     run_manager.add_event(
@@ -518,6 +628,24 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
         "Evidence bundle export started",
         {"bundle_version": EVIDENCE_BUNDLE_VERSION, "export_timestamp": export_timestamp},
     )
+
+    signing_keypair = _load_or_create_evidence_signing_keypair(create_if_missing=True)
+    if not signing_keypair:
+        raise HTTPException(status_code=500, detail="Evidence signing key is unavailable")
+    if signing_keypair["generated"]:
+        run_manager.add_event(
+            run_id,
+            "run",
+            run_id,
+            "evidence_key_generated",
+            "success",
+            "Evidence signing key generated",
+            {
+                "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+                "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+                "public_key_path": signing_keypair["public_key_path"],
+            },
+        )
 
     run_snapshot = db.get_run_detail(run_id) or run_snapshot
     serialized_run = _serialize_run(run_snapshot)
@@ -588,9 +716,20 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
         for event in events
         if event.get("status") in RUN_STATUSES_FINAL or event.get("event_type") in {"cancelled", "completed", "status_changed"}
     ]
+    run_json_bytes = json.dumps(serialized_run, indent=2, ensure_ascii=False).encode("utf-8")
+    timeline_json_bytes = json.dumps(events, indent=2, ensure_ascii=False).encode("utf-8")
+    steps_json_bytes = json.dumps(steps, indent=2, ensure_ascii=False).encode("utf-8")
+    labs_json_bytes = json.dumps(labs, indent=2, ensure_ascii=False).encode("utf-8")
+    public_key_bytes = signing_keypair["public_key_pem"]
+    public_key_export_path.write_bytes(public_key_bytes)
+
     manifest = {
         "bundle_version": EVIDENCE_BUNDLE_VERSION,
         "exported_at": datetime.utcnow().isoformat(),
+        "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+        "signature_scope": EVIDENCE_SIGNATURE_SCOPE,
+        "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+        "trust_anchor": f"sha256:{signing_keypair['public_key_fingerprint']}",
         "run": {
             "id": serialized_run.get("id"),
             "run_type": serialized_run.get("run_type"),
@@ -627,6 +766,13 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
             }
             for lab in labs
         ],
+        "canonical_files": {
+            "run.json": _canonical_file_entry(run_json_bytes, "application/json"),
+            "timeline.json": _canonical_file_entry(timeline_json_bytes, "application/json"),
+            "steps.json": _canonical_file_entry(steps_json_bytes, "application/json"),
+            "labs.json": _canonical_file_entry(labs_json_bytes, "application/json"),
+            "public_key.pem": _canonical_file_entry(public_key_bytes, "text/plain"),
+        },
         "events": {
             "event_count": len(events),
             "final_event_count": len(final_events),
@@ -638,16 +784,34 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
         "missing_count": len([artifact for artifact in manifest_artifacts if artifact["missing"]]),
         "warning_count": warning_count,
     }
+    readme_bytes = _build_evidence_bundle_readme(serialized_run, manifest).encode("utf-8")
+    manifest["canonical_files"]["README.txt"] = _canonical_file_entry(readme_bytes, "text/plain")
+    manifest_payload = _canonical_json_bytes(_manifest_signature_payload(manifest))
+    manifest_sha256 = _sha256_bytes(manifest_payload)
+    signature_bytes = signing_keypair["private_key"].sign(manifest_payload)
+    signature_text = base64.b64encode(signature_bytes).decode("ascii") + "\n"
+    signature_file_bytes = signature_text.encode("utf-8")
+    signature_path.write_text(signature_text, encoding="utf-8")
+    manifest["manifest_sha256"] = manifest_sha256
+    manifest["canonical_files"]["manifest.json"] = {
+        "sha256": manifest_sha256,
+        "size_bytes": len(manifest_payload),
+        "content_type": "application/json",
+        "scope": EVIDENCE_SIGNATURE_SCOPE,
+    }
+    manifest["canonical_files"]["manifest.sig"] = _canonical_file_entry(signature_file_bytes, "text/plain")
 
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
     with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
-        archive.writestr("run.json", json.dumps(serialized_run, indent=2, ensure_ascii=False))
-        archive.writestr("timeline.json", json.dumps(events, indent=2, ensure_ascii=False))
-        archive.writestr("steps.json", json.dumps(steps, indent=2, ensure_ascii=False))
-        archive.writestr("labs.json", json.dumps(labs, indent=2, ensure_ascii=False))
-        archive.writestr("README.txt", _build_evidence_bundle_readme(serialized_run, manifest))
+        archive.writestr("manifest.sig", signature_text)
+        archive.writestr("public_key.pem", public_key_bytes)
+        archive.writestr("run.json", run_json_bytes)
+        archive.writestr("timeline.json", timeline_json_bytes)
+        archive.writestr("steps.json", steps_json_bytes)
+        archive.writestr("labs.json", labs_json_bytes)
+        archive.writestr("README.txt", readme_bytes)
         for item in included_artifacts:
             archive.write(item["source_path"], item["relative_path"])
 
@@ -662,8 +826,42 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
             "artifact_role": "export",
             "export_timestamp": export_timestamp,
             "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "manifest_sha256": manifest_sha256,
             "included_count": manifest["included_count"],
             "missing_count": manifest["missing_count"],
+        }
+    )
+    signature_metadata = _build_runtime_artifact_metadata(
+        str(signature_path),
+        "evidence_signature",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    signature_metadata.update(
+        {
+            "artifact_role": "export",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "manifest_sha256": manifest_sha256,
+        }
+    )
+    public_key_metadata = _build_runtime_artifact_metadata(
+        str(public_key_export_path),
+        "evidence_public_key_pem",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    public_key_metadata.update(
+        {
+            "artifact_role": "export",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
         }
     )
     bundle_metadata = _build_runtime_artifact_metadata(
@@ -680,6 +878,9 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
             "content_type": "application/zip",
             "export_timestamp": export_timestamp,
             "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "manifest_sha256": manifest_sha256,
             "included_count": manifest["included_count"],
             "missing_count": manifest["missing_count"],
         }
@@ -692,6 +893,20 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
         label="Evidence manifest",
         metadata=manifest_metadata,
     )
+    signature_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_signature",
+        str(signature_path),
+        label="Evidence signature",
+        metadata=signature_metadata,
+    )
+    public_key_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_public_key_pem",
+        str(public_key_export_path),
+        label="Evidence public key",
+        metadata=public_key_metadata,
+    )
     bundle_artifact_id = run_manager.add_artifact(
         run_id,
         "evidence_bundle_zip",
@@ -703,27 +918,55 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
         run_id,
         "run",
         run_id,
+        "evidence_signed",
+        "success",
+        "Evidence bundle signed",
+        {
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "export_timestamp": export_timestamp,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "signature_artifact_id": signature_artifact_id,
+            "public_key_artifact_id": public_key_artifact_id,
+            "manifest_sha256": manifest_sha256,
+        },
+    )
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
         "evidence_exported",
         "success",
         "Evidence bundle exported",
         {
             "bundle_version": EVIDENCE_BUNDLE_VERSION,
             "export_timestamp": export_timestamp,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
             "bundle_path": str(bundle_path),
             "manifest_path": str(manifest_path),
+            "signature_path": str(signature_path),
+            "public_key_path": str(public_key_export_path),
             "artifact_count": manifest["artifact_count"],
             "included_count": manifest["included_count"],
             "missing_count": manifest["missing_count"],
             "bundle_artifact_id": bundle_artifact_id,
             "manifest_artifact_id": manifest_artifact_id,
+            "signature_artifact_id": signature_artifact_id,
+            "public_key_artifact_id": public_key_artifact_id,
         },
     )
     return {
         "bundle_path": str(bundle_path),
         "manifest_path": str(manifest_path),
+        "signature_path": str(signature_path),
+        "public_key_path": str(public_key_export_path),
         "bundle_artifact_id": bundle_artifact_id,
         "manifest_artifact_id": manifest_artifact_id,
+        "signature_artifact_id": signature_artifact_id,
+        "public_key_artifact_id": public_key_artifact_id,
         "export_timestamp": export_timestamp,
+        "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
         "created": True,
     }
 
@@ -756,16 +999,80 @@ def _verify_run_evidence_export(run_id: str) -> Dict[str, Any]:
 
     bundle_artifact = _serialize_artifact(latest_export["bundle_artifact"], run_snapshot)
     manifest_artifact = _serialize_artifact(latest_export["manifest_artifact"], run_snapshot)
+    signature_artifact = _serialize_artifact(latest_export["signature_artifact"], run_snapshot)
+    public_key_artifact = _serialize_artifact(latest_export["public_key_artifact"], run_snapshot)
     bundle_path = _resolve_downloadable_artifact_path(bundle_artifact)
     manifest_path = _resolve_downloadable_artifact_path(manifest_artifact)
+    signature_path = _resolve_downloadable_artifact_path(signature_artifact)
+    public_key_path = _resolve_downloadable_artifact_path(public_key_artifact)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    required_files = {"manifest.json", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}
+    required_files = {"manifest.json", "manifest.sig", "public_key.pem", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}
+    canonical_definition = manifest.get("canonical_files") or {}
+    manifest_payload = _canonical_json_bytes(_manifest_signature_payload(manifest))
+    expected_manifest_sha256 = manifest.get("manifest_sha256")
+    calculated_manifest_sha256 = _sha256_bytes(manifest_payload)
+    manifest_sha_valid = bool(expected_manifest_sha256) and expected_manifest_sha256 == calculated_manifest_sha256
+    signature_valid = False
+    signature_error = None
 
     with zipfile.ZipFile(bundle_path, "r") as archive:
         names = set(archive.namelist())
         missing_canonical = sorted(required_files - names)
+        canonical_file_checks = []
         artifact_checks = []
         verified_artifacts = 0
+        bundle_manifest = json.loads(archive.read("manifest.json").decode("utf-8")) if "manifest.json" in names else None
+        public_key_bytes = archive.read("public_key.pem") if "public_key.pem" in names else public_key_path.read_bytes()
+        signature_text = archive.read("manifest.sig").decode("utf-8") if "manifest.sig" in names else signature_path.read_text(encoding="utf-8")
+
+        try:
+            signature_bytes = base64.b64decode(signature_text.strip())
+            public_key = load_pem_public_key(public_key_bytes)
+            public_key.verify(signature_bytes, manifest_payload)
+            signature_valid = True
+        except (InvalidSignature, ValueError, TypeError) as exc:
+            signature_error = str(exc) or "invalid_signature"
+
+        for canonical_name in sorted(required_files):
+            expected = canonical_definition.get(canonical_name) or {}
+            if canonical_name not in names:
+                canonical_file_checks.append(
+                    {
+                        "name": canonical_name,
+                        "verified": False,
+                        "reason": "missing_from_bundle",
+                        "expected_sha256": expected.get("sha256"),
+                        "expected_size_bytes": expected.get("size_bytes"),
+                        "actual_sha256": None,
+                        "actual_size_bytes": None,
+                    }
+                )
+                continue
+
+            entry_bytes = archive.read(canonical_name)
+            if canonical_name == "manifest.json":
+                actual_sha256 = calculated_manifest_sha256
+                actual_size_bytes = len(manifest_payload)
+            else:
+                actual_sha256 = _sha256_bytes(entry_bytes)
+                actual_size_bytes = len(entry_bytes)
+
+            expected_sha256 = expected.get("sha256")
+            expected_size_bytes = expected.get("size_bytes")
+            verified = bool(expected_sha256) and expected_sha256 == actual_sha256 and (
+                expected_size_bytes is None or expected_size_bytes == actual_size_bytes
+            )
+            canonical_file_checks.append(
+                {
+                    "name": canonical_name,
+                    "verified": verified,
+                    "reason": None if verified else "canonical_mismatch",
+                    "expected_sha256": expected_sha256,
+                    "expected_size_bytes": expected_size_bytes,
+                    "actual_sha256": actual_sha256,
+                    "actual_size_bytes": actual_size_bytes,
+                }
+            )
 
         for artifact in manifest.get("artifacts", []):
             if not artifact.get("included"):
@@ -825,19 +1132,43 @@ def _verify_run_evidence_export(run_id: str) -> Dict[str, Any]:
                     "bundle_match": bundle_match,
                     "source_match": source_match,
                     "source_reason": source_reason,
-                }
-            )
+                    }
+                )
 
+    server_key_info = _get_evidence_public_key_info(create_if_missing=False)
+    public_key_matches_server = None
+    trust_mode = "bundle_embedded_public_key"
+    if server_key_info:
+        public_key_matches_server = server_key_info.get("public_key_fingerprint") == manifest.get("public_key_fingerprint")
+        if public_key_matches_server:
+            trust_mode = "server_managed_key"
+
+    manifest_artifact_match = bundle_manifest == manifest
+    signature_artifact_match = signature_path.read_text(encoding="utf-8") == signature_text
+    public_key_artifact_match = public_key_path.read_text(encoding="utf-8") == public_key_bytes.decode("utf-8")
+    integrity_valid = (
+        manifest_sha_valid
+        and len(missing_canonical) == 0
+        and all(item.get("verified") for item in canonical_file_checks)
+        and all(item.get("verified") for item in artifact_checks)
+        and manifest_artifact_match
+        and signature_artifact_match
+        and public_key_artifact_match
+    )
     verification_payload = {
         "run_id": run_id,
-        "verified": len(missing_canonical) == 0 and all(item.get("verified") for item in artifact_checks),
+        "verified": signature_valid and integrity_valid,
         "export_timestamp": latest_export["export_timestamp"],
         "bundle_artifact": bundle_artifact,
         "manifest_artifact": manifest_artifact,
+        "signature_artifact": signature_artifact,
+        "public_key_artifact": public_key_artifact,
         "bundle_sha256": _sha256_file(bundle_path),
-        "manifest_sha256": _sha256_file(manifest_path),
+        "manifest_sha256": manifest.get("manifest_sha256"),
+        "manifest_file_sha256": _sha256_file(manifest_path),
         "canonical_files": sorted(required_files),
         "missing_canonical_files": missing_canonical,
+        "canonical_file_checks": canonical_file_checks,
         "artifact_checks": artifact_checks,
         "artifact_count": len(manifest.get("artifacts", [])),
         "included_count": len([artifact for artifact in manifest.get("artifacts", []) if artifact.get("included")]),
@@ -845,6 +1176,17 @@ def _verify_run_evidence_export(run_id: str) -> Dict[str, Any]:
         "missing_count": manifest.get("missing_count", 0),
         "warning_count": manifest.get("warning_count", 0),
         "bundle_version": manifest.get("bundle_version"),
+        "signature_valid": signature_valid,
+        "integrity_valid": integrity_valid,
+        "signing_algorithm": manifest.get("signing_algorithm"),
+        "public_key_fingerprint": manifest.get("public_key_fingerprint"),
+        "public_key_matches_server": public_key_matches_server,
+        "trust_mode": trust_mode,
+        "signature_error": signature_error,
+        "manifest_sha_valid": manifest_sha_valid,
+        "manifest_artifact_match": manifest_artifact_match,
+        "signature_artifact_match": signature_artifact_match,
+        "public_key_artifact_match": public_key_artifact_match,
     }
     run_manager.add_event(
         run_id,
@@ -856,6 +1198,10 @@ def _verify_run_evidence_export(run_id: str) -> Dict[str, Any]:
         {
             "export_timestamp": latest_export["export_timestamp"],
             "verified": verification_payload["verified"],
+            "signature_valid": signature_valid,
+            "integrity_valid": integrity_valid,
+            "trust_mode": trust_mode,
+            "public_key_fingerprint": manifest.get("public_key_fingerprint"),
             "missing_canonical_files": missing_canonical,
             "verified_artifact_count": verified_artifacts,
             "included_count": verification_payload["included_count"],
@@ -1725,6 +2071,23 @@ async def health_labs():
 @app.get("/health/queue")
 async def health_queue():
     return {"service": "execution_queue", "status": "healthy", "stats": _queue_snapshot(), "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/evidence/public-key")
+async def get_evidence_public_key(
+    download: bool = False,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    key_info = _get_evidence_public_key_info(create_if_missing=True)
+    if not key_info:
+        raise HTTPException(status_code=500, detail="Evidence public key is unavailable")
+    if download:
+        return FileResponse(
+            path=key_info["path"],
+            media_type="text/plain",
+            filename=Path(key_info["path"]).name,
+        )
+    return key_info
 
 
 @app.get("/modules")

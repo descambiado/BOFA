@@ -8,11 +8,13 @@ and legacy history compatibility. Designed to run without external services.
 
 import ast
 import asyncio
+import base64
 import json
 import hashlib
 import mimetypes
 import os
 import re
+import subprocess
 import sys
 import uuid
 import zipfile
@@ -20,6 +22,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
@@ -40,6 +47,7 @@ def _load_python_functions(source_path: Path, *names):
     selected = {}
     base_globals = {
         "asyncio": asyncio,
+        "base64": base64,
         "hashlib": hashlib,
         "json": json,
         "mimetypes": mimetypes,
@@ -52,6 +60,11 @@ def _load_python_functions(source_path: Path, *names):
         "Dict": Dict,
         "Any": Any,
         "zipfile": zipfile,
+        "InvalidSignature": InvalidSignature,
+        "serialization": serialization,
+        "Ed25519PrivateKey": Ed25519PrivateKey,
+        "load_pem_private_key": load_pem_private_key,
+        "load_pem_public_key": load_pem_public_key,
     }
     for name in names:
         for node in tree.body:
@@ -802,6 +815,12 @@ def _check_evidence_bundle_export():
         "_guess_extension_from_content_type",
         "_is_path_within_root",
         "_sha256_file",
+        "_sha256_bytes",
+        "_canonical_json_bytes",
+        "_canonical_file_entry",
+        "_manifest_signature_payload",
+        "_load_or_create_evidence_signing_keypair",
+        "_get_evidence_public_key_info",
         "_build_evidence_bundle_readme",
         "_find_existing_evidence_export",
         "_create_run_evidence_export",
@@ -810,6 +829,11 @@ def _check_evidence_bundle_export():
     )
 
     evidence_types = {"evidence_bundle_zip", "evidence_manifest_json"}
+    evidence_types.update({"evidence_signature", "evidence_public_key_pem"})
+    key_dir = _VERIFY_ROOT / "evidence_keys"
+    key_dir.mkdir(parents=True, exist_ok=True)
+    private_key_path = key_dir / "evidence_ed25519_private.pem"
+    public_key_path = key_dir / "evidence_ed25519_public.pem"
 
     loaded["_artifact_role"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
     loaded["_artifact_content_type"].__globals__["mimetypes"] = mimetypes
@@ -822,6 +846,8 @@ def _check_evidence_bundle_export():
         "flow_summary_markdown",
         "post_process_output",
         "evidence_manifest_json",
+        "evidence_signature",
+        "evidence_public_key_pem",
     }
     loaded["_artifact_preview_mode"].__globals__["_is_previewable_content_type"] = loaded["_is_previewable_content_type"]
     loaded["_artifact_size_bytes"].__globals__["Path"] = Path
@@ -844,6 +870,18 @@ def _check_evidence_bundle_export():
     loaded["_serialize_run"].__globals__["_serialize_artifacts"] = loaded["_serialize_artifacts"]
     loaded["_guess_extension_from_content_type"].__globals__["mimetypes"] = mimetypes
     loaded["_sha256_file"].__globals__["hashlib"] = hashlib
+    loaded["_sha256_bytes"].__globals__["hashlib"] = hashlib
+    loaded["_canonical_json_bytes"].__globals__["json"] = json
+    loaded["_canonical_file_entry"].__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["EVIDENCE_KEYS_DIR"] = key_dir
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["EVIDENCE_PRIVATE_KEY_PATH"] = private_key_path
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["EVIDENCE_PUBLIC_KEY_PATH"] = public_key_path
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["serialization"] = serialization
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["Ed25519PrivateKey"] = Ed25519PrivateKey
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["load_pem_private_key"] = load_pem_private_key
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    loaded["_get_evidence_public_key_info"].__globals__["EVIDENCE_SIGNING_ALGORITHM"] = "Ed25519"
+    loaded["_get_evidence_public_key_info"].__globals__["_load_or_create_evidence_signing_keypair"] = loaded["_load_or_create_evidence_signing_keypair"]
     loaded["_find_existing_evidence_export"].__globals__["Path"] = Path
     loaded["_find_existing_evidence_export"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
     loaded["_resolve_downloadable_artifact_path"].__globals__["Path"] = Path
@@ -859,11 +897,14 @@ def _check_evidence_bundle_export():
     create_export.__globals__["RUNTIME_REPORTS_DIR"] = export_root
     create_export.__globals__["EVIDENCE_BUNDLE_VERSION"] = "1.0"
     create_export.__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+    create_export.__globals__["EVIDENCE_SIGNING_ALGORITHM"] = "Ed25519"
+    create_export.__globals__["EVIDENCE_SIGNATURE_SCOPE"] = "canonical_manifest_without_manifest_sha256_and_self_referential_files"
     create_export.__globals__["RUN_STATUSES_FINAL"] = {"success", "failed", "error", "partial", "cancelled"}
     create_export.__globals__["datetime"] = datetime
     create_export.__globals__["json"] = json
     create_export.__globals__["Path"] = Path
     create_export.__globals__["zipfile"] = zipfile
+    create_export.__globals__["base64"] = base64
     create_export.__globals__["db"] = db
     create_export.__globals__["run_manager"] = manager
     create_export.__globals__["_serialize_run"] = loaded["_serialize_run"]
@@ -875,6 +916,11 @@ def _check_evidence_bundle_export():
     create_export.__globals__["_guess_extension_from_content_type"] = loaded["_guess_extension_from_content_type"]
     create_export.__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
     create_export.__globals__["_sha256_file"] = loaded["_sha256_file"]
+    create_export.__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    create_export.__globals__["_canonical_json_bytes"] = loaded["_canonical_json_bytes"]
+    create_export.__globals__["_canonical_file_entry"] = loaded["_canonical_file_entry"]
+    create_export.__globals__["_manifest_signature_payload"] = loaded["_manifest_signature_payload"]
+    create_export.__globals__["_load_or_create_evidence_signing_keypair"] = loaded["_load_or_create_evidence_signing_keypair"]
     create_export.__globals__["_build_evidence_bundle_readme"] = loaded["_build_evidence_bundle_readme"]
     create_export.__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
 
@@ -882,6 +928,8 @@ def _check_evidence_bundle_export():
     second_payload = create_export(run_id)
     bundle_path = Path(export_payload["bundle_path"])
     manifest_path = Path(export_payload["manifest_path"])
+    signature_path = Path(export_payload["signature_path"])
+    exported_public_key_path = Path(export_payload["public_key_path"])
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     detail = db.get_run_detail(run_id)
 
@@ -900,23 +948,76 @@ def _check_evidence_bundle_export():
     verify_export.__globals__["Path"] = Path
     verify_export.__globals__["zipfile"] = zipfile
     verify_export.__globals__["hashlib"] = hashlib
+    verify_export.__globals__["base64"] = base64
     verify_export.__globals__["APP_ROOT"] = _ROOT
+    verify_export.__globals__["EVIDENCE_SIGNING_ALGORITHM"] = "Ed25519"
     verify_export.__globals__["_serialize_run"] = loaded["_serialize_run"]
     verify_export.__globals__["_find_existing_evidence_export"] = loaded["_find_existing_evidence_export"]
     verify_export.__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
     verify_export.__globals__["_resolve_downloadable_artifact_path"] = loaded["_resolve_downloadable_artifact_path"]
     verify_export.__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
     verify_export.__globals__["_sha256_file"] = loaded["_sha256_file"]
+    verify_export.__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    verify_export.__globals__["_canonical_json_bytes"] = loaded["_canonical_json_bytes"]
+    verify_export.__globals__["_manifest_signature_payload"] = loaded["_manifest_signature_payload"]
+    verify_export.__globals__["_get_evidence_public_key_info"] = loaded["_get_evidence_public_key_info"]
+    verify_export.__globals__["load_pem_public_key"] = load_pem_public_key
+    verify_export.__globals__["InvalidSignature"] = InvalidSignature
     verification = verify_export(run_id)
     detail = db.get_run_detail(run_id)
+
+    cli_good = subprocess.run(
+        [sys.executable, str(_ROOT / "tools" / "verify_evidence_bundle.py"), str(bundle_path), "--json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_good_payload = json.loads(cli_good.stdout or "{}")
+    cli_with_key = subprocess.run(
+        [
+            sys.executable,
+            str(_ROOT / "tools" / "verify_evidence_bundle.py"),
+            str(bundle_path),
+            "--public-key",
+            str(exported_public_key_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_with_key_payload = json.loads(cli_with_key.stdout or "{}")
+
+    tampered_path = export_root / f"tampered_{bundle_path.name}"
+    with zipfile.ZipFile(bundle_path, "r") as source_archive, zipfile.ZipFile(
+        tampered_path, "w", compression=zipfile.ZIP_DEFLATED
+    ) as tampered_archive:
+        for name in source_archive.namelist():
+            if name == "run.json":
+                tampered_archive.writestr("run.json", json.dumps({"tampered": True}, indent=2))
+            else:
+                tampered_archive.writestr(name, source_archive.read(name))
+    cli_tampered = subprocess.run(
+        [sys.executable, str(_ROOT / "tools" / "verify_evidence_bundle.py"), str(tampered_path), "--json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_tampered_payload = json.loads(cli_tampered.stdout or "{}")
 
     return (
         export_payload.get("created") is True
         and second_payload.get("created") is False
         and bundle_path.exists()
         and manifest_path.exists()
-        and {"manifest.json", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}.issubset(names)
+        and signature_path.exists()
+        and exported_public_key_path.exists()
+        and {"manifest.json", "manifest.sig", "public_key.pem", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}.issubset(names)
         and any(name.startswith("artifacts/") for name in names)
+        and manifest.get("signing_algorithm") == "Ed25519"
+        and manifest.get("public_key_fingerprint") == export_payload.get("public_key_fingerprint")
+        and isinstance(manifest.get("manifest_sha256"), str)
+        and len(manifest.get("manifest_sha256")) == 64
         and included_entry is not None
         and included_entry.get("included") is True
         and isinstance(included_entry.get("sha256"), str)
@@ -928,11 +1029,26 @@ def _check_evidence_bundle_export():
         and outside_entry is not None
         and outside_entry.get("included") is False
         and outside_entry.get("reason") == "outside_allowed_root"
-        and {"evidence_bundle_zip", "evidence_manifest_json"}.issubset(artifact_types)
+        and {"evidence_bundle_zip", "evidence_manifest_json", "evidence_signature", "evidence_public_key_pem"}.issubset(artifact_types)
         and verification.get("verified") is True
+        and verification.get("signature_valid") is True
+        and verification.get("integrity_valid") is True
+        and verification.get("public_key_matches_server") is True
+        and verification.get("trust_mode") == "server_managed_key"
         and verification.get("verified_artifact_count") == 1
         and verification.get("missing_count") == 1
+        and cli_good.returncode == 0
+        and cli_good_payload.get("verified") is True
+        and cli_good_payload.get("trust_mode") == "bundle_embedded_public_key"
+        and cli_with_key.returncode == 0
+        and cli_with_key_payload.get("verified") is True
+        and cli_with_key_payload.get("trust_mode") == "provided_public_key"
+        and cli_tampered.returncode == 1
+        and cli_tampered_payload.get("verified") is False
+        and cli_tampered_payload.get("integrity_valid") is False
         and any(event.get("event_type") == "evidence_exported" for event in detail.get("events", []))
+        and any(event.get("event_type") == "evidence_signed" for event in detail.get("events", []))
+        and (private_key_path.exists() and public_key_path.exists())
         and any(event.get("event_type") == "evidence_verified" for event in detail.get("events", []))
         and any(event.get("event_type") == "evidence_export_warning" for event in detail.get("events", []))
     )
