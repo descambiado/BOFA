@@ -5,17 +5,20 @@ BOFA API - operational control plane.
 
 import asyncio
 from datetime import datetime
+import hashlib
 import json
 import logging
 import mimetypes
 import os
 from pathlib import Path
+import re
 import sys
+import zipfile
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
 import yaml
@@ -74,7 +77,16 @@ run_manager = RunManager(db)
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
 ARTIFACT_PREVIEW_LIMIT = 4000
 ARTIFACT_TAIL_PREVIEW_TYPES = {"stdout_log", "stderr_log"}
-ARTIFACT_HEAD_PREVIEW_TYPES = {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown", "post_process_output"}
+ARTIFACT_HEAD_PREVIEW_TYPES = {
+    "report_json",
+    "report_markdown",
+    "flow_summary_json",
+    "flow_summary_markdown",
+    "post_process_output",
+    "evidence_manifest_json",
+}
+EVIDENCE_EXPORT_ARTIFACT_TYPES = {"evidence_bundle_zip", "evidence_manifest_json"}
+EVIDENCE_BUNDLE_VERSION = "1.0"
 execution_tasks: Dict[str, asyncio.subprocess.Process] = {}
 run_lookup_by_execution: Dict[str, str] = {}
 runtime_controls: Dict[str, Dict[str, Any]] = {}
@@ -206,6 +218,8 @@ def _artifact_role(artifact_type: Optional[str]) -> str:
         return "execution_log"
     if artifact_type in {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown"}:
         return "summary"
+    if artifact_type in EVIDENCE_EXPORT_ARTIFACT_TYPES:
+        return "export"
     if artifact_type == "post_process_output":
         return "post_process"
     return "evidence"
@@ -214,6 +228,10 @@ def _artifact_role(artifact_type: Optional[str]) -> str:
 def _artifact_content_type(path_str: Optional[str], artifact_type: Optional[str]) -> str:
     if artifact_type in {"stdout_log", "stderr_log"}:
         return "text/plain"
+    if artifact_type == "evidence_bundle_zip":
+        return "application/zip"
+    if artifact_type == "evidence_manifest_json":
+        return "application/json"
     if artifact_type in {"report_json", "flow_summary_json"}:
         return "application/json"
     if artifact_type in {"report_markdown", "flow_summary_markdown"}:
@@ -363,6 +381,333 @@ def _build_artifact_preview_payload(run_id: str, artifact: Dict[str, Any], run: 
         "preview": preview,
         "truncated": len(content) > limit,
         "preview_mode": preview_mode,
+    }
+
+
+def _sanitize_export_name(value: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", value or "").strip("._")
+    return safe or "artifact"
+
+
+def _guess_extension_from_content_type(content_type: Optional[str]) -> str:
+    if not content_type:
+        return ""
+    extension = mimetypes.guess_extension(content_type, strict=False)
+    if extension == ".ksh":
+        return ".txt"
+    return extension or ""
+
+
+def _is_path_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(root.resolve(strict=False))
+        return True
+    except ValueError:
+        return False
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _build_evidence_bundle_readme(run: Dict[str, Any], manifest: Dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "BOFA Evidence Bundle",
+            "====================",
+            "",
+            f"Run ID: {run.get('id')}",
+            f"Run type: {run.get('run_type')}",
+            f"Requested action: {run.get('requested_action')}",
+            f"Target: {run.get('target') or 'n/a'}",
+            f"Run status: {run.get('status')}",
+            f"Exported at: {manifest.get('exported_at')}",
+            f"Bundle version: {manifest.get('bundle_version')}",
+            "",
+            "Bundle contents:",
+            "- manifest.json: canonical export manifest with checksums and inclusion status",
+            "- run.json: serialized run snapshot",
+            "- timeline.json: persisted run events",
+            "- steps.json: persisted run steps",
+            "- labs.json: persisted run labs",
+            "- artifacts/: evidence files included in this export",
+            "",
+            "Integrity guidance:",
+            "- Use manifest.json as the source of truth for included artifacts",
+            "- Validate sha256 values before reusing or sharing evidence",
+            "- Missing or omitted artifacts are explicitly documented in manifest.json",
+        ]
+    )
+
+
+def _find_existing_evidence_export(run: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    export_groups: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    artifacts = sorted(run.get("artifacts", []), key=lambda item: item.get("created_at") or "")
+    for artifact in artifacts:
+        if artifact.get("artifact_type") not in EVIDENCE_EXPORT_ARTIFACT_TYPES:
+            continue
+        metadata = artifact.get("metadata") or {}
+        export_timestamp = metadata.get("export_timestamp")
+        if not export_timestamp:
+            continue
+        export_groups.setdefault(export_timestamp, {})[artifact["artifact_type"]] = artifact
+
+    for export_timestamp in sorted(export_groups.keys(), reverse=True):
+        group = export_groups[export_timestamp]
+        bundle_artifact = group.get("evidence_bundle_zip")
+        manifest_artifact = group.get("evidence_manifest_json")
+        if not bundle_artifact or not manifest_artifact:
+            continue
+        bundle_path = Path(bundle_artifact.get("path") or "")
+        manifest_path = Path(manifest_artifact.get("path") or "")
+        if bundle_path.exists() and manifest_path.exists():
+            return {
+                "bundle_artifact": bundle_artifact,
+                "manifest_artifact": manifest_artifact,
+                "bundle_path": str(bundle_path),
+                "manifest_path": str(manifest_path),
+                "export_timestamp": export_timestamp,
+                "created": False,
+            }
+    return None
+
+
+def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
+    run_snapshot = db.get_run_detail(run_id)
+    if not run_snapshot:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    serialized_run = _serialize_run(run_snapshot)
+    existing_export = _find_existing_evidence_export(serialized_run)
+    if existing_export:
+        return existing_export
+
+    export_timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    export_dir = RUNTIME_REPORTS_DIR / run_id / "exports"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = export_dir / f"manifest_{run_id}_{export_timestamp}.json"
+    bundle_path = export_dir / f"bofa_evidence_{run_id}_{export_timestamp}.zip"
+
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "evidence_export_started",
+        "running",
+        "Evidence bundle export started",
+        {"bundle_version": EVIDENCE_BUNDLE_VERSION, "export_timestamp": export_timestamp},
+    )
+
+    run_snapshot = db.get_run_detail(run_id) or run_snapshot
+    serialized_run = _serialize_run(run_snapshot)
+    steps = run_snapshot.get("steps", [])
+    labs = run_snapshot.get("labs", [])
+    events = run_snapshot.get("events", [])
+    source_artifacts = [artifact for artifact in serialized_run.get("artifacts", []) if artifact.get("artifact_type") not in EVIDENCE_EXPORT_ARTIFACT_TYPES]
+
+    included_artifacts: List[Dict[str, Any]] = []
+    manifest_artifacts: List[Dict[str, Any]] = []
+    warning_count = 0
+
+    for artifact in source_artifacts:
+        metadata = artifact.get("metadata") or {}
+        original_path = Path(artifact.get("path") or "")
+        content_type = metadata.get("content_type") or _artifact_content_type(str(original_path), artifact.get("artifact_type"))
+        relative_path = None
+        sha256 = None
+        included = False
+        missing = False
+        reason = None
+
+        if not _is_path_within_root(original_path, APP_ROOT):
+            reason = "outside_allowed_root"
+        elif not original_path.exists() or not original_path.is_file():
+            reason = "artifact_not_found"
+            missing = True
+        else:
+            try:
+                sha256 = _sha256_file(original_path)
+                extension = original_path.suffix or _guess_extension_from_content_type(content_type)
+                relative_path = f"artifacts/{_sanitize_export_name(artifact['id'])}_{_sanitize_export_name(artifact['artifact_type'])}{extension}"
+                included = True
+                included_artifacts.append({"source_path": original_path, "relative_path": relative_path})
+            except OSError:
+                reason = "artifact_unreadable"
+
+        if reason:
+            warning_count += 1
+            run_manager.add_event(
+                run_id,
+                "artifact",
+                artifact.get("id"),
+                "evidence_export_warning",
+                "warning",
+                f"Artifact omitted from evidence bundle: {artifact.get('artifact_type')}",
+                {"artifact_id": artifact.get("id"), "reason": reason, "path": artifact.get("path")},
+            )
+
+        manifest_artifacts.append(
+            {
+                "artifact_id": artifact.get("id"),
+                "artifact_type": artifact.get("artifact_type"),
+                "label": artifact.get("label"),
+                "original_path": artifact.get("path"),
+                "relative_path": relative_path,
+                "content_type": content_type,
+                "size_bytes": metadata.get("size_bytes") or _artifact_size_bytes(artifact.get("path")),
+                "sha256": sha256,
+                "included": included,
+                "missing": missing,
+                "reason": reason,
+            }
+        )
+
+    final_events = [
+        event
+        for event in events
+        if event.get("status") in RUN_STATUSES_FINAL or event.get("event_type") in {"cancelled", "completed", "status_changed"}
+    ]
+    manifest = {
+        "bundle_version": EVIDENCE_BUNDLE_VERSION,
+        "exported_at": datetime.utcnow().isoformat(),
+        "run": {
+            "id": serialized_run.get("id"),
+            "run_type": serialized_run.get("run_type"),
+            "source": serialized_run.get("source"),
+            "requested_action": serialized_run.get("requested_action"),
+            "target": serialized_run.get("target"),
+            "status": serialized_run.get("status"),
+            "created_at": serialized_run.get("created_at"),
+            "started_at": serialized_run.get("started_at"),
+            "completed_at": serialized_run.get("completed_at"),
+            "parent_run_id": serialized_run.get("parent_run_id"),
+        },
+        "steps": [
+            {
+                "id": step.get("id"),
+                "step_index": step.get("step_index"),
+                "step_type": step.get("step_type"),
+                "step_key": step.get("step_key"),
+                "module": step.get("module"),
+                "script_name": step.get("script_name"),
+                "status": step.get("status"),
+                "exit_code": step.get("exit_code"),
+                "duration": step.get("duration"),
+            }
+            for step in steps
+        ],
+        "labs": [
+            {
+                "id": lab.get("id"),
+                "lab_id": lab.get("lab_id"),
+                "status": lab.get("status"),
+                "container_id": lab.get("container_id"),
+                "port": lab.get("port"),
+            }
+            for lab in labs
+        ],
+        "events": {
+            "event_count": len(events),
+            "final_event_count": len(final_events),
+            "final_events": final_events,
+        },
+        "artifacts": manifest_artifacts,
+        "artifact_count": len(source_artifacts),
+        "included_count": len([artifact for artifact in manifest_artifacts if artifact["included"]]),
+        "missing_count": len([artifact for artifact in manifest_artifacts if artifact["missing"]]),
+        "warning_count": warning_count,
+    }
+
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+        archive.writestr("run.json", json.dumps(serialized_run, indent=2, ensure_ascii=False))
+        archive.writestr("timeline.json", json.dumps(events, indent=2, ensure_ascii=False))
+        archive.writestr("steps.json", json.dumps(steps, indent=2, ensure_ascii=False))
+        archive.writestr("labs.json", json.dumps(labs, indent=2, ensure_ascii=False))
+        archive.writestr("README.txt", _build_evidence_bundle_readme(serialized_run, manifest))
+        for item in included_artifacts:
+            archive.write(item["source_path"], item["relative_path"])
+
+    manifest_metadata = _build_runtime_artifact_metadata(
+        str(manifest_path),
+        "evidence_manifest_json",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    manifest_metadata.update(
+        {
+            "artifact_role": "export",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "included_count": manifest["included_count"],
+            "missing_count": manifest["missing_count"],
+        }
+    )
+    bundle_metadata = _build_runtime_artifact_metadata(
+        str(bundle_path),
+        "evidence_bundle_zip",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    bundle_metadata.update(
+        {
+            "artifact_role": "export",
+            "previewable": False,
+            "preview_mode": None,
+            "content_type": "application/zip",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "included_count": manifest["included_count"],
+            "missing_count": manifest["missing_count"],
+        }
+    )
+
+    manifest_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_manifest_json",
+        str(manifest_path),
+        label="Evidence manifest",
+        metadata=manifest_metadata,
+    )
+    bundle_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_bundle_zip",
+        str(bundle_path),
+        label="Evidence bundle",
+        metadata=bundle_metadata,
+    )
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "evidence_exported",
+        "success",
+        "Evidence bundle exported",
+        {
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "export_timestamp": export_timestamp,
+            "bundle_path": str(bundle_path),
+            "manifest_path": str(manifest_path),
+            "artifact_count": manifest["artifact_count"],
+            "included_count": manifest["included_count"],
+            "missing_count": manifest["missing_count"],
+            "bundle_artifact_id": bundle_artifact_id,
+            "manifest_artifact_id": manifest_artifact_id,
+        },
+    )
+    return {
+        "bundle_path": str(bundle_path),
+        "manifest_path": str(manifest_path),
+        "bundle_artifact_id": bundle_artifact_id,
+        "manifest_artifact_id": manifest_artifact_id,
+        "export_timestamp": export_timestamp,
+        "created": True,
     }
 
 
@@ -1390,6 +1735,26 @@ async def get_run_artifact_preview(run_id: str, artifact_id: str, current_user: 
     if not artifact:
         raise HTTPException(status_code=404, detail="Artifact not found")
     return _build_artifact_preview_payload(run_id, artifact, run)
+
+
+@app.get("/runs/{run_id}/export")
+async def export_run_evidence(run_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    export_payload = _create_run_evidence_export(run_id)
+    bundle_path = Path(export_payload["bundle_path"])
+    if not bundle_path.exists():
+        raise HTTPException(status_code=500, detail="Evidence bundle was not created")
+
+    return FileResponse(
+        path=bundle_path,
+        media_type="application/zip",
+        filename=bundle_path.name,
+    )
 
 
 @app.post("/runs/{run_id}/cancel")

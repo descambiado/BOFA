@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ActionButton } from "@/components/UI/ActionButton";
 import { useRunDetail, useRuns, apiService, type RunArtifact, type RunArtifactPreview, type RunSummary } from "@/services/api";
-import { ArrowLeft, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, Square, Workflow } from "lucide-react";
+import { ArrowLeft, Clock, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, Square, Workflow } from "lucide-react";
 import { toast } from "sonner";
 
 const FINAL_STATUSES = ["success", "failed", "error", "partial", "cancelled"];
@@ -23,6 +23,7 @@ const History = () => {
   const [artifactPreview, setArtifactPreview] = useState<RunArtifactPreview | null>(null);
   const [artifactPreviewId, setArtifactPreviewId] = useState<string | null>(null);
   const [isArtifactPreviewLoading, setIsArtifactPreviewLoading] = useState(false);
+  const [isExportingRun, setIsExportingRun] = useState(false);
   const { data: runs, isLoading, refetch } = useRuns();
   const { data: selectedRun, refetch: refetchRun } = useRunDetail(selectedRunId);
 
@@ -69,23 +70,28 @@ const History = () => {
     return (families.get(familyId) || []).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [selectedRun, families]);
 
-  const downloadRun = (run: any) => {
-    const content = JSON.stringify(run, null, 2);
-    const blob = new Blob([content], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bofa-run-${run.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const copyArtifactPath = async (path: string) => {
     try {
       await navigator.clipboard.writeText(path);
       toast.success("Ruta copiada");
     } catch {
       toast.error("No se pudo copiar la ruta");
+    }
+  };
+
+  const handleExport = async (runId: string) => {
+    setIsExportingRun(true);
+    try {
+      const result = await apiService.downloadRunExport(runId);
+      toast.success(result.demo ? `Export demo descargado: ${result.filename}` : `Evidence bundle descargado: ${result.filename}`);
+      await refetch();
+      if (selectedRunId === runId) {
+        await refetchRun();
+      }
+    } catch {
+      toast.error("No se pudo exportar el bundle del run");
+    } finally {
+      setIsExportingRun(false);
     }
   };
 
@@ -250,10 +256,18 @@ const History = () => {
             </Card>
 
             <Card className="bg-gray-800/50 border-gray-700">
-              <CardHeader>
-                <CardTitle className="text-cyan-400 flex items-center justify-between">
+            <CardHeader>
+              <CardTitle className="text-cyan-400 flex items-center justify-between">
                   <span>Artifacts</span>
-                  <ActionButton icon={<Download className="w-4 h-4" />} title="Exportar" description="Descargar run" onClick={() => downloadRun(selectedRun)} />
+                  <Button
+                    variant="outline"
+                    disabled={isExportingRun}
+                    onClick={() => handleExport(selectedRun.id)}
+                    className="border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {isExportingRun ? "Exportando..." : "Exportar bundle"}
+                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
