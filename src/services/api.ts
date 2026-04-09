@@ -52,14 +52,39 @@ export interface RunEvent {
   created_at: string;
 }
 
+export interface RunArtifactMetadata {
+  step_id?: string;
+  execution_id?: string;
+  run_status?: string;
+  step_status?: string;
+  artifact_role?: string;
+  previewable?: boolean;
+  preview_mode?: "head" | "tail";
+  content_type?: string;
+  size_bytes?: number;
+  partial?: boolean;
+}
+
 export interface RunArtifact {
   id: string;
   run_id: string;
   artifact_type: string;
   path: string;
   label?: string;
-  metadata?: Record<string, any>;
+  metadata?: RunArtifactMetadata;
   created_at: string;
+}
+
+export interface RunArtifactPreview {
+  run_id: string;
+  artifact: RunArtifact;
+  previewable: boolean;
+  preview: string | null;
+  truncated: boolean;
+  preview_mode?: "head" | "tail";
+  content_type?: string;
+  size_bytes?: number;
+  reason?: string | null;
 }
 
 export interface RunStep {
@@ -670,6 +695,38 @@ export const apiService = {
     });
     if (!response.ok) throw new Error('No se pudo obtener el timeline del run');
     return await response.json();
+  },
+
+  getRunArtifactPreview: async (runId: string, artifactId: string): Promise<RunArtifactPreview> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/artifacts/${artifactId}/preview`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo obtener el preview del artifact');
+      return await response.json();
+    } catch (error) {
+      return {
+        run_id: runId,
+        artifact: {
+          id: artifactId,
+          run_id: runId,
+          artifact_type: "unknown",
+          path: "",
+          created_at: new Date().toISOString(),
+          metadata: {
+            previewable: false,
+            content_type: "text/plain",
+          },
+        },
+        previewable: false,
+        preview: null,
+        truncated: false,
+        preview_mode: "head",
+        content_type: "text/plain",
+        reason: "preview_unavailable_in_demo",
+      };
+    }
   },
 
   cancelRun: async (runId: string): Promise<any> => {
