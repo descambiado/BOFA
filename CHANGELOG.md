@@ -4,6 +4,24 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.8.5 (2026-04-09) - Signed Evidence Verification
+
+### Evidencia portable y defendible
+- **Artifacts y timeline endurecidos**: runs `failed`, `partial` y `cancelled` conservan mejor su evidencia operativa, con metadata enriquecida, summaries de flow y previews ligeras desde History.
+- **Export por run**: cada `run` puede salir como bundle ZIP con `manifest.json`, `run.json`, `timeline.json`, `steps.json`, `labs.json`, `README.txt` y artifacts permitidos bajo `reports/runs/<run_id>/exports/`.
+- **Firma y trust anchor**: los bundles ahora se firman con `Ed25519`, incluyen `manifest.sig`, `public_key.pem` y fingerprint SHA-256 de la clave pública gestionada localmente por BOFA.
+
+### VerificaciÃ³n y cadena de custodia
+- **VerificaciÃ³n API**: `GET /runs/{run_id}/export/verify` valida firma, integridad, hashes canÃ³nicos, artifacts incluidos y si la clave embebida coincide con la clave activa del servidor.
+- **VerificaciÃ³n offline**: nuevo `tools/verify_evidence_bundle.py` para comprobar bundles fuera de BOFA, con modo JSON, trust mode explÃ­cito y detecciÃ³n de manipulaciÃ³n.
+- **Clave pÃºblica operativa**: nuevo `GET /evidence/public-key` para consultar o descargar la clave pÃºblica activa y su fingerprint.
+
+### Frontend y runbook
+- **History mÃ¡s Ãºtil**: la UI ya permite preview de artifacts de evidencia, descarga del bundle real, verificaciÃ³n de firma e integridad, y visibilidad del fingerprint del firmante.
+- **VerificaciÃ³n de release ampliada**: `tools/verify_control_plane.py`, `tools/verify_runtime_hardening.py`, `tsc` y `vite build` ya forman parte del ciclo real de validaciÃ³n de este hito.
+
+---
+
 ## v2.8.2 (2026-04-09) - Control Plane Smoke Suite
 
 ### Verificación operativa
