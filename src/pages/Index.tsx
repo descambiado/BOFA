@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { LoginDialog } from "@/components/auth/LoginDialog";
 import { authService } from "@/services/api";
 import { APP_CONFIG } from "@/config/app";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/UI/card";
+import { Button } from "@/components/UI/button";
+import { Badge } from "@/components/UI/badge";
 import { ActionButton } from "@/components/UI/ActionButton";
 import { 
   Shield, 

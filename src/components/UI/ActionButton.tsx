@@ -1,5 +1,5 @@
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/UI/button";
 import { ReactNode } from "react";
 
 interface ActionButtonProps {
