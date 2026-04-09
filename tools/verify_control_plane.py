@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+"""
+BOFA control-plane smoke verification.
+
+Focused checks for the unified run model, retry lineage, timeline persistence
+and legacy history compatibility. Designed to run without external services.
+"""
+
+import ast
+import os
+import sys
+import uuid
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+_VERIFY_ROOT = _ROOT / "data" / ".verify_control_plane"
+_VERIFY_ROOT.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("BOFA_DB_PATH", str(_VERIFY_ROOT / "bootstrap.db"))
+
+from api.database import DatabaseManager
+from api.run_manager import RunManager
+
+
+def _load_main_functions(*names):
+    source = (_ROOT / "api" / "main.py").read_text(encoding="utf-8")
+    tree = ast.parse(source, filename="api/main.py")
+    selected = {}
+    base_globals = {
+        "datetime": datetime,
+        "timedelta": timedelta,
+        "List": List,
+        "Dict": Dict,
+        "Any": Any,
+    }
+    for name in names:
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
+                module = ast.Module(body=[node], type_ignores=[])
+                code = compile(module, filename="api/main.py", mode="exec")
+                namespace = dict(base_globals)
+                exec(code, namespace)
+                selected[name] = namespace[name]
+                break
+        else:
+            raise RuntimeError(f"Function {name} not found in api/main.py")
+    return selected
+
+
+def _make_runtime():
+    runtime_id = uuid.uuid4().hex
+    temp_dir = _VERIFY_ROOT / f"runtime_{runtime_id}"
+    artifact_dir = _VERIFY_ROOT / f"artifacts_{runtime_id}"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    db_path = _VERIFY_ROOT / f"runtime_{runtime_id}.db"
+    db = DatabaseManager(str(db_path))
+    manager = RunManager(db)
+    return temp_dir, artifact_dir, db, manager
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _check_run_lifecycle_persistence():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="verify.local",
+        metadata={"purpose": "smoke"},
+    )
+    manager.mark_run_started(run_id, "Smoke run started")
+    step_id = manager.create_step(
+        run_id=run_id,
+        step_type="script",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_info",
+        parameters={"json": True},
+    )
+    manager.update_step(
+        step_id,
+        run_id,
+        status="success",
+        started_at=_utc_now(),
+        completed_at=_utc_now(),
+        exit_code=0,
+        duration=0.25,
+        stdout_preview='{"ok": true}',
+        message="Script finished cleanly",
+    )
+    lab_run_id = manager.attach_lab(run_id, "lab-demo", status="running", container_id="container-1", port=31337)
+    manager.update_lab(lab_run_id, run_id, "success", stopped_at=_utc_now(), message="Lab lifecycle captured")
+    artifact_path = artifact_dir / "artifact.json"
+    artifact_path.write_text('{"artifact": true}', encoding="utf-8")
+    manager.add_artifact(run_id, "report_json", str(artifact_path), label="Smoke artifact")
+    manager.mark_run_finished(run_id, "success", "Smoke run completed", metadata={"verified": True})
+
+    detail = db.get_run_detail(run_id)
+    return (
+        detail is not None
+        and detail.get("status") == "success"
+        and len(detail.get("steps", [])) == 1
+        and len(detail.get("labs", [])) == 1
+        and len(detail.get("artifacts", [])) == 1
+        and len(detail.get("events", [])) >= 6
+        and any(event.get("event_type") == "artifact_created" for event in detail.get("events", []))
+        and detail["steps"][0].get("module") == "examples"
+        and detail["labs"][0].get("lab_id") == "lab-demo"
+        and detail["artifacts"][0].get("path") == str(artifact_path)
+    )
+
+
+def _check_retry_lineage():
+    _, _, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="flow",
+        source="verify_control_plane",
+        requested_action="run_flow",
+        target="verify.target",
+        metadata={"retry_count": 0},
+    )
+    step_id = manager.create_step(
+        run_id=run_id,
+        step_type="flow_step",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_fail",
+        parameters={"mode": "error"},
+    )
+    manager.update_step(
+        step_id,
+        run_id,
+        status="failed",
+        completed_at=_utc_now(),
+        exit_code=1,
+        error_message="Synthetic failure",
+        message="Step failed as expected",
+    )
+    manager.mark_run_finished(run_id, "failed", "Initial run failed", metadata={"retry_count": 0})
+
+    payload = manager.retry_payload(run_id)
+    if not payload:
+        return False
+
+    retry_run_id = manager.create_run(
+        user_id=1,
+        run_type=payload["run_type"],
+        source=payload["source"],
+        requested_action=payload["requested_action"],
+        target=payload["target"],
+        parent_run_id=run_id,
+        metadata={
+            "retry_of": payload["retry_of"],
+            "retry_count": payload["retry_count"],
+            "retry_reason": "smoke",
+            "last_non_success_step": payload["last_non_success_step"],
+        },
+    )
+    retry_detail = db.get_run_detail(retry_run_id)
+    return (
+        payload.get("retry_of") == run_id
+        and payload.get("retry_count") == 1
+        and payload.get("last_non_success_step", {}).get("script_name") == "example_fail"
+        and retry_detail is not None
+        and retry_detail.get("parent_run_id") == run_id
+        and retry_detail.get("metadata", {}).get("retry_count") == 1
+    )
+
+
+def _check_run_listing_filters():
+    _, _, db, manager = _make_runtime()
+    run_script = manager.create_run(1, "script", "verify", "execute_script", target="a.local", status="queued")
+    run_flow = manager.create_run(1, "flow", "verify", "run_flow", target="b.local", status="queued")
+    manager.mark_run_finished(run_script, "success", "Script run succeeded")
+    manager.mark_run_finished(run_flow, "failed", "Flow run failed")
+    success_runs = db.list_runs(user_id=1, status="success", limit=10)
+    flow_runs = db.list_runs(user_id=1, run_type="flow", limit=10)
+    return (
+        len(success_runs) == 1
+        and success_runs[0].get("id") == run_script
+        and len(flow_runs) == 1
+        and flow_runs[0].get("id") == run_flow
+    )
+
+
+def _check_legacy_history_merge():
+    _, _, db, manager = _make_runtime()
+    helpers = _load_main_functions("_normalize_history_from_runs", "_normalize_legacy_history", "_merge_history_items")
+    helpers["_normalize_history_from_runs"].__globals__["db"] = db
+    helpers["_normalize_legacy_history"].__globals__["db"] = db
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="history.local",
+    )
+    manager.mark_run_finished(run_id, "success", "Modern run completed")
+
+    legacy_id = "legacy_execution_1"
+    db.create_execution(
+        execution_id=legacy_id,
+        user_id=1,
+        module="examples",
+        script_name="example_info",
+        parameters={"legacy": True},
+    )
+    db.update_execution(
+        legacy_id,
+        status="error",
+        output="legacy stdout",
+        error_message="legacy failure",
+        execution_time=0.42,
+    )
+
+    runs = db.list_runs(user_id=1, limit=10)
+    run_items = helpers["_normalize_history_from_runs"](runs)
+    normalized = helpers["_normalize_legacy_history"](1, limit=10)
+    merged = helpers["_merge_history_items"](run_items, normalized, limit=10)
+    legacy_item = next((item for item in merged if item.get("legacy")), None)
+    modern_item = next((item for item in merged if item.get("id") == run_id), None)
+    return (
+        len(merged) == 2
+        and modern_item is not None
+        and legacy_item is not None
+        and legacy_item.get("status") == "error"
+        and legacy_item.get("script") == "example_info"
+    )
+
+
+def main():
+    checks = [
+        ("run lifecycle persists steps labs events and artifacts", _check_run_lifecycle_persistence()),
+        ("retry payload preserves lineage and last failed step", _check_retry_lineage()),
+        ("run listing filters by status and type", _check_run_listing_filters()),
+        ("legacy history merge keeps modern and legacy rows", _check_legacy_history_merge()),
+    ]
+
+    failed = [name for name, ok in checks if not ok]
+
+    print("BOFA Control Plane Verification")
+    print("=" * 40)
+    for name, ok in checks:
+        print(f"[{'OK' if ok else 'FAIL'}] {name}")
+
+    if failed:
+        print()
+        print("Failed checks:")
+        for name in failed:
+            print(f"- {name}")
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
