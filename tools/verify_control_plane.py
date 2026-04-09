@@ -9,14 +9,17 @@ and legacy history compatibility. Designed to run without external services.
 import ast
 import asyncio
 import json
+import hashlib
 import mimetypes
 import os
+import re
 import sys
 import uuid
+import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
@@ -37,14 +40,18 @@ def _load_python_functions(source_path: Path, *names):
     selected = {}
     base_globals = {
         "asyncio": asyncio,
+        "hashlib": hashlib,
         "json": json,
         "mimetypes": mimetypes,
+        "Optional": Optional,
         "Path": Path,
+        "re": re,
         "datetime": datetime,
         "timedelta": timedelta,
         "List": List,
         "Dict": Dict,
         "Any": Any,
+        "zipfile": zipfile,
     }
     for name in names:
         for node in tree.body:
@@ -691,6 +698,7 @@ def _check_artifact_preview_helpers():
         "_serialize_artifact",
         "_build_artifact_preview_payload",
     )
+    loaded["_artifact_role"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = {"evidence_bundle_zip", "evidence_manifest_json"}
     loaded["_artifact_content_type"].__globals__["mimetypes"] = mimetypes
     loaded["_artifact_content_type"].__globals__["Path"] = Path
     loaded["_artifact_preview_mode"].__globals__["ARTIFACT_TAIL_PREVIEW_TYPES"] = {"stdout_log", "stderr_log"}
@@ -730,12 +738,171 @@ def _check_artifact_preview_helpers():
     )
 
 
+def _check_evidence_bundle_export():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="evidence.local",
+        status="cancelled",
+    )
+    step_id = manager.create_step(
+        run_id=run_id,
+        step_type="script",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_info",
+        parameters={"json": True},
+        status="cancelled",
+    )
+    manager.update_step(
+        step_id,
+        run_id,
+        status="cancelled",
+        completed_at=_utc_now(),
+        exit_code=-15,
+        stdout_preview="partial output",
+        error_message="Synthetic cancellation",
+        message="Cancelled for export smoke",
+    )
+    manager.mark_run_finished(run_id, "cancelled", "Evidence export smoke", metadata={"reason": "smoke"})
+
+    included_path = artifact_dir / "stdout.log"
+    included_path.write_text("portable evidence\n" * 32, encoding="utf-8")
+    manager.add_artifact(run_id, "stdout_log", str(included_path), label="included stdout", metadata={"step_id": step_id})
+
+    missing_path = artifact_dir / "missing.log"
+    manager.add_artifact(run_id, "stderr_log", str(missing_path), label="missing stderr", metadata={"step_id": step_id})
+
+    outside_path = Path(_ROOT.anchor) / "outside_bofa_evidence.log"
+    manager.add_artifact(run_id, "binary_capture", str(outside_path), label="outside evidence", metadata={})
+
+    loaded = _load_main_functions(
+        "_artifact_role",
+        "_artifact_content_type",
+        "_is_previewable_content_type",
+        "_artifact_preview_mode",
+        "_artifact_size_bytes",
+        "_build_runtime_artifact_metadata",
+        "_serialize_artifact",
+        "_serialize_artifacts",
+        "_serialize_run",
+        "_sanitize_export_name",
+        "_guess_extension_from_content_type",
+        "_is_path_within_root",
+        "_sha256_file",
+        "_build_evidence_bundle_readme",
+        "_find_existing_evidence_export",
+        "_create_run_evidence_export",
+    )
+
+    evidence_types = {"evidence_bundle_zip", "evidence_manifest_json"}
+
+    loaded["_artifact_role"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+    loaded["_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_artifact_content_type"].__globals__["Path"] = Path
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_TAIL_PREVIEW_TYPES"] = {"stdout_log", "stderr_log"}
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_HEAD_PREVIEW_TYPES"] = {
+        "report_json",
+        "report_markdown",
+        "flow_summary_json",
+        "flow_summary_markdown",
+        "post_process_output",
+        "evidence_manifest_json",
+    }
+    loaded["_artifact_preview_mode"].__globals__["_is_previewable_content_type"] = loaded["_is_previewable_content_type"]
+    loaded["_artifact_size_bytes"].__globals__["Path"] = Path
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_role"] = loaded["_artifact_role"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_serialize_artifact"].__globals__["Path"] = Path
+    loaded["_serialize_artifact"].__globals__["_artifact_role"] = loaded["_artifact_role"]
+    loaded["_serialize_artifact"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    loaded["_serialize_artifact"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
+    loaded["_serialize_artifact"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_serialize_artifacts"].__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
+    loaded["_serialize_run"].__globals__["_serialize_artifacts"] = loaded["_serialize_artifacts"]
+    loaded["_guess_extension_from_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_sha256_file"].__globals__["hashlib"] = hashlib
+    loaded["_find_existing_evidence_export"].__globals__["Path"] = Path
+    loaded["_find_existing_evidence_export"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+
+    export_root = _VERIFY_ROOT / "evidence_exports"
+    export_root.mkdir(parents=True, exist_ok=True)
+
+    create_export = loaded["_create_run_evidence_export"]
+    create_export.__globals__["APP_ROOT"] = _ROOT
+    create_export.__globals__["RUNTIME_REPORTS_DIR"] = export_root
+    create_export.__globals__["EVIDENCE_BUNDLE_VERSION"] = "1.0"
+    create_export.__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+    create_export.__globals__["RUN_STATUSES_FINAL"] = {"success", "failed", "error", "partial", "cancelled"}
+    create_export.__globals__["datetime"] = datetime
+    create_export.__globals__["json"] = json
+    create_export.__globals__["Path"] = Path
+    create_export.__globals__["zipfile"] = zipfile
+    create_export.__globals__["db"] = db
+    create_export.__globals__["run_manager"] = manager
+    create_export.__globals__["_serialize_run"] = loaded["_serialize_run"]
+    create_export.__globals__["_find_existing_evidence_export"] = loaded["_find_existing_evidence_export"]
+    create_export.__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    create_export.__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    create_export.__globals__["_build_runtime_artifact_metadata"] = loaded["_build_runtime_artifact_metadata"]
+    create_export.__globals__["_sanitize_export_name"] = loaded["_sanitize_export_name"]
+    create_export.__globals__["_guess_extension_from_content_type"] = loaded["_guess_extension_from_content_type"]
+    create_export.__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    create_export.__globals__["_sha256_file"] = loaded["_sha256_file"]
+    create_export.__globals__["_build_evidence_bundle_readme"] = loaded["_build_evidence_bundle_readme"]
+
+    export_payload = create_export(run_id)
+    second_payload = create_export(run_id)
+    bundle_path = Path(export_payload["bundle_path"])
+    manifest_path = Path(export_payload["manifest_path"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    detail = db.get_run_detail(run_id)
+
+    included_entry = next((artifact for artifact in manifest.get("artifacts", []) if artifact.get("artifact_type") == "stdout_log"), None)
+    missing_entry = next((artifact for artifact in manifest.get("artifacts", []) if artifact.get("artifact_type") == "stderr_log"), None)
+    outside_entry = next((artifact for artifact in manifest.get("artifacts", []) if artifact.get("artifact_type") == "binary_capture"), None)
+    artifact_types = {artifact.get("artifact_type") for artifact in detail.get("artifacts", [])}
+
+    with zipfile.ZipFile(bundle_path, "r") as archive:
+        names = set(archive.namelist())
+
+    return (
+        export_payload.get("created") is True
+        and second_payload.get("created") is False
+        and bundle_path.exists()
+        and manifest_path.exists()
+        and {"manifest.json", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}.issubset(names)
+        and any(name.startswith("artifacts/") for name in names)
+        and included_entry is not None
+        and included_entry.get("included") is True
+        and isinstance(included_entry.get("sha256"), str)
+        and len(included_entry.get("sha256")) == 64
+        and missing_entry is not None
+        and missing_entry.get("included") is False
+        and missing_entry.get("missing") is True
+        and missing_entry.get("reason") == "artifact_not_found"
+        and outside_entry is not None
+        and outside_entry.get("included") is False
+        and outside_entry.get("reason") == "outside_allowed_root"
+        and {"evidence_bundle_zip", "evidence_manifest_json"}.issubset(artifact_types)
+        and any(event.get("event_type") == "evidence_exported" for event in detail.get("events", []))
+        and any(event.get("event_type") == "evidence_export_warning" for event in detail.get("events", []))
+    )
+
+
 def main():
     checks = [
         ("run lifecycle persists steps labs events and artifacts", _check_run_lifecycle_persistence()),
         ("flow partial summaries persist artifacts", _check_flow_partial_summary_artifacts()),
         ("flow cancelled summaries skip post-process cleanly", _check_flow_cancelled_summary_and_post_process_skip()),
         ("artifact helpers enrich and preview runtime evidence", _check_artifact_preview_helpers()),
+        ("evidence bundle export packages artifacts and checksums", _check_evidence_bundle_export()),
         ("retry payload preserves lineage and last failed step", _check_retry_lineage()),
         ("retry events link original and child runs", _check_retry_event_lineage()),
         ("run listing filters by status and type", _check_run_listing_filters()),

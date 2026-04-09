@@ -729,6 +729,43 @@ export const apiService = {
     }
   },
 
+  downloadRunExport: async (runId: string): Promise<{ filename: string; demo?: boolean }> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/export`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!response.ok) throw new Error('No se pudo exportar el bundle del run');
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+      const filename = filenameMatch?.[1] || `bofa_evidence_${runId}.zip`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename };
+    } catch (error) {
+      const run = await apiService.getRun(runId);
+      const blob = new Blob([JSON.stringify(run, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const filename = `bofa_evidence_${runId}_demo.json`;
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename, demo: true };
+    }
+  },
+
   cancelRun: async (runId: string): Promise<any> => {
     try {
       const response = await fetch(`${API_BASE}/runs/${runId}/cancel`, {
