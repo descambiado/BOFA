@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/UI/card";
+import { Button } from "@/components/UI/button";
+import { Badge } from "@/components/UI/badge";
 import { BookOpen, Play, CheckCircle, Clock, Trophy, ArrowLeft } from "lucide-react";
 import { StudyLesson } from "@/components/StudyLesson";
 

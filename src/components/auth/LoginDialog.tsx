@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/UI/button";
+import { Input } from "@/components/UI/input";
+import { Label } from "@/components/UI/label";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+} from "@/components/UI/dialog";
+import { Alert, AlertDescription } from "@/components/UI/alert";
 import { Loader2, Shield, Lock, User } from "lucide-react";
 import { authService } from "@/services/api";
 import { APP_CONFIG } from "@/config/app";

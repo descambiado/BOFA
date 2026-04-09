@@ -52,14 +52,107 @@ export interface RunEvent {
   created_at: string;
 }
 
+export interface RunArtifactMetadata {
+  step_id?: string;
+  execution_id?: string;
+  run_status?: string;
+  step_status?: string;
+  artifact_role?: string;
+  previewable?: boolean;
+  preview_mode?: "head" | "tail";
+  content_type?: string;
+  size_bytes?: number;
+  partial?: boolean;
+  downloadable?: boolean;
+  download_reason?: string | null;
+}
+
 export interface RunArtifact {
   id: string;
   run_id: string;
   artifact_type: string;
   path: string;
   label?: string;
-  metadata?: Record<string, any>;
+  metadata?: RunArtifactMetadata;
   created_at: string;
+}
+
+export interface RunArtifactPreview {
+  run_id: string;
+  artifact: RunArtifact;
+  previewable: boolean;
+  preview: string | null;
+  truncated: boolean;
+  preview_mode?: "head" | "tail";
+  content_type?: string;
+  size_bytes?: number;
+  reason?: string | null;
+}
+
+export interface RunEvidenceArtifactCheck {
+  artifact_id: string;
+  artifact_type: string;
+  included: boolean;
+  verified: boolean;
+  reason?: string | null;
+  relative_path?: string | null;
+  manifest_sha256?: string | null;
+  bundle_entry_sha256?: string | null;
+  bundle_match?: boolean;
+  source_match?: boolean | null;
+  source_reason?: string | null;
+}
+
+export interface RunEvidenceCanonicalFileCheck {
+  name: string;
+  verified: boolean;
+  reason?: string | null;
+  expected_sha256?: string | null;
+  expected_size_bytes?: number | null;
+  actual_sha256?: string | null;
+  actual_size_bytes?: number | null;
+}
+
+export interface EvidencePublicKeyInfo {
+  signing_algorithm: string;
+  public_key_fingerprint: string;
+  public_key_pem: string;
+  path: string;
+  trust_anchor?: string;
+}
+
+export interface RunEvidenceVerification {
+  run_id: string;
+  verified: boolean;
+  export_timestamp: string;
+  bundle_artifact: RunArtifact;
+  manifest_artifact: RunArtifact;
+  signature_artifact?: RunArtifact;
+  public_key_artifact?: RunArtifact;
+  bundle_sha256: string;
+  manifest_sha256: string;
+  manifest_file_sha256?: string;
+  canonical_files: string[];
+  missing_canonical_files: string[];
+  canonical_file_checks?: RunEvidenceCanonicalFileCheck[];
+  artifact_checks: RunEvidenceArtifactCheck[];
+  artifact_count: number;
+  included_count: number;
+  verified_artifact_count: number;
+  missing_count: number;
+  warning_count: number;
+  bundle_version?: string;
+  signature_valid: boolean;
+  integrity_valid: boolean;
+  signing_algorithm?: string;
+  public_key_fingerprint?: string;
+  public_key_matches_server?: boolean | null;
+  trust_mode?: string;
+  signature_error?: string | null;
+  manifest_sha_valid?: boolean;
+  manifest_artifact_match?: boolean;
+  signature_artifact_match?: boolean;
+  public_key_artifact_match?: boolean;
 }
 
 export interface RunStep {
@@ -669,6 +762,141 @@ export const apiService = {
       signal: AbortSignal.timeout(8000)
     });
     if (!response.ok) throw new Error('No se pudo obtener el timeline del run');
+    return await response.json();
+  },
+
+  getRunArtifactPreview: async (runId: string, artifactId: string): Promise<RunArtifactPreview> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/artifacts/${artifactId}/preview`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (!response.ok) throw new Error('No se pudo obtener el preview del artifact');
+      return await response.json();
+    } catch (error) {
+      return {
+        run_id: runId,
+        artifact: {
+          id: artifactId,
+          run_id: runId,
+          artifact_type: "unknown",
+          path: "",
+          created_at: new Date().toISOString(),
+          metadata: {
+            previewable: false,
+            content_type: "text/plain",
+          },
+        },
+        previewable: false,
+        preview: null,
+        truncated: false,
+        preview_mode: "head",
+        content_type: "text/plain",
+        reason: "preview_unavailable_in_demo",
+      };
+    }
+  },
+
+  downloadRunArtifact: async (runId: string, artifactId: string): Promise<{ filename: string; demo?: boolean }> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/artifacts/${artifactId}/download`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!response.ok) throw new Error('No se pudo descargar el artifact');
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+      const filename = filenameMatch?.[1] || `bofa_artifact_${artifactId}`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename };
+    } catch (error) {
+      const preview = await apiService.getRunArtifactPreview(runId, artifactId);
+      const content = preview.preview ?? JSON.stringify(preview, null, 2);
+      const blob = new Blob([content], { type: preview.content_type || 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const filename = `${artifactId}_demo.txt`;
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename, demo: true };
+    }
+  },
+
+  downloadRunExport: async (runId: string): Promise<{ filename: string; demo?: boolean }> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/export`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!response.ok) throw new Error('No se pudo exportar el bundle del run');
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+      const filename = filenameMatch?.[1] || `bofa_evidence_${runId}.zip`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename };
+    } catch (error) {
+      const run = await apiService.getRun(runId);
+      const blob = new Blob([JSON.stringify(run, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const filename = `bofa_evidence_${runId}_demo.json`;
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename, demo: true };
+    }
+  },
+
+  getEvidencePublicKey: async (): Promise<EvidencePublicKeyInfo> => {
+    try {
+      const response = await fetch(`${API_BASE}/evidence/public-key`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) throw new Error('No se pudo obtener la clave publica de evidencia');
+      return await response.json();
+    } catch (error) {
+      return {
+        signing_algorithm: 'Ed25519',
+        public_key_fingerprint: 'demo-unavailable',
+        public_key_pem: '-----BEGIN PUBLIC KEY-----\nDEMO\n-----END PUBLIC KEY-----\n',
+        path: 'demo://evidence/public-key',
+        trust_anchor: 'sha256:demo-unavailable',
+      };
+    }
+  },
+
+  verifyRunEvidenceExport: async (runId: string): Promise<RunEvidenceVerification> => {
+    const response = await fetch(`${API_BASE}/runs/${runId}/export/verify`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error('No se pudo verificar el evidence bundle');
     return await response.json();
   },
 

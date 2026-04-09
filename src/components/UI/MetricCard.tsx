@@ -1,5 +1,5 @@
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/UI/card";
 import { ReactNode } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
