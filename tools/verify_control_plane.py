@@ -8,13 +8,25 @@ and legacy history compatibility. Designed to run without external services.
 
 import ast
 import asyncio
+import base64
 import json
+import hashlib
+import mimetypes
 import os
+import re
+import subprocess
 import sys
 import uuid
+import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from types import SimpleNamespace
+from typing import Any, Dict, List, Optional
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
@@ -28,32 +40,52 @@ from api.database import DatabaseManager
 from api.run_manager import RunManager
 
 
-def _load_main_functions(*names):
-    source = (_ROOT / "api" / "main.py").read_text(encoding="utf-8")
-    tree = ast.parse(source, filename="api/main.py")
+def _load_python_functions(source_path: Path, *names):
+    source = source_path.read_text(encoding="utf-8")
+    filename = str(source_path.relative_to(_ROOT))
+    tree = ast.parse(source, filename=filename)
     selected = {}
     base_globals = {
         "asyncio": asyncio,
+        "base64": base64,
+        "hashlib": hashlib,
         "json": json,
+        "mimetypes": mimetypes,
+        "Optional": Optional,
         "Path": Path,
+        "re": re,
         "datetime": datetime,
         "timedelta": timedelta,
         "List": List,
         "Dict": Dict,
         "Any": Any,
+        "zipfile": zipfile,
+        "InvalidSignature": InvalidSignature,
+        "serialization": serialization,
+        "Ed25519PrivateKey": Ed25519PrivateKey,
+        "load_pem_private_key": load_pem_private_key,
+        "load_pem_public_key": load_pem_public_key,
     }
     for name in names:
         for node in tree.body:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
                 module = ast.Module(body=[node], type_ignores=[])
-                code = compile(module, filename="api/main.py", mode="exec")
+                code = compile(module, filename=filename, mode="exec")
                 namespace = dict(base_globals)
                 exec(code, namespace)
                 selected[name] = namespace[name]
                 break
         else:
-            raise RuntimeError(f"Function {name} not found in api/main.py")
+            raise RuntimeError(f"Function {name} not found in {filename}")
     return selected
+
+
+def _load_main_functions(*names):
+    return _load_python_functions(_ROOT / "api" / "main.py", *names)
+
+
+def _load_flow_functions(*names):
+    return _load_python_functions(_ROOT / "flows" / "flow_runner.py", *names)
 
 
 def _make_runtime():
@@ -511,9 +543,524 @@ async def _check_runtime_cancellation_is_idempotent():
     )
 
 
+def _check_flow_partial_summary_artifacts():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="flow",
+        source="verify_control_plane",
+        requested_action="execute_flow",
+        target="partial.local",
+        status="running",
+    )
+    loaded = _load_flow_functions(
+        "_flow_artifact_content_type",
+        "_flow_artifact_metadata",
+        "_build_flow_summary",
+        "_build_flow_markdown",
+        "_finalize_flow_result",
+    )
+    loaded["_flow_artifact_metadata"].__globals__["Path"] = Path
+    loaded["_flow_artifact_metadata"].__globals__["_flow_artifact_content_type"] = loaded["_flow_artifact_content_type"]
+    loaded["_flow_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_build_flow_summary"].__globals__["datetime"] = datetime
+    loaded["_build_flow_markdown"].__globals__["datetime"] = datetime
+    finalize = loaded["_finalize_flow_result"]
+    finalize.__globals__["datetime"] = datetime
+    finalize.__globals__["json"] = json
+    finalize.__globals__["Path"] = Path
+    finalize.__globals__["_ROOT"] = _ROOT
+    finalize.__globals__["_build_flow_summary"] = loaded["_build_flow_summary"]
+    finalize.__globals__["_build_flow_markdown"] = loaded["_build_flow_markdown"]
+    finalize.__globals__["_flow_artifact_metadata"] = loaded["_flow_artifact_metadata"]
+
+    result = finalize(
+        "verify_flow",
+        {"name": "verify_flow"},
+        "partial.local",
+        artifact_dir,
+        SimpleNamespace(execute_script=lambda **kwargs: None),
+        SimpleNamespace(execution_timeout=60),
+        [
+            {"index": 1, "module": "examples", "script": "example_info", "status": "success", "exit_code": 0, "duration": 0.1, "stdout_preview": "ok", "stderr_preview": "", "error": None},
+            {"index": 2, "module": "examples", "script": "example_fail", "status": "failed", "exit_code": 1, "duration": 0.2, "stdout_preview": "partial", "stderr_preview": "boom", "error": "boom"},
+        ],
+        "partial",
+        run_manager=manager,
+        run_id=run_id,
+        cause="Synthetic partial flow",
+    )
+
+    detail = db.get_run_detail(run_id)
+    artifact_types = {artifact.get("artifact_type") for artifact in detail.get("artifacts", [])}
+    summary_artifact = next((artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "flow_summary_json"), None)
+    return (
+        result.get("status") == "partial"
+        and result.get("artifact_count") == 2
+        and Path(result["report_path"]).exists()
+        and Path(result["report_json_path"]).exists()
+        and {"flow_summary_json", "flow_summary_markdown"}.issubset(artifact_types)
+        and summary_artifact is not None
+        and (summary_artifact.get("metadata") or {}).get("partial") is True
+        and result.get("report_json", {}).get("failed_steps") == 1
+        and result.get("report_json", {}).get("cause") == "Synthetic partial flow"
+    )
+
+
+def _check_flow_cancelled_summary_and_post_process_skip():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="flow",
+        source="verify_control_plane",
+        requested_action="execute_flow",
+        target="cancelled.local",
+        status="running",
+    )
+    loaded = _load_flow_functions(
+        "_flow_artifact_content_type",
+        "_flow_artifact_metadata",
+        "_build_flow_summary",
+        "_build_flow_markdown",
+        "_finalize_flow_result",
+    )
+    loaded["_flow_artifact_metadata"].__globals__["Path"] = Path
+    loaded["_flow_artifact_metadata"].__globals__["_flow_artifact_content_type"] = loaded["_flow_artifact_content_type"]
+    loaded["_flow_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_build_flow_summary"].__globals__["datetime"] = datetime
+    loaded["_build_flow_markdown"].__globals__["datetime"] = datetime
+    finalize = loaded["_finalize_flow_result"]
+    finalize.__globals__["datetime"] = datetime
+    finalize.__globals__["json"] = json
+    finalize.__globals__["Path"] = Path
+    finalize.__globals__["_ROOT"] = _ROOT
+    finalize.__globals__["_build_flow_summary"] = loaded["_build_flow_summary"]
+    finalize.__globals__["_build_flow_markdown"] = loaded["_build_flow_markdown"]
+    finalize.__globals__["_flow_artifact_metadata"] = loaded["_flow_artifact_metadata"]
+
+    result = finalize(
+        "verify_cancelled_flow",
+        {"name": "verify_cancelled_flow", "post_process": {"script": "reporting/flow_report_aggregator", "params": {"output": "reports/skip.md"}}},
+        "cancelled.local",
+        artifact_dir,
+        SimpleNamespace(execute_script=lambda **kwargs: None),
+        SimpleNamespace(execution_timeout=60),
+        [
+            {"index": 1, "module": "examples", "script": "example_info", "status": "success", "exit_code": 0, "duration": 0.1, "stdout_preview": "ok", "stderr_preview": "", "error": None},
+            {"index": 2, "module": "examples", "script": "example_params", "status": "cancelled", "exit_code": -15, "duration": 0.2, "stdout_preview": "partial", "stderr_preview": "", "error": "cancelled"},
+        ],
+        "cancelled",
+        run_manager=manager,
+        run_id=run_id,
+        cancelled_at_step=2,
+        cause="Synthetic cancellation",
+    )
+
+    detail = db.get_run_detail(run_id)
+    return (
+        result.get("status") == "cancelled"
+        and result.get("cancelled_at_step") == 2
+        and Path(result["report_path"]).exists()
+        and Path(result["report_json_path"]).exists()
+        and any(event.get("event_type") == "post_process_skipped" for event in detail.get("events", []))
+        and any((artifact.get("metadata") or {}).get("partial") is True for artifact in detail.get("artifacts", []))
+    )
+
+
+def _check_artifact_preview_helpers():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="artifact.local",
+        status="cancelled",
+    )
+    step_id = manager.create_step(
+        run_id=run_id,
+        step_type="script",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_info",
+        parameters={},
+        status="cancelled",
+    )
+    manager.mark_run_finished(run_id, "cancelled", "Cancelled for artifact smoke", metadata={"reason": "smoke"})
+
+    stdout_path = artifact_dir / "stdout.log"
+    stdout_path.write_text("line\n" * 1200, encoding="utf-8")
+    manager.add_artifact(run_id, "stdout_log", str(stdout_path), label="stdout smoke", metadata={"step_id": step_id, "execution_id": "exec_smoke"})
+
+    summary_path = artifact_dir / "summary.json"
+    summary_path.write_text(json.dumps({"status": "partial", "steps": [1, 2, 3]}, indent=2), encoding="utf-8")
+    manager.add_artifact(run_id, "flow_summary_json", str(summary_path), label="summary smoke", metadata={"partial": True})
+
+    binary_path = artifact_dir / "capture.bin"
+    binary_path.write_bytes(b"\x00\x01\x02\x03")
+    manager.add_artifact(run_id, "binary_capture", str(binary_path), label="binary smoke", metadata={})
+
+    detail = db.get_run_detail(run_id)
+    loaded = _load_main_functions(
+        "_artifact_role",
+        "_artifact_content_type",
+        "_is_previewable_content_type",
+        "_artifact_preview_mode",
+        "_artifact_size_bytes",
+        "_is_path_within_root",
+        "_artifact_download_state",
+        "_serialize_artifact",
+        "_build_artifact_preview_payload",
+    )
+    loaded["_artifact_role"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = {"evidence_bundle_zip", "evidence_manifest_json"}
+    loaded["_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_artifact_content_type"].__globals__["Path"] = Path
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_TAIL_PREVIEW_TYPES"] = {"stdout_log", "stderr_log"}
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_HEAD_PREVIEW_TYPES"] = {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown", "post_process_output"}
+    loaded["_artifact_preview_mode"].__globals__["_is_previewable_content_type"] = loaded["_is_previewable_content_type"]
+    loaded["_artifact_size_bytes"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_artifact_download_state"].__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    loaded["_serialize_artifact"].__globals__["Path"] = Path
+    loaded["_serialize_artifact"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_serialize_artifact"].__globals__["_artifact_role"] = loaded["_artifact_role"]
+    loaded["_serialize_artifact"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    loaded["_serialize_artifact"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
+    loaded["_serialize_artifact"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_serialize_artifact"].__globals__["_artifact_download_state"] = loaded["_artifact_download_state"]
+    loaded["_build_artifact_preview_payload"].__globals__["Path"] = Path
+    loaded["_build_artifact_preview_payload"].__globals__["ARTIFACT_PREVIEW_LIMIT"] = 4000
+    loaded["_build_artifact_preview_payload"].__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
+
+    stdout_artifact = next(artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "stdout_log")
+    summary_artifact = next(artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "flow_summary_json")
+    binary_artifact = next(artifact for artifact in detail.get("artifacts", []) if artifact.get("artifact_type") == "binary_capture")
+
+    serialized_stdout = loaded["_serialize_artifact"](stdout_artifact, detail)
+    stdout_preview = loaded["_build_artifact_preview_payload"](run_id, stdout_artifact, detail)
+    summary_preview = loaded["_build_artifact_preview_payload"](run_id, summary_artifact, detail)
+    binary_preview = loaded["_build_artifact_preview_payload"](run_id, binary_artifact, detail)
+
+    return (
+        (serialized_stdout.get("metadata") or {}).get("run_status") == "cancelled"
+        and (serialized_stdout.get("metadata") or {}).get("step_status") == "cancelled"
+        and (serialized_stdout.get("metadata") or {}).get("preview_mode") == "tail"
+        and (serialized_stdout.get("metadata") or {}).get("partial") is True
+        and stdout_preview.get("previewable") is True
+        and stdout_preview.get("preview_mode") == "tail"
+        and stdout_preview.get("truncated") is True
+        and summary_preview.get("previewable") is True
+        and summary_preview.get("preview_mode") == "head"
+        and binary_preview.get("previewable") is False
+        and binary_preview.get("reason") == "binary_or_unsupported"
+    )
+
+
+def _check_evidence_bundle_export():
+    _, artifact_dir, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="evidence.local",
+        status="cancelled",
+    )
+    step_id = manager.create_step(
+        run_id=run_id,
+        step_type="script",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_info",
+        parameters={"json": True},
+        status="cancelled",
+    )
+    manager.update_step(
+        step_id,
+        run_id,
+        status="cancelled",
+        completed_at=_utc_now(),
+        exit_code=-15,
+        stdout_preview="partial output",
+        error_message="Synthetic cancellation",
+        message="Cancelled for export smoke",
+    )
+    manager.mark_run_finished(run_id, "cancelled", "Evidence export smoke", metadata={"reason": "smoke"})
+
+    included_path = artifact_dir / "stdout.log"
+    included_path.write_text("portable evidence\n" * 32, encoding="utf-8")
+    manager.add_artifact(run_id, "stdout_log", str(included_path), label="included stdout", metadata={"step_id": step_id})
+
+    missing_path = artifact_dir / "missing.log"
+    manager.add_artifact(run_id, "stderr_log", str(missing_path), label="missing stderr", metadata={"step_id": step_id})
+
+    outside_path = Path(_ROOT.anchor) / "outside_bofa_evidence.log"
+    manager.add_artifact(run_id, "binary_capture", str(outside_path), label="outside evidence", metadata={})
+
+    loaded = _load_main_functions(
+        "_artifact_role",
+        "_artifact_content_type",
+        "_is_previewable_content_type",
+        "_artifact_preview_mode",
+        "_artifact_size_bytes",
+        "_artifact_download_state",
+        "_build_runtime_artifact_metadata",
+        "_serialize_artifact",
+        "_serialize_artifacts",
+        "_serialize_run",
+        "_sanitize_export_name",
+        "_guess_extension_from_content_type",
+        "_is_path_within_root",
+        "_sha256_file",
+        "_sha256_bytes",
+        "_canonical_json_bytes",
+        "_canonical_file_entry",
+        "_manifest_signature_payload",
+        "_load_or_create_evidence_signing_keypair",
+        "_get_evidence_public_key_info",
+        "_build_evidence_bundle_readme",
+        "_find_existing_evidence_export",
+        "_create_run_evidence_export",
+        "_resolve_downloadable_artifact_path",
+        "_verify_run_evidence_export",
+    )
+
+    evidence_types = {"evidence_bundle_zip", "evidence_manifest_json"}
+    evidence_types.update({"evidence_signature", "evidence_public_key_pem"})
+    key_dir = _VERIFY_ROOT / "evidence_keys"
+    key_dir.mkdir(parents=True, exist_ok=True)
+    private_key_path = key_dir / "evidence_ed25519_private.pem"
+    public_key_path = key_dir / "evidence_ed25519_public.pem"
+
+    loaded["_artifact_role"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+    loaded["_artifact_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_artifact_content_type"].__globals__["Path"] = Path
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_TAIL_PREVIEW_TYPES"] = {"stdout_log", "stderr_log"}
+    loaded["_artifact_preview_mode"].__globals__["ARTIFACT_HEAD_PREVIEW_TYPES"] = {
+        "report_json",
+        "report_markdown",
+        "flow_summary_json",
+        "flow_summary_markdown",
+        "post_process_output",
+        "evidence_manifest_json",
+        "evidence_signature",
+        "evidence_public_key_pem",
+    }
+    loaded["_artifact_preview_mode"].__globals__["_is_previewable_content_type"] = loaded["_is_previewable_content_type"]
+    loaded["_artifact_size_bytes"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_artifact_download_state"].__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_role"] = loaded["_artifact_role"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_download_state"] = loaded["_artifact_download_state"]
+    loaded["_serialize_artifact"].__globals__["Path"] = Path
+    loaded["_serialize_artifact"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_serialize_artifact"].__globals__["_artifact_role"] = loaded["_artifact_role"]
+    loaded["_serialize_artifact"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    loaded["_serialize_artifact"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
+    loaded["_serialize_artifact"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_serialize_artifact"].__globals__["_artifact_download_state"] = loaded["_artifact_download_state"]
+    loaded["_serialize_artifacts"].__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
+    loaded["_serialize_run"].__globals__["_serialize_artifacts"] = loaded["_serialize_artifacts"]
+    loaded["_guess_extension_from_content_type"].__globals__["mimetypes"] = mimetypes
+    loaded["_sha256_file"].__globals__["hashlib"] = hashlib
+    loaded["_sha256_bytes"].__globals__["hashlib"] = hashlib
+    loaded["_canonical_json_bytes"].__globals__["json"] = json
+    loaded["_canonical_file_entry"].__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["EVIDENCE_KEYS_DIR"] = key_dir
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["EVIDENCE_PRIVATE_KEY_PATH"] = private_key_path
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["EVIDENCE_PUBLIC_KEY_PATH"] = public_key_path
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["serialization"] = serialization
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["Ed25519PrivateKey"] = Ed25519PrivateKey
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["load_pem_private_key"] = load_pem_private_key
+    loaded["_load_or_create_evidence_signing_keypair"].__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    loaded["_get_evidence_public_key_info"].__globals__["EVIDENCE_SIGNING_ALGORITHM"] = "Ed25519"
+    loaded["_get_evidence_public_key_info"].__globals__["_load_or_create_evidence_signing_keypair"] = loaded["_load_or_create_evidence_signing_keypair"]
+    loaded["_find_existing_evidence_export"].__globals__["Path"] = Path
+    loaded["_find_existing_evidence_export"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+    loaded["_resolve_downloadable_artifact_path"].__globals__["Path"] = Path
+    loaded["_resolve_downloadable_artifact_path"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_resolve_downloadable_artifact_path"].__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    loaded["_resolve_downloadable_artifact_path"].__globals__["HTTPException"] = RuntimeError
+
+    export_root = _VERIFY_ROOT / "evidence_exports"
+    export_root.mkdir(parents=True, exist_ok=True)
+
+    create_export = loaded["_create_run_evidence_export"]
+    create_export.__globals__["APP_ROOT"] = _ROOT
+    create_export.__globals__["RUNTIME_REPORTS_DIR"] = export_root
+    create_export.__globals__["EVIDENCE_BUNDLE_VERSION"] = "1.0"
+    create_export.__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+    create_export.__globals__["EVIDENCE_SIGNING_ALGORITHM"] = "Ed25519"
+    create_export.__globals__["EVIDENCE_SIGNATURE_SCOPE"] = "canonical_manifest_without_manifest_sha256_and_self_referential_files"
+    create_export.__globals__["RUN_STATUSES_FINAL"] = {"success", "failed", "error", "partial", "cancelled"}
+    create_export.__globals__["datetime"] = datetime
+    create_export.__globals__["json"] = json
+    create_export.__globals__["Path"] = Path
+    create_export.__globals__["zipfile"] = zipfile
+    create_export.__globals__["base64"] = base64
+    create_export.__globals__["db"] = db
+    create_export.__globals__["run_manager"] = manager
+    create_export.__globals__["_serialize_run"] = loaded["_serialize_run"]
+    create_export.__globals__["_find_existing_evidence_export"] = loaded["_find_existing_evidence_export"]
+    create_export.__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
+    create_export.__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    create_export.__globals__["_build_runtime_artifact_metadata"] = loaded["_build_runtime_artifact_metadata"]
+    create_export.__globals__["_sanitize_export_name"] = loaded["_sanitize_export_name"]
+    create_export.__globals__["_guess_extension_from_content_type"] = loaded["_guess_extension_from_content_type"]
+    create_export.__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    create_export.__globals__["_sha256_file"] = loaded["_sha256_file"]
+    create_export.__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    create_export.__globals__["_canonical_json_bytes"] = loaded["_canonical_json_bytes"]
+    create_export.__globals__["_canonical_file_entry"] = loaded["_canonical_file_entry"]
+    create_export.__globals__["_manifest_signature_payload"] = loaded["_manifest_signature_payload"]
+    create_export.__globals__["_load_or_create_evidence_signing_keypair"] = loaded["_load_or_create_evidence_signing_keypair"]
+    create_export.__globals__["_build_evidence_bundle_readme"] = loaded["_build_evidence_bundle_readme"]
+    create_export.__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
+
+    export_payload = create_export(run_id)
+    second_payload = create_export(run_id)
+    bundle_path = Path(export_payload["bundle_path"])
+    manifest_path = Path(export_payload["manifest_path"])
+    signature_path = Path(export_payload["signature_path"])
+    exported_public_key_path = Path(export_payload["public_key_path"])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    detail = db.get_run_detail(run_id)
+
+    included_entry = next((artifact for artifact in manifest.get("artifacts", []) if artifact.get("artifact_type") == "stdout_log"), None)
+    missing_entry = next((artifact for artifact in manifest.get("artifacts", []) if artifact.get("artifact_type") == "stderr_log"), None)
+    outside_entry = next((artifact for artifact in manifest.get("artifacts", []) if artifact.get("artifact_type") == "binary_capture"), None)
+    artifact_types = {artifact.get("artifact_type") for artifact in detail.get("artifacts", [])}
+
+    with zipfile.ZipFile(bundle_path, "r") as archive:
+        names = set(archive.namelist())
+
+    verify_export = loaded["_verify_run_evidence_export"]
+    verify_export.__globals__["db"] = db
+    verify_export.__globals__["run_manager"] = manager
+    verify_export.__globals__["json"] = json
+    verify_export.__globals__["Path"] = Path
+    verify_export.__globals__["zipfile"] = zipfile
+    verify_export.__globals__["hashlib"] = hashlib
+    verify_export.__globals__["base64"] = base64
+    verify_export.__globals__["APP_ROOT"] = _ROOT
+    verify_export.__globals__["EVIDENCE_SIGNING_ALGORITHM"] = "Ed25519"
+    verify_export.__globals__["_serialize_run"] = loaded["_serialize_run"]
+    verify_export.__globals__["_find_existing_evidence_export"] = loaded["_find_existing_evidence_export"]
+    verify_export.__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
+    verify_export.__globals__["_resolve_downloadable_artifact_path"] = loaded["_resolve_downloadable_artifact_path"]
+    verify_export.__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    verify_export.__globals__["_sha256_file"] = loaded["_sha256_file"]
+    verify_export.__globals__["_sha256_bytes"] = loaded["_sha256_bytes"]
+    verify_export.__globals__["_canonical_json_bytes"] = loaded["_canonical_json_bytes"]
+    verify_export.__globals__["_manifest_signature_payload"] = loaded["_manifest_signature_payload"]
+    verify_export.__globals__["_get_evidence_public_key_info"] = loaded["_get_evidence_public_key_info"]
+    verify_export.__globals__["load_pem_public_key"] = load_pem_public_key
+    verify_export.__globals__["InvalidSignature"] = InvalidSignature
+    verification = verify_export(run_id)
+    detail = db.get_run_detail(run_id)
+
+    cli_good = subprocess.run(
+        [sys.executable, str(_ROOT / "tools" / "verify_evidence_bundle.py"), str(bundle_path), "--json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_good_payload = json.loads(cli_good.stdout or "{}")
+    cli_with_key = subprocess.run(
+        [
+            sys.executable,
+            str(_ROOT / "tools" / "verify_evidence_bundle.py"),
+            str(bundle_path),
+            "--public-key",
+            str(exported_public_key_path),
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_with_key_payload = json.loads(cli_with_key.stdout or "{}")
+
+    tampered_path = export_root / f"tampered_{bundle_path.name}"
+    with zipfile.ZipFile(bundle_path, "r") as source_archive, zipfile.ZipFile(
+        tampered_path, "w", compression=zipfile.ZIP_DEFLATED
+    ) as tampered_archive:
+        for name in source_archive.namelist():
+            if name == "run.json":
+                tampered_archive.writestr("run.json", json.dumps({"tampered": True}, indent=2))
+            else:
+                tampered_archive.writestr(name, source_archive.read(name))
+    cli_tampered = subprocess.run(
+        [sys.executable, str(_ROOT / "tools" / "verify_evidence_bundle.py"), str(tampered_path), "--json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    cli_tampered_payload = json.loads(cli_tampered.stdout or "{}")
+
+    return (
+        export_payload.get("created") is True
+        and second_payload.get("created") is False
+        and bundle_path.exists()
+        and manifest_path.exists()
+        and signature_path.exists()
+        and exported_public_key_path.exists()
+        and {"manifest.json", "manifest.sig", "public_key.pem", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}.issubset(names)
+        and any(name.startswith("artifacts/") for name in names)
+        and manifest.get("signing_algorithm") == "Ed25519"
+        and manifest.get("public_key_fingerprint") == export_payload.get("public_key_fingerprint")
+        and isinstance(manifest.get("manifest_sha256"), str)
+        and len(manifest.get("manifest_sha256")) == 64
+        and included_entry is not None
+        and included_entry.get("included") is True
+        and isinstance(included_entry.get("sha256"), str)
+        and len(included_entry.get("sha256")) == 64
+        and missing_entry is not None
+        and missing_entry.get("included") is False
+        and missing_entry.get("missing") is True
+        and missing_entry.get("reason") == "artifact_not_found"
+        and outside_entry is not None
+        and outside_entry.get("included") is False
+        and outside_entry.get("reason") == "outside_allowed_root"
+        and {"evidence_bundle_zip", "evidence_manifest_json", "evidence_signature", "evidence_public_key_pem"}.issubset(artifact_types)
+        and verification.get("verified") is True
+        and verification.get("signature_valid") is True
+        and verification.get("integrity_valid") is True
+        and verification.get("public_key_matches_server") is True
+        and verification.get("trust_mode") == "server_managed_key"
+        and verification.get("verified_artifact_count") == 1
+        and verification.get("missing_count") == 1
+        and cli_good.returncode == 0
+        and cli_good_payload.get("verified") is True
+        and cli_good_payload.get("trust_mode") == "bundle_embedded_public_key"
+        and cli_with_key.returncode == 0
+        and cli_with_key_payload.get("verified") is True
+        and cli_with_key_payload.get("trust_mode") == "provided_public_key"
+        and cli_tampered.returncode == 1
+        and cli_tampered_payload.get("verified") is False
+        and cli_tampered_payload.get("integrity_valid") is False
+        and any(event.get("event_type") == "evidence_exported" for event in detail.get("events", []))
+        and any(event.get("event_type") == "evidence_signed" for event in detail.get("events", []))
+        and (private_key_path.exists() and public_key_path.exists())
+        and any(event.get("event_type") == "evidence_verified" for event in detail.get("events", []))
+        and any(event.get("event_type") == "evidence_export_warning" for event in detail.get("events", []))
+    )
+
+
 def main():
     checks = [
         ("run lifecycle persists steps labs events and artifacts", _check_run_lifecycle_persistence()),
+        ("flow partial summaries persist artifacts", _check_flow_partial_summary_artifacts()),
+        ("flow cancelled summaries skip post-process cleanly", _check_flow_cancelled_summary_and_post_process_skip()),
+        ("artifact helpers enrich and preview runtime evidence", _check_artifact_preview_helpers()),
+        ("evidence bundle export packages artifacts and checksums", _check_evidence_bundle_export()),
         ("retry payload preserves lineage and last failed step", _check_retry_lineage()),
         ("retry events link original and child runs", _check_retry_event_lineage()),
         ("run listing filters by status and type", _check_run_listing_filters()),

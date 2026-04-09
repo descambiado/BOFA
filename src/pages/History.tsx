@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/UI/card";
+import { Badge } from "@/components/UI/badge";
+import { Button } from "@/components/UI/button";
+import { Input } from "@/components/UI/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/UI/select";
 import { ActionButton } from "@/components/UI/ActionButton";
-import { useRunDetail, useRuns, apiService, type RunSummary } from "@/services/api";
-import { ArrowLeft, Clock, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, Square, Workflow } from "lucide-react";
+import { useRunDetail, useRuns, apiService, type EvidencePublicKeyInfo, type RunArtifact, type RunArtifactPreview, type RunEvidenceVerification, type RunSummary } from "@/services/api";
+import { ArrowLeft, Clock, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, ShieldCheck, Square, Workflow } from "lucide-react";
 import { toast } from "sonner";
 
 const FINAL_STATUSES = ["success", "failed", "error", "partial", "cancelled"];
@@ -20,11 +20,58 @@ const History = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [familyFilter, setFamilyFilter] = useState("all");
+  const [artifactPreview, setArtifactPreview] = useState<RunArtifactPreview | null>(null);
+  const [artifactPreviewId, setArtifactPreviewId] = useState<string | null>(null);
+  const [isArtifactPreviewLoading, setIsArtifactPreviewLoading] = useState(false);
+  const [isExportingRun, setIsExportingRun] = useState(false);
+  const [verification, setVerification] = useState<RunEvidenceVerification | null>(null);
+  const [isVerifyingEvidence, setIsVerifyingEvidence] = useState(false);
+  const [evidenceKeyInfo, setEvidenceKeyInfo] = useState<EvidencePublicKeyInfo | null>(null);
   const { data: runs, isLoading, refetch } = useRuns();
   const { data: selectedRun, refetch: refetchRun } = useRunDetail(selectedRunId);
 
   const isFinalStatus = (status?: string) => FINAL_STATUSES.includes(status || "");
   const formatTimestamp = (timestamp?: string) => (timestamp ? new Date(timestamp).toLocaleString("es-ES") : "sin fecha");
+  const formatBytes = (value?: number) => {
+    if (!value && value !== 0) return "tamano n/a";
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  useEffect(() => {
+    setArtifactPreview(null);
+    setArtifactPreviewId(null);
+    setIsArtifactPreviewLoading(false);
+    setVerification(null);
+    setIsVerifyingEvidence(false);
+    setEvidenceKeyInfo(null);
+  }, [selectedRunId]);
+
+  useEffect(() => {
+    let active = true;
+    const hasEvidenceArtifacts = selectedRun?.artifacts?.some((artifact) =>
+      ["evidence_bundle_zip", "evidence_manifest_json", "evidence_signature", "evidence_public_key_pem"].includes(artifact.artifact_type),
+    );
+    if (!selectedRun || !hasEvidenceArtifacts) {
+      setEvidenceKeyInfo(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    apiService.getEvidencePublicKey()
+      .then((info) => {
+        if (active) setEvidenceKeyInfo(info);
+      })
+      .catch(() => {
+        if (active) setEvidenceKeyInfo(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedRun]);
 
   const families = useMemo(() => {
     const grouped = new Map<string, RunSummary[]>();
@@ -54,23 +101,78 @@ const History = () => {
     return (families.get(familyId) || []).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [selectedRun, families]);
 
-  const downloadRun = (run: any) => {
-    const content = JSON.stringify(run, null, 2);
-    const blob = new Blob([content], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bofa-run-${run.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const copyArtifactPath = async (path: string) => {
     try {
       await navigator.clipboard.writeText(path);
       toast.success("Ruta copiada");
     } catch {
       toast.error("No se pudo copiar la ruta");
+    }
+  };
+
+  const handleExport = async (runId: string) => {
+    setIsExportingRun(true);
+    try {
+      const result = await apiService.downloadRunExport(runId);
+      toast.success(result.demo ? `Export demo descargado: ${result.filename}` : `Evidence bundle descargado: ${result.filename}`);
+      await refetch();
+      if (selectedRunId === runId) {
+        await refetchRun();
+      }
+    } catch {
+      toast.error("No se pudo exportar el bundle del run");
+    } finally {
+      setIsExportingRun(false);
+    }
+  };
+
+  const handleVerifyEvidence = async (runId: string) => {
+    setIsVerifyingEvidence(true);
+    try {
+      const result = await apiService.verifyRunEvidenceExport(runId);
+      setVerification(result);
+      toast.success(result.verified ? "Evidence bundle verificado" : "Verificación completada con incidencias");
+      await refetch();
+      if (selectedRunId === runId) {
+        await refetchRun();
+      }
+    } catch {
+      toast.error("No se pudo verificar el evidence bundle");
+    } finally {
+      setIsVerifyingEvidence(false);
+    }
+  };
+
+  const handleArtifactDownload = async (artifact: RunArtifact) => {
+    if (!selectedRunId) return;
+    try {
+      const result = await apiService.downloadRunArtifact(selectedRunId, artifact.id);
+      toast.success(result.demo ? `Artifact demo descargado: ${result.filename}` : `Artifact descargado: ${result.filename}`);
+    } catch {
+      toast.error("No se pudo descargar el artifact");
+    }
+  };
+
+  const handleArtifactPreview = async (artifact: RunArtifact) => {
+    if (!selectedRunId) return;
+    if (artifactPreviewId === artifact.id) {
+      setArtifactPreview(null);
+      setArtifactPreviewId(null);
+      return;
+    }
+
+    setIsArtifactPreviewLoading(true);
+    try {
+      const preview = await apiService.getRunArtifactPreview(selectedRunId, artifact.id);
+      setArtifactPreview(preview);
+      setArtifactPreviewId(artifact.id);
+      if (!preview.previewable && preview.reason) {
+        toast.info(`Preview no disponible: ${preview.reason}`);
+      }
+    } catch {
+      toast.error("No se pudo cargar el preview del artifact");
+    } finally {
+      setIsArtifactPreviewLoading(false);
     }
   };
 
@@ -99,6 +201,7 @@ const History = () => {
   };
 
   if (selectedRun && selectedRunId) {
+    const hasEvidenceExport = selectedRun.artifacts?.some((artifact) => artifact.artifact_type === "evidence_bundle_zip");
     return (
       <div className="container mx-auto px-6 py-8">
         <div className="mb-6 flex items-center justify-between">
@@ -200,6 +303,11 @@ const History = () => {
                       <Badge>{getDisplayStatus(event.status)}</Badge>
                     </div>
                     <p className="mt-2 text-sm text-gray-300">{event.message || "Sin mensaje"}</p>
+                    {!!Object.keys(event.payload || {}).length && (
+                      <pre className="mt-3 whitespace-pre-wrap rounded bg-black/70 p-3 text-xs text-cyan-100">
+                        {JSON.stringify(event.payload, null, 2)}
+                      </pre>
+                    )}
                     <p className="mt-1 text-xs text-gray-500">{formatTimestamp(event.created_at)}</p>
                   </div>
                 )) : <p className="text-gray-400">Sin eventos registrados.</p>}
@@ -207,10 +315,29 @@ const History = () => {
             </Card>
 
             <Card className="bg-gray-800/50 border-gray-700">
-              <CardHeader>
+            <CardHeader>
                 <CardTitle className="text-cyan-400 flex items-center justify-between">
                   <span>Artifacts</span>
-                  <ActionButton icon={<Download className="w-4 h-4" />} title="Exportar" description="Descargar run" onClick={() => downloadRun(selectedRun)} />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={!hasEvidenceExport || isVerifyingEvidence}
+                      onClick={() => handleVerifyEvidence(selectedRun.id)}
+                      className="border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 disabled:opacity-50"
+                    >
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                      {isVerifyingEvidence ? "Verificando..." : "Verificar"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={isExportingRun}
+                      onClick={() => handleExport(selectedRun.id)}
+                      className="border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {isExportingRun ? "Exportando..." : "Exportar bundle"}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -219,14 +346,128 @@ const History = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-medium text-white">{artifact.label || artifact.artifact_type}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <Badge>{artifact.artifact_type}</Badge>
+                          {artifact.metadata?.step_status && <Badge>{getDisplayStatus(artifact.metadata.step_status)}</Badge>}
+                          {artifact.metadata?.partial && <Badge className="bg-amber-500/20 text-amber-200">evidence partial</Badge>}
+                        </div>
+                        <p className="mt-2 text-xs text-gray-400">
+                          {artifact.metadata?.artifact_role || "evidence"} · {artifact.metadata?.content_type || "content-type n/a"} · {formatBytes(artifact.metadata?.size_bytes)}
+                        </p>
+                        {!artifact.metadata?.downloadable && artifact.metadata?.download_reason && (
+                          <p className="mt-1 text-xs text-amber-300">Descarga no disponible: {artifact.metadata.download_reason}</p>
+                        )}
                         <p className="mt-1 break-all text-sm text-gray-400">{artifact.path}</p>
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => copyArtifactPath(artifact.path)} className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={artifact.metadata?.downloadable === false}
+                          onClick={() => handleArtifactDownload(artifact)}
+                          className="border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 disabled:opacity-50"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        {artifact.metadata?.previewable && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isArtifactPreviewLoading && artifactPreviewId === artifact.id}
+                            onClick={() => handleArtifactPreview(artifact)}
+                            className="border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/10 disabled:opacity-50"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => copyArtifactPath(artifact.path)} className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )) : <p className="text-gray-400">Sin artifacts registrados.</p>}
+                {artifactPreview && (
+                  <div className="rounded-lg border border-cyan-500/30 bg-black/60 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-white">{artifactPreview.artifact.label || artifactPreview.artifact.artifact_type}</p>
+                      <Badge>{artifactPreview.preview_mode || "preview"}</Badge>
+                      {artifactPreview.artifact.metadata?.partial && (
+                        <Badge className="bg-amber-500/20 text-amber-200">
+                          {selectedRun.status === "cancelled" ? "cancelled evidence" : "partial evidence"}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-400">
+                      {artifactPreview.content_type || artifactPreview.artifact.metadata?.content_type || "content-type n/a"} · {formatBytes(artifactPreview.size_bytes || artifactPreview.artifact.metadata?.size_bytes)}
+                    </p>
+                    {artifactPreview.previewable && artifactPreview.preview ? (
+                      <>
+                        <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded bg-black p-3 text-sm text-cyan-100">
+                          {artifactPreview.preview}
+                        </pre>
+                        {artifactPreview.truncated && (
+                          <p className="mt-2 text-xs text-amber-300">Preview truncado para mantenerlo ligero.</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm text-gray-300">No hay preview disponible para este artifact. Motivo: {artifactPreview.reason || "binary_or_unsupported"}.</p>
+                    )}
+                  </div>
+                )}
+                {verification && (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-white">Última verificación de evidence bundle</p>
+                      <Badge className={verification.verified ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-200"}>
+                        {verification.verified ? "verified" : "issues detected"}
+                      </Badge>
+                      <Badge className={verification.signature_valid ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200"}>
+                        {verification.signature_valid ? "signature valid" : "signature invalid"}
+                      </Badge>
+                      <Badge className={verification.integrity_valid ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200"}>
+                        {verification.integrity_valid ? "integrity valid" : "integrity failed"}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-400">
+                      Export: {formatTimestamp(verification.export_timestamp)} · Artifactos verificados: {verification.verified_artifact_count}/{verification.included_count} · Warnings: {verification.warning_count}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Trust mode: {verification.trust_mode || "unknown"} · Algoritmo: {verification.signing_algorithm || "n/a"}
+                    </p>
+                    <p className="mt-1 break-all text-xs text-gray-400">
+                      Fingerprint del firmante: {verification.public_key_fingerprint || "n/a"}
+                    </p>
+                    {evidenceKeyInfo && (
+                      <p className="mt-1 break-all text-xs text-gray-400">
+                        Fingerprint activo del servidor: {evidenceKeyInfo.public_key_fingerprint}
+                      </p>
+                    )}
+                    <p className="mt-1 break-all text-xs text-gray-400">Bundle SHA-256: {verification.bundle_sha256}</p>
+                    <p className="mt-1 break-all text-xs text-gray-400">Manifest SHA-256: {verification.manifest_sha256}</p>
+                    {verification.public_key_matches_server === false && (
+                      <p className="mt-2 text-xs text-amber-300">
+                        La firma es válida, pero la clave embebida no coincide con la clave activa del servidor.
+                      </p>
+                    )}
+                    {verification.signature_error && (
+                      <p className="mt-2 text-xs text-rose-300">Error de firma: {verification.signature_error}</p>
+                    )}
+                    {!!verification.missing_canonical_files.length && (
+                      <p className="mt-2 text-xs text-amber-300">Faltan ficheros canónicos: {verification.missing_canonical_files.join(", ")}</p>
+                    )}
+                    {verification.canonical_file_checks?.slice(0, 5).map((check) => (
+                      <p key={check.name} className={`mt-2 text-xs ${check.verified ? "text-emerald-200" : "text-amber-200"}`}>
+                        {check.name} · {check.verified ? "verified" : check.reason || "mismatch"}
+                      </p>
+                    ))}
+                    {verification.artifact_checks.slice(0, 5).map((check) => (
+                      <p key={check.artifact_id} className={`mt-2 text-xs ${check.verified ? "text-emerald-200" : "text-amber-200"}`}>
+                        {check.artifact_type} · {check.verified ? "verified" : check.reason || check.source_reason || "mismatch"}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

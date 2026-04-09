@@ -5,6 +5,7 @@ Executes YAML-defined flows and can optionally persist them via RunManager.
 
 from datetime import datetime
 import json
+import mimetypes
 from pathlib import Path
 import re
 import sys
@@ -103,6 +104,216 @@ def _extract_from_step_json(step_result: Dict[str, Any], path: str) -> Optional[
     return None
 
 
+def _flow_artifact_content_type(path_str: str, artifact_type: str) -> str:
+    if artifact_type in {"flow_summary_json", "report_json"}:
+        return "application/json"
+    if artifact_type in {"flow_summary_markdown", "report_markdown"}:
+        return "text/markdown"
+    guessed, _ = mimetypes.guess_type(path_str)
+    return guessed or "text/plain"
+
+
+def _flow_artifact_metadata(
+    path_str: str,
+    artifact_type: str,
+    run_status: str,
+    partial: bool,
+    step_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    content_type = _flow_artifact_content_type(path_str, artifact_type)
+    return {
+        "step_id": step_id,
+        "run_status": run_status,
+        "step_status": None,
+        "artifact_role": "post_process" if artifact_type == "post_process_output" else "summary",
+        "previewable": content_type.startswith("text/") or content_type == "application/json",
+        "preview_mode": "head",
+        "content_type": content_type,
+        "size_bytes": Path(path_str).stat().st_size if Path(path_str).exists() else None,
+        "partial": partial,
+    }
+    
+
+def _build_flow_summary(
+    flow_id: str,
+    flow: Dict[str, Any],
+    target: str,
+    status: str,
+    steps_results: List[Dict[str, Any]],
+    cancelled_at_step: Optional[int] = None,
+    cause: Optional[str] = None,
+    artifact_count: int = 0,
+) -> Dict[str, Any]:
+    return {
+        "flow_id": flow_id,
+        "flow_name": flow.get("name", flow_id),
+        "target": target,
+        "status": status,
+        "timestamp": datetime.utcnow().isoformat(),
+        "completed_steps": len([step for step in steps_results if step.get("status") == "success"]),
+        "failed_steps": len([step for step in steps_results if step.get("status") in {"failed", "error"}]),
+        "cancelled_steps": len([step for step in steps_results if step.get("status") == "cancelled"]),
+        "cancelled_at_step": cancelled_at_step,
+        "artifact_count": artifact_count,
+        "cause": cause,
+        "steps": steps_results,
+    }
+
+
+def _build_flow_markdown(summary: Dict[str, Any]) -> str:
+    markdown = [
+        f"# BOFA Flow Report: {summary['flow_name']}",
+        "",
+        f"- **Target:** {summary['target']}",
+        f"- **Status:** {summary['status']}",
+        f"- **Timestamp:** {summary['timestamp']}",
+        f"- **Completed steps:** {summary['completed_steps']}",
+        f"- **Failed steps:** {summary['failed_steps']}",
+        f"- **Cancelled steps:** {summary['cancelled_steps']}",
+        f"- **Artifact count:** {summary['artifact_count']}",
+    ]
+    if summary.get("cancelled_at_step") is not None:
+        markdown.append(f"- **Cancelled at step:** {summary['cancelled_at_step']}")
+    if summary.get("cause"):
+        markdown.append(f"- **Cause:** {summary['cause']}")
+    markdown.extend(["", "## Steps", ""])
+
+    for step in summary.get("steps", []):
+        markdown.append(f"### {step['index']}. {step['module']}/{step['script']}")
+        markdown.append("")
+        markdown.append(f"- **Status:** {step['status']} | **Exit code:** {step['exit_code']} | **Duration:** {step['duration']}s")
+        markdown.append("")
+        if step.get("stdout_preview"):
+            markdown.extend(["**Stdout (preview):**", "```", step["stdout_preview"].strip()[:1500], "```", ""])
+        if step.get("stderr_preview"):
+            markdown.extend(["**Stderr (preview):**", "```", step["stderr_preview"].strip()[:500], "```", ""])
+        if step.get("error"):
+            markdown.extend([f"**Error:** {step['error']}", ""])
+
+    return "\n".join(markdown)
+
+
+def _finalize_flow_result(
+    flow_id: str,
+    flow: Dict[str, Any],
+    target: str,
+    report_dir: Path,
+    engine,
+    config,
+    steps_results: List[Dict[str, Any]],
+    status: str,
+    run_manager=None,
+    run_id: Optional[str] = None,
+    cancelled_at_step: Optional[int] = None,
+    cause: Optional[str] = None,
+):
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    existing_artifact_count = 0
+    if run_manager and run_id:
+        detail = run_manager.get_run(run_id) or {}
+        existing_artifact_count = len(detail.get("artifacts", []))
+
+    summary = _build_flow_summary(
+        flow_id,
+        flow,
+        target,
+        status,
+        steps_results,
+        cancelled_at_step=cancelled_at_step,
+        cause=cause,
+        artifact_count=existing_artifact_count,
+    )
+
+    report_path = report_dir / f"flow_{flow_id}_{timestamp}.md"
+    json_path = report_dir / f"flow_{flow_id}_{timestamp}.json"
+    report_path.write_text(_build_flow_markdown(summary), encoding="utf-8")
+    json_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    post_process = flow.get("post_process") or {}
+    post_script = post_process.get("script")
+    post_params = post_process.get("params") or {}
+    post_process_output_path = None
+
+    if post_script and status != "cancelled":
+        try:
+            module_name, script_name = post_script.split("/")
+            resolved = dict(post_params)
+            target_safe = (target or "").replace("://", "_").replace("/", "_").replace(":", "_")[:80]
+            for key, value in list(resolved.items()):
+                if not isinstance(value, str):
+                    continue
+                transformed = value.replace("{flow_report_json}", str(json_path))
+                transformed = transformed.replace("{target}", target or "")
+                transformed = transformed.replace("{target_safe}", target_safe)
+                if key == "output" and transformed and not Path(transformed).is_absolute():
+                    transformed = str(_ROOT / transformed)
+                resolved[key] = transformed
+            result = engine.execute_script(
+                module_name=module_name,
+                script_name=script_name,
+                parameters=resolved,
+                timeout=config.execution_timeout or 60,
+            )
+            if resolved.get("output") and result.exit_code == 0:
+                post_process_output_path = str(resolved["output"])
+        except Exception:
+            pass
+    elif post_script and status == "cancelled" and run_manager and run_id:
+        run_manager.add_event(
+            run_id,
+            "run",
+            run_id,
+            "post_process_skipped",
+            "cancelled",
+            "Post-process skipped because the flow was cancelled",
+            {"flow_id": flow_id, "reason": "flow_cancelled"},
+        )
+
+    summary["artifact_count"] = existing_artifact_count + 2 + (1 if post_process_output_path else 0)
+    report_path.write_text(_build_flow_markdown(summary), encoding="utf-8")
+    json_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    if run_manager and run_id:
+        partial_evidence = status in {"partial", "cancelled", "failed", "error"}
+        run_manager.add_artifact(
+            run_id,
+            "flow_summary_markdown",
+            str(report_path),
+            label="Flow markdown summary",
+            metadata=_flow_artifact_metadata(str(report_path), "flow_summary_markdown", status, partial_evidence),
+        )
+        run_manager.add_artifact(
+            run_id,
+            "flow_summary_json",
+            str(json_path),
+            label="Flow json summary",
+            metadata=_flow_artifact_metadata(str(json_path), "flow_summary_json", status, partial_evidence),
+        )
+        if post_process_output_path:
+            run_manager.add_artifact(
+                run_id,
+                "post_process_output",
+                post_process_output_path,
+                label="Flow post-process output",
+                metadata=_flow_artifact_metadata(post_process_output_path, "post_process_output", status, partial_evidence),
+            )
+
+    return {
+        "flow_id": flow_id,
+        "target": target,
+        "status": status,
+        "steps": steps_results,
+        "report_path": str(report_path),
+        "report_json_path": str(json_path),
+        "report_json": summary,
+        "completed_steps": summary["completed_steps"],
+        "failed_steps": summary["failed_steps"],
+        "cancelled_at_step": summary.get("cancelled_at_step"),
+        "cause": summary.get("cause"),
+        "artifact_count": summary["artifact_count"],
+    }
+
+
 def _substitute_step_placeholders(parameters: Dict[str, Any], steps_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not parameters:
         return {}
@@ -162,16 +373,20 @@ def run_flow(
     for index, step in enumerate(steps_spec, start=1):
         should_cancel = cancellation_hooks.get("should_cancel") if cancellation_hooks else None
         if (should_cancel and should_cancel()) or (cancel_file and Path(cancel_file).exists()):
-            return {
-                "flow_id": flow_id,
-                "target": target,
-                "status": "cancelled",
-                "steps": steps_results,
-                "report_path": None,
-                "report_json_path": None,
-                "report_json": None,
-                "cancelled_at_step": index,
-            }
+            return _finalize_flow_result(
+                flow_id,
+                flow,
+                target,
+                report_dir,
+                engine,
+                config,
+                steps_results,
+                "cancelled",
+                run_manager=run_manager,
+                run_id=run_id,
+                cancelled_at_step=index,
+                cause="Flow cancelled before next step started",
+            )
 
         module = step.get("module")
         script = step.get("script")
@@ -245,16 +460,20 @@ def run_flow(
             if result.status == "cancelled":
                 if cancellation_hooks and cancellation_hooks.get("clear_active_step"):
                     cancellation_hooks["clear_active_step"](step_id)
-                return {
-                    "flow_id": flow_id,
-                    "target": target,
-                    "status": "cancelled",
-                    "steps": steps_results + [step_result],
-                    "report_path": None,
-                    "report_json_path": None,
-                    "report_json": None,
-                    "cancelled_at_step": index,
-                }
+                return _finalize_flow_result(
+                    flow_id,
+                    flow,
+                    target,
+                    report_dir,
+                    engine,
+                    config,
+                    steps_results + [step_result],
+                    "cancelled",
+                    run_manager=run_manager,
+                    run_id=run_id,
+                    cancelled_at_step=index,
+                    cause=step_result.get("error") or "Flow cancelled during step execution",
+                )
             if result.exit_code != 0:
                 any_error = True
         except Exception as exc:
@@ -276,105 +495,42 @@ def run_flow(
         steps_results.append(step_result)
 
     if cancel_file and Path(cancel_file).exists():
-        return {
-            "flow_id": flow_id,
-            "target": target,
-            "status": "cancelled",
-            "steps": steps_results,
-            "report_path": None,
-            "report_json_path": None,
-            "report_json": None,
-        }
+        return _finalize_flow_result(
+            flow_id,
+            flow,
+            target,
+            report_dir,
+            engine,
+            config,
+            steps_results,
+            "cancelled",
+            run_manager=run_manager,
+            run_id=run_id,
+            cancelled_at_step=steps_results[-1]["index"] if steps_results else 1,
+            cause="Flow cancelled after step execution",
+        )
 
     status = "error" if any_error else "success"
     if any_error and any(step["status"] == "success" for step in steps_results):
         status = "partial"
+    cause = None
+    if status in {"partial", "error"}:
+        first_problem = next((step for step in steps_results if step.get("status") in {"failed", "error", "cancelled"}), None)
+        cause = first_problem.get("error") if first_problem else None
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    report_json = {
-        "flow_id": flow_id,
-        "flow_name": flow.get("name", flow_id),
-        "target": target,
-        "status": status,
-        "timestamp": datetime.utcnow().isoformat(),
-        "steps": steps_results,
-    }
-
-    markdown = [
-        f"# BOFA Flow Report: {flow.get('name', flow_id)}",
-        "",
-        f"- **Target:** {target}",
-        f"- **Status:** {status}",
-        f"- **Timestamp:** {report_json['timestamp']}",
-        "",
-        "## Steps",
-        "",
-    ]
-    for step in steps_results:
-        markdown.append(f"### {step['index']}. {step['module']}/{step['script']}")
-        markdown.append("")
-        markdown.append(f"- **Status:** {step['status']} | **Exit code:** {step['exit_code']} | **Duration:** {step['duration']}s")
-        markdown.append("")
-        if step.get("stdout_preview"):
-            markdown.extend(["**Stdout (preview):**", "```", step["stdout_preview"].strip()[:1500], "```", ""])
-        if step.get("stderr_preview"):
-            markdown.extend(["**Stderr (preview):**", "```", step["stderr_preview"].strip()[:500], "```", ""])
-        if step.get("error"):
-            markdown.extend([f"**Error:** {step['error']}", ""])
-
-    report_path = report_dir / f"flow_{flow_id}_{timestamp}.md"
-    report_path.write_text("\n".join(markdown), encoding="utf-8")
-
-    json_path = report_dir / f"flow_{flow_id}_{timestamp}.json"
-    json_path.write_text(json.dumps(report_json, indent=2, ensure_ascii=False), encoding="utf-8")
-
-    if run_manager and run_id:
-        run_manager.add_artifact(run_id, "report_markdown", str(report_path), label="Flow markdown report", metadata={"flow_id": flow_id})
-        run_manager.add_artifact(run_id, "report_json", str(json_path), label="Flow json report", metadata={"flow_id": flow_id})
-
-    post_process = flow.get("post_process") or {}
-    post_script = post_process.get("script")
-    post_params = post_process.get("params") or {}
-    if post_script and status != "cancelled":
-        try:
-            module_name, script_name = post_script.split("/")
-            resolved = dict(post_params)
-            target_safe = (target or "").replace("://", "_").replace("/", "_").replace(":", "_")[:80]
-            for key, value in list(resolved.items()):
-                if not isinstance(value, str):
-                    continue
-                transformed = value.replace("{flow_report_json}", str(json_path))
-                transformed = transformed.replace("{target}", target or "")
-                transformed = transformed.replace("{target_safe}", target_safe)
-                if key == "output" and transformed and not Path(transformed).is_absolute():
-                    transformed = str(_ROOT / transformed)
-                resolved[key] = transformed
-            result = engine.execute_script(
-                module_name=module_name,
-                script_name=script_name,
-                parameters=resolved,
-                timeout=config.execution_timeout or 60,
-            )
-            if run_manager and run_id and resolved.get("output"):
-                run_manager.add_artifact(
-                    run_id,
-                    "post_process_output",
-                    str(resolved["output"]),
-                    label=f"Post-process output: {module_name}/{script_name}",
-                    metadata={"exit_code": result.exit_code},
-                )
-        except Exception:
-            pass
-
-    return {
-        "flow_id": flow_id,
-        "target": target,
-        "status": status,
-        "steps": steps_results,
-        "report_path": str(report_path),
-        "report_json_path": str(json_path),
-        "report_json": report_json,
-    }
+    return _finalize_flow_result(
+        flow_id,
+        flow,
+        target,
+        report_dir,
+        engine,
+        config,
+        steps_results,
+        status,
+        run_manager=run_manager,
+        run_id=run_id,
+        cause=cause,
+    )
 
 
 class FlowRunner:

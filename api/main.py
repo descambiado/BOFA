@@ -4,17 +4,26 @@ BOFA API - operational control plane.
 """
 
 import asyncio
+import base64
 from datetime import datetime
+import hashlib
 import json
 import logging
+import mimetypes
 import os
 from pathlib import Path
+import re
 import sys
+import zipfile
 from typing import Any, Dict, List, Optional
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
 from fastapi import Depends, FastAPI, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
 import yaml
@@ -38,8 +47,11 @@ CANCEL_DIR = TEMP_DIR / "cancellation"
 CANCEL_GRACE_SECONDS = float(os.getenv("BOFA_CANCEL_GRACE_SECONDS", "4"))
 CANCEL_CHECK_INTERVAL = float(os.getenv("BOFA_CANCEL_CHECK_INTERVAL", "0.5"))
 RUNTIME_REPORTS_DIR = APP_ROOT / "reports" / "runs"
+EVIDENCE_KEYS_DIR = DATA_DIR / "evidence_keys"
+EVIDENCE_PRIVATE_KEY_PATH = EVIDENCE_KEYS_DIR / "evidence_ed25519_private.pem"
+EVIDENCE_PUBLIC_KEY_PATH = EVIDENCE_KEYS_DIR / "evidence_ed25519_public.pem"
 
-for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR, RUNTIME_REPORTS_DIR):
+for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR, RUNTIME_REPORTS_DIR, EVIDENCE_KEYS_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -52,7 +64,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="BOFA Operational Control Plane",
     description="Cybersecurity platform API with unified runs, timeline and operational control.",
-    version="2.8.2",
+    version="2.8.5",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -71,6 +83,27 @@ lab_manager = LabManager(db)
 run_manager = RunManager(db)
 
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
+ARTIFACT_PREVIEW_LIMIT = 4000
+ARTIFACT_TAIL_PREVIEW_TYPES = {"stdout_log", "stderr_log"}
+ARTIFACT_HEAD_PREVIEW_TYPES = {
+    "report_json",
+    "report_markdown",
+    "flow_summary_json",
+    "flow_summary_markdown",
+    "post_process_output",
+    "evidence_manifest_json",
+    "evidence_signature",
+    "evidence_public_key_pem",
+}
+EVIDENCE_EXPORT_ARTIFACT_TYPES = {
+    "evidence_bundle_zip",
+    "evidence_manifest_json",
+    "evidence_signature",
+    "evidence_public_key_pem",
+}
+EVIDENCE_BUNDLE_VERSION = "1.0"
+EVIDENCE_SIGNING_ALGORITHM = "Ed25519"
+EVIDENCE_SIGNATURE_SCOPE = "canonical_manifest_without_manifest_sha256_and_self_referential_files"
 execution_tasks: Dict[str, asyncio.subprocess.Process] = {}
 run_lookup_by_execution: Dict[str, str] = {}
 runtime_controls: Dict[str, Dict[str, Any]] = {}
@@ -185,14 +218,1013 @@ def _labs_health() -> Dict[str, Any]:
 def _serialize_run(run: Dict[str, Any]) -> Dict[str, Any]:
     status = run.get("status", "unknown")
     events = run.get("events", [])
+    artifacts = _serialize_artifacts(run.get("artifacts", []), run)
     return {
         **run,
+        "artifacts": artifacts,
         "timeline_count": len(events),
         "step_count": len(run.get("steps", [])),
-        "artifact_count": len(run.get("artifacts", [])),
+        "artifact_count": len(artifacts),
         "lab_count": len(run.get("labs", [])),
         "status": status,
     }
+
+
+def _artifact_role(artifact_type: Optional[str]) -> str:
+    if artifact_type in {"stdout_log", "stderr_log"}:
+        return "execution_log"
+    if artifact_type in {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown"}:
+        return "summary"
+    if artifact_type in EVIDENCE_EXPORT_ARTIFACT_TYPES:
+        return "export"
+    if artifact_type == "post_process_output":
+        return "post_process"
+    return "evidence"
+
+
+def _artifact_content_type(path_str: Optional[str], artifact_type: Optional[str]) -> str:
+    if artifact_type in {"stdout_log", "stderr_log"}:
+        return "text/plain"
+    if artifact_type == "evidence_bundle_zip":
+        return "application/zip"
+    if artifact_type == "evidence_manifest_json":
+        return "application/json"
+    if artifact_type in {"evidence_signature", "evidence_public_key_pem"}:
+        return "text/plain"
+    if artifact_type in {"report_json", "flow_summary_json"}:
+        return "application/json"
+    if artifact_type in {"report_markdown", "flow_summary_markdown"}:
+        return "text/markdown"
+    if path_str:
+        guessed, _ = mimetypes.guess_type(path_str)
+        if guessed:
+            return guessed
+        suffix = Path(path_str).suffix.lower()
+        if suffix in {".log", ".txt"}:
+            return "text/plain"
+        if suffix == ".md":
+            return "text/markdown"
+        if suffix == ".json":
+            return "application/json"
+        if suffix in {".yaml", ".yml"}:
+            return "application/x-yaml"
+    return "application/octet-stream"
+
+
+def _is_previewable_content_type(content_type: Optional[str]) -> bool:
+    if not content_type:
+        return False
+    return content_type.startswith("text/") or content_type in {"application/json", "application/x-yaml", "application/xml"}
+
+
+def _artifact_preview_mode(artifact_type: Optional[str], content_type: Optional[str]) -> Optional[str]:
+    if not _is_previewable_content_type(content_type):
+        return None
+    if artifact_type in ARTIFACT_TAIL_PREVIEW_TYPES:
+        return "tail"
+    if artifact_type in ARTIFACT_HEAD_PREVIEW_TYPES:
+        return "head"
+    return "head"
+
+
+def _artifact_size_bytes(path_str: Optional[str]) -> Optional[int]:
+    if not path_str:
+        return None
+    path = Path(path_str)
+    if not path.exists() or not path.is_file():
+        return None
+    try:
+        return path.stat().st_size
+    except OSError:
+        return None
+
+
+def _artifact_download_state(path_str: Optional[str]) -> Dict[str, Any]:
+    if not path_str:
+        return {"downloadable": False, "download_reason": "artifact_path_missing"}
+    path = Path(path_str)
+    if not _is_path_within_root(path, APP_ROOT):
+        return {"downloadable": False, "download_reason": "outside_allowed_root"}
+    if not path.exists() or not path.is_file():
+        return {"downloadable": False, "download_reason": "artifact_not_found"}
+    return {"downloadable": True, "download_reason": None}
+
+
+def _build_runtime_artifact_metadata(
+    path_str: str,
+    artifact_type: str,
+    run_status: str,
+    step_status: Optional[str] = None,
+    step_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    partial: Optional[bool] = None,
+) -> Dict[str, Any]:
+    content_type = _artifact_content_type(path_str, artifact_type)
+    preview_mode = _artifact_preview_mode(artifact_type, content_type)
+    download_state = _artifact_download_state(path_str)
+    return {
+        "step_id": step_id,
+        "execution_id": execution_id,
+        "run_status": run_status,
+        "step_status": step_status or run_status,
+        "artifact_role": _artifact_role(artifact_type),
+        "previewable": preview_mode is not None,
+        "preview_mode": preview_mode,
+        "content_type": content_type,
+        "size_bytes": _artifact_size_bytes(path_str),
+        "partial": (run_status in {"partial", "cancelled", "failed", "error"}) if partial is None else partial,
+        "downloadable": download_state["downloadable"],
+        "download_reason": download_state["download_reason"],
+    }
+
+
+def _serialize_artifact(artifact: Dict[str, Any], run: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    serialized = dict(artifact)
+    metadata = dict(serialized.get("metadata") or {})
+    step_lookup = {step["id"]: step for step in (run.get("steps", []) if run else [])}
+    step = step_lookup.get(metadata.get("step_id")) if metadata.get("step_id") else None
+    run_status = metadata.get("run_status") or (run.get("status") if run else None)
+    step_status = metadata.get("step_status") or (step.get("status") if step else None)
+    content_type = metadata.get("content_type") or _artifact_content_type(serialized.get("path"), serialized.get("artifact_type"))
+    preview_mode = metadata.get("preview_mode") or _artifact_preview_mode(serialized.get("artifact_type"), content_type)
+    size_bytes = metadata.get("size_bytes")
+    if size_bytes is None:
+        size_bytes = _artifact_size_bytes(serialized.get("path"))
+    download_state = _artifact_download_state(serialized.get("path"))
+    partial = metadata.get("partial")
+    if partial is None:
+        partial = (run_status in {"partial", "cancelled"}) or (step_status in {"failed", "cancelled"})
+    serialized["metadata"] = {
+        **metadata,
+        "step_id": metadata.get("step_id"),
+        "execution_id": metadata.get("execution_id"),
+        "run_status": run_status,
+        "step_status": step_status,
+        "artifact_role": metadata.get("artifact_role") or _artifact_role(serialized.get("artifact_type")),
+        "previewable": metadata.get("previewable") if "previewable" in metadata else preview_mode is not None,
+        "preview_mode": preview_mode,
+        "content_type": content_type,
+        "size_bytes": size_bytes,
+        "partial": bool(partial),
+        "downloadable": metadata.get("downloadable") if "downloadable" in metadata else download_state["downloadable"],
+        "download_reason": metadata.get("download_reason") if "download_reason" in metadata else download_state["download_reason"],
+    }
+    return serialized
+
+
+def _serialize_artifacts(artifacts: List[Dict[str, Any]], run: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    return [_serialize_artifact(artifact, run) for artifact in artifacts]
+
+
+def _build_artifact_preview_payload(run_id: str, artifact: Dict[str, Any], run: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    serialized = _serialize_artifact(artifact, run)
+    metadata = dict(serialized.get("metadata") or {})
+    preview_mode = metadata.get("preview_mode")
+    base_payload = {
+        "run_id": run_id,
+        "artifact": serialized,
+        "previewable": bool(metadata.get("previewable")),
+        "preview": None,
+        "truncated": False,
+        "preview_mode": preview_mode,
+        "content_type": metadata.get("content_type"),
+        "size_bytes": metadata.get("size_bytes"),
+        "reason": None,
+    }
+
+    if not base_payload["previewable"]:
+        return {**base_payload, "reason": "binary_or_unsupported"}
+
+    path = Path(serialized.get("path") or "")
+    if not path.exists() or not path.is_file():
+        return {**base_payload, "previewable": False, "reason": "artifact_not_found"}
+
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {**base_payload, "previewable": False, "reason": "artifact_unreadable"}
+
+    limit = ARTIFACT_PREVIEW_LIMIT
+    if preview_mode == "tail":
+        preview = content[-limit:]
+    else:
+        preview = content[:limit]
+        preview_mode = preview_mode or "head"
+
+    return {
+        **base_payload,
+        "previewable": True,
+        "preview": preview,
+        "truncated": len(content) > limit,
+        "preview_mode": preview_mode,
+    }
+
+
+def _sanitize_export_name(value: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", value or "").strip("._")
+    return safe or "artifact"
+
+
+def _guess_extension_from_content_type(content_type: Optional[str]) -> str:
+    if not content_type:
+        return ""
+    extension = mimetypes.guess_extension(content_type, strict=False)
+    if extension == ".ksh":
+        return ".txt"
+    return extension or ""
+
+
+def _is_path_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(root.resolve(strict=False))
+        return True
+    except ValueError:
+        return False
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _sha256_bytes(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _canonical_json_bytes(payload: Dict[str, Any]) -> bytes:
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _canonical_file_entry(content: bytes, content_type: str) -> Dict[str, Any]:
+    return {
+        "sha256": _sha256_bytes(content),
+        "size_bytes": len(content),
+        "content_type": content_type,
+    }
+
+
+def _manifest_signature_payload(manifest: Dict[str, Any]) -> Dict[str, Any]:
+    payload = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+    canonical_files = payload.get("canonical_files")
+    if canonical_files:
+        payload["canonical_files"] = {
+            name: value for name, value in canonical_files.items() if name not in {"manifest.json", "manifest.sig"}
+        }
+    return payload
+
+
+def _load_or_create_evidence_signing_keypair(create_if_missing: bool = True) -> Optional[Dict[str, Any]]:
+    private_exists = EVIDENCE_PRIVATE_KEY_PATH.exists()
+    if not private_exists and not create_if_missing:
+        return None
+
+    generated = False
+    if private_exists:
+        private_key = load_pem_private_key(EVIDENCE_PRIVATE_KEY_PATH.read_bytes(), password=None)
+    else:
+        private_key = Ed25519PrivateKey.generate()
+        private_bytes = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        EVIDENCE_PRIVATE_KEY_PATH.write_bytes(private_bytes)
+        generated = True
+
+    public_key = private_key.public_key()
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    if not EVIDENCE_PUBLIC_KEY_PATH.exists() or EVIDENCE_PUBLIC_KEY_PATH.read_bytes() != public_key_pem:
+        EVIDENCE_PUBLIC_KEY_PATH.write_bytes(public_key_pem)
+
+    return {
+        "private_key": private_key,
+        "public_key": public_key,
+        "public_key_pem": public_key_pem,
+        "private_key_path": str(EVIDENCE_PRIVATE_KEY_PATH),
+        "public_key_path": str(EVIDENCE_PUBLIC_KEY_PATH),
+        "public_key_fingerprint": _sha256_bytes(public_key_pem),
+        "generated": generated,
+    }
+
+
+def _get_evidence_public_key_info(create_if_missing: bool = True) -> Optional[Dict[str, Any]]:
+    keypair = _load_or_create_evidence_signing_keypair(create_if_missing=create_if_missing)
+    if not keypair:
+        return None
+    return {
+        "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+        "public_key_fingerprint": keypair["public_key_fingerprint"],
+        "public_key_pem": keypair["public_key_pem"].decode("utf-8"),
+        "path": keypair["public_key_path"],
+        "trust_anchor": f"sha256:{keypair['public_key_fingerprint']}",
+    }
+
+
+def _build_evidence_bundle_readme(run: Dict[str, Any], manifest: Dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "BOFA Evidence Bundle",
+            "====================",
+            "",
+            f"Run ID: {run.get('id')}",
+            f"Run type: {run.get('run_type')}",
+            f"Requested action: {run.get('requested_action')}",
+            f"Target: {run.get('target') or 'n/a'}",
+            f"Run status: {run.get('status')}",
+            f"Exported at: {manifest.get('exported_at')}",
+            f"Bundle version: {manifest.get('bundle_version')}",
+            f"Signing algorithm: {manifest.get('signing_algorithm')}",
+            f"Public key fingerprint: {manifest.get('public_key_fingerprint')}",
+            "",
+            "Bundle contents:",
+            "- manifest.json: canonical export manifest with checksums and inclusion status",
+            "- manifest.sig: detached Ed25519 signature for the canonical manifest payload",
+            "- public_key.pem: embedded public key for portable verification",
+            "- run.json: serialized run snapshot",
+            "- timeline.json: persisted run events",
+            "- steps.json: persisted run steps",
+            "- labs.json: persisted run labs",
+            "- artifacts/: evidence files included in this export",
+            "",
+            "Integrity guidance:",
+            "- Verify manifest.sig against the canonical manifest payload before trusting the bundle",
+            "- Use manifest.json as the source of truth for included artifacts and canonical file hashes",
+            "- Validate sha256 values before reusing or sharing evidence",
+            "- Missing or omitted artifacts are explicitly documented in manifest.json",
+        ]
+    )
+
+
+def _find_existing_evidence_export(run: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    export_groups: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    artifacts = sorted(run.get("artifacts", []), key=lambda item: item.get("created_at") or "")
+    for artifact in artifacts:
+        if artifact.get("artifact_type") not in EVIDENCE_EXPORT_ARTIFACT_TYPES:
+            continue
+        metadata = artifact.get("metadata") or {}
+        export_timestamp = metadata.get("export_timestamp")
+        if not export_timestamp:
+            continue
+        export_groups.setdefault(export_timestamp, {})[artifact["artifact_type"]] = artifact
+
+    for export_timestamp in sorted(export_groups.keys(), reverse=True):
+        group = export_groups[export_timestamp]
+        bundle_artifact = group.get("evidence_bundle_zip")
+        manifest_artifact = group.get("evidence_manifest_json")
+        signature_artifact = group.get("evidence_signature")
+        public_key_artifact = group.get("evidence_public_key_pem")
+        if not bundle_artifact or not manifest_artifact or not signature_artifact or not public_key_artifact:
+            continue
+        bundle_path = Path(bundle_artifact.get("path") or "")
+        manifest_path = Path(manifest_artifact.get("path") or "")
+        signature_path = Path(signature_artifact.get("path") or "")
+        public_key_path = Path(public_key_artifact.get("path") or "")
+        if bundle_path.exists() and manifest_path.exists() and signature_path.exists() and public_key_path.exists():
+            return {
+                "bundle_artifact": bundle_artifact,
+                "manifest_artifact": manifest_artifact,
+                "signature_artifact": signature_artifact,
+                "public_key_artifact": public_key_artifact,
+                "bundle_path": str(bundle_path),
+                "manifest_path": str(manifest_path),
+                "signature_path": str(signature_path),
+                "public_key_path": str(public_key_path),
+                "export_timestamp": export_timestamp,
+                "created": False,
+            }
+    return None
+
+
+def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
+    run_snapshot = db.get_run_detail(run_id)
+    if not run_snapshot:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    serialized_run = _serialize_run(run_snapshot)
+    existing_export = _find_existing_evidence_export(serialized_run)
+    if existing_export:
+        return existing_export
+
+    export_timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    export_dir = RUNTIME_REPORTS_DIR / run_id / "exports"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = export_dir / f"manifest_{run_id}_{export_timestamp}.json"
+    signature_path = export_dir / f"manifest_{run_id}_{export_timestamp}.sig"
+    public_key_export_path = export_dir / f"public_key_{run_id}_{export_timestamp}.pem"
+    bundle_path = export_dir / f"bofa_evidence_{run_id}_{export_timestamp}.zip"
+
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "evidence_export_started",
+        "running",
+        "Evidence bundle export started",
+        {"bundle_version": EVIDENCE_BUNDLE_VERSION, "export_timestamp": export_timestamp},
+    )
+
+    signing_keypair = _load_or_create_evidence_signing_keypair(create_if_missing=True)
+    if not signing_keypair:
+        raise HTTPException(status_code=500, detail="Evidence signing key is unavailable")
+    if signing_keypair["generated"]:
+        run_manager.add_event(
+            run_id,
+            "run",
+            run_id,
+            "evidence_key_generated",
+            "success",
+            "Evidence signing key generated",
+            {
+                "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+                "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+                "public_key_path": signing_keypair["public_key_path"],
+            },
+        )
+
+    run_snapshot = db.get_run_detail(run_id) or run_snapshot
+    serialized_run = _serialize_run(run_snapshot)
+    steps = run_snapshot.get("steps", [])
+    labs = run_snapshot.get("labs", [])
+    events = run_snapshot.get("events", [])
+    source_artifacts = [artifact for artifact in serialized_run.get("artifacts", []) if artifact.get("artifact_type") not in EVIDENCE_EXPORT_ARTIFACT_TYPES]
+
+    included_artifacts: List[Dict[str, Any]] = []
+    manifest_artifacts: List[Dict[str, Any]] = []
+    warning_count = 0
+
+    for artifact in source_artifacts:
+        metadata = artifact.get("metadata") or {}
+        original_path = Path(artifact.get("path") or "")
+        content_type = metadata.get("content_type") or _artifact_content_type(str(original_path), artifact.get("artifact_type"))
+        relative_path = None
+        sha256 = None
+        included = False
+        missing = False
+        reason = None
+
+        if not _is_path_within_root(original_path, APP_ROOT):
+            reason = "outside_allowed_root"
+        elif not original_path.exists() or not original_path.is_file():
+            reason = "artifact_not_found"
+            missing = True
+        else:
+            try:
+                sha256 = _sha256_file(original_path)
+                extension = original_path.suffix or _guess_extension_from_content_type(content_type)
+                relative_path = f"artifacts/{_sanitize_export_name(artifact['id'])}_{_sanitize_export_name(artifact['artifact_type'])}{extension}"
+                included = True
+                included_artifacts.append({"source_path": original_path, "relative_path": relative_path})
+            except OSError:
+                reason = "artifact_unreadable"
+
+        if reason:
+            warning_count += 1
+            run_manager.add_event(
+                run_id,
+                "artifact",
+                artifact.get("id"),
+                "evidence_export_warning",
+                "warning",
+                f"Artifact omitted from evidence bundle: {artifact.get('artifact_type')}",
+                {"artifact_id": artifact.get("id"), "reason": reason, "path": artifact.get("path")},
+            )
+
+        manifest_artifacts.append(
+            {
+                "artifact_id": artifact.get("id"),
+                "artifact_type": artifact.get("artifact_type"),
+                "label": artifact.get("label"),
+                "original_path": artifact.get("path"),
+                "relative_path": relative_path,
+                "content_type": content_type,
+                "size_bytes": metadata.get("size_bytes") or _artifact_size_bytes(artifact.get("path")),
+                "sha256": sha256,
+                "included": included,
+                "missing": missing,
+                "reason": reason,
+            }
+        )
+
+    final_events = [
+        event
+        for event in events
+        if event.get("status") in RUN_STATUSES_FINAL or event.get("event_type") in {"cancelled", "completed", "status_changed"}
+    ]
+    run_json_bytes = json.dumps(serialized_run, indent=2, ensure_ascii=False).encode("utf-8")
+    timeline_json_bytes = json.dumps(events, indent=2, ensure_ascii=False).encode("utf-8")
+    steps_json_bytes = json.dumps(steps, indent=2, ensure_ascii=False).encode("utf-8")
+    labs_json_bytes = json.dumps(labs, indent=2, ensure_ascii=False).encode("utf-8")
+    public_key_bytes = signing_keypair["public_key_pem"]
+    public_key_export_path.write_bytes(public_key_bytes)
+
+    manifest = {
+        "bundle_version": EVIDENCE_BUNDLE_VERSION,
+        "exported_at": datetime.utcnow().isoformat(),
+        "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+        "signature_scope": EVIDENCE_SIGNATURE_SCOPE,
+        "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+        "trust_anchor": f"sha256:{signing_keypair['public_key_fingerprint']}",
+        "run": {
+            "id": serialized_run.get("id"),
+            "run_type": serialized_run.get("run_type"),
+            "source": serialized_run.get("source"),
+            "requested_action": serialized_run.get("requested_action"),
+            "target": serialized_run.get("target"),
+            "status": serialized_run.get("status"),
+            "created_at": serialized_run.get("created_at"),
+            "started_at": serialized_run.get("started_at"),
+            "completed_at": serialized_run.get("completed_at"),
+            "parent_run_id": serialized_run.get("parent_run_id"),
+        },
+        "steps": [
+            {
+                "id": step.get("id"),
+                "step_index": step.get("step_index"),
+                "step_type": step.get("step_type"),
+                "step_key": step.get("step_key"),
+                "module": step.get("module"),
+                "script_name": step.get("script_name"),
+                "status": step.get("status"),
+                "exit_code": step.get("exit_code"),
+                "duration": step.get("duration"),
+            }
+            for step in steps
+        ],
+        "labs": [
+            {
+                "id": lab.get("id"),
+                "lab_id": lab.get("lab_id"),
+                "status": lab.get("status"),
+                "container_id": lab.get("container_id"),
+                "port": lab.get("port"),
+            }
+            for lab in labs
+        ],
+        "canonical_files": {
+            "run.json": _canonical_file_entry(run_json_bytes, "application/json"),
+            "timeline.json": _canonical_file_entry(timeline_json_bytes, "application/json"),
+            "steps.json": _canonical_file_entry(steps_json_bytes, "application/json"),
+            "labs.json": _canonical_file_entry(labs_json_bytes, "application/json"),
+            "public_key.pem": _canonical_file_entry(public_key_bytes, "text/plain"),
+        },
+        "events": {
+            "event_count": len(events),
+            "final_event_count": len(final_events),
+            "final_events": final_events,
+        },
+        "artifacts": manifest_artifacts,
+        "artifact_count": len(source_artifacts),
+        "included_count": len([artifact for artifact in manifest_artifacts if artifact["included"]]),
+        "missing_count": len([artifact for artifact in manifest_artifacts if artifact["missing"]]),
+        "warning_count": warning_count,
+    }
+    readme_bytes = _build_evidence_bundle_readme(serialized_run, manifest).encode("utf-8")
+    manifest["canonical_files"]["README.txt"] = _canonical_file_entry(readme_bytes, "text/plain")
+    manifest_payload = _canonical_json_bytes(_manifest_signature_payload(manifest))
+    manifest_sha256 = _sha256_bytes(manifest_payload)
+    signature_bytes = signing_keypair["private_key"].sign(manifest_payload)
+    signature_text = base64.b64encode(signature_bytes).decode("ascii") + "\n"
+    signature_file_bytes = signature_text.encode("utf-8")
+    signature_path.write_text(signature_text, encoding="utf-8")
+    manifest["manifest_sha256"] = manifest_sha256
+    manifest["canonical_files"]["manifest.json"] = {
+        "sha256": manifest_sha256,
+        "size_bytes": len(manifest_payload),
+        "content_type": "application/json",
+        "scope": EVIDENCE_SIGNATURE_SCOPE,
+    }
+    manifest["canonical_files"]["manifest.sig"] = _canonical_file_entry(signature_file_bytes, "text/plain")
+
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    with zipfile.ZipFile(bundle_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+        archive.writestr("manifest.sig", signature_text)
+        archive.writestr("public_key.pem", public_key_bytes)
+        archive.writestr("run.json", run_json_bytes)
+        archive.writestr("timeline.json", timeline_json_bytes)
+        archive.writestr("steps.json", steps_json_bytes)
+        archive.writestr("labs.json", labs_json_bytes)
+        archive.writestr("README.txt", readme_bytes)
+        for item in included_artifacts:
+            archive.write(item["source_path"], item["relative_path"])
+
+    manifest_metadata = _build_runtime_artifact_metadata(
+        str(manifest_path),
+        "evidence_manifest_json",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    manifest_metadata.update(
+        {
+            "artifact_role": "export",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "manifest_sha256": manifest_sha256,
+            "included_count": manifest["included_count"],
+            "missing_count": manifest["missing_count"],
+        }
+    )
+    signature_metadata = _build_runtime_artifact_metadata(
+        str(signature_path),
+        "evidence_signature",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    signature_metadata.update(
+        {
+            "artifact_role": "export",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "manifest_sha256": manifest_sha256,
+        }
+    )
+    public_key_metadata = _build_runtime_artifact_metadata(
+        str(public_key_export_path),
+        "evidence_public_key_pem",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    public_key_metadata.update(
+        {
+            "artifact_role": "export",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+        }
+    )
+    bundle_metadata = _build_runtime_artifact_metadata(
+        str(bundle_path),
+        "evidence_bundle_zip",
+        serialized_run.get("status", "unknown"),
+        partial=serialized_run.get("status") in {"partial", "cancelled", "failed", "error"},
+    )
+    bundle_metadata.update(
+        {
+            "artifact_role": "export",
+            "previewable": False,
+            "preview_mode": None,
+            "content_type": "application/zip",
+            "export_timestamp": export_timestamp,
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "manifest_sha256": manifest_sha256,
+            "included_count": manifest["included_count"],
+            "missing_count": manifest["missing_count"],
+        }
+    )
+
+    manifest_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_manifest_json",
+        str(manifest_path),
+        label="Evidence manifest",
+        metadata=manifest_metadata,
+    )
+    signature_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_signature",
+        str(signature_path),
+        label="Evidence signature",
+        metadata=signature_metadata,
+    )
+    public_key_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_public_key_pem",
+        str(public_key_export_path),
+        label="Evidence public key",
+        metadata=public_key_metadata,
+    )
+    bundle_artifact_id = run_manager.add_artifact(
+        run_id,
+        "evidence_bundle_zip",
+        str(bundle_path),
+        label="Evidence bundle",
+        metadata=bundle_metadata,
+    )
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "evidence_signed",
+        "success",
+        "Evidence bundle signed",
+        {
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "export_timestamp": export_timestamp,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "signature_artifact_id": signature_artifact_id,
+            "public_key_artifact_id": public_key_artifact_id,
+            "manifest_sha256": manifest_sha256,
+        },
+    )
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "evidence_exported",
+        "success",
+        "Evidence bundle exported",
+        {
+            "bundle_version": EVIDENCE_BUNDLE_VERSION,
+            "export_timestamp": export_timestamp,
+            "signing_algorithm": EVIDENCE_SIGNING_ALGORITHM,
+            "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+            "bundle_path": str(bundle_path),
+            "manifest_path": str(manifest_path),
+            "signature_path": str(signature_path),
+            "public_key_path": str(public_key_export_path),
+            "artifact_count": manifest["artifact_count"],
+            "included_count": manifest["included_count"],
+            "missing_count": manifest["missing_count"],
+            "bundle_artifact_id": bundle_artifact_id,
+            "manifest_artifact_id": manifest_artifact_id,
+            "signature_artifact_id": signature_artifact_id,
+            "public_key_artifact_id": public_key_artifact_id,
+        },
+    )
+    return {
+        "bundle_path": str(bundle_path),
+        "manifest_path": str(manifest_path),
+        "signature_path": str(signature_path),
+        "public_key_path": str(public_key_export_path),
+        "bundle_artifact_id": bundle_artifact_id,
+        "manifest_artifact_id": manifest_artifact_id,
+        "signature_artifact_id": signature_artifact_id,
+        "public_key_artifact_id": public_key_artifact_id,
+        "export_timestamp": export_timestamp,
+        "public_key_fingerprint": signing_keypair["public_key_fingerprint"],
+        "created": True,
+    }
+
+
+def _find_run_artifact(run: Dict[str, Any], artifact_id: str) -> Optional[Dict[str, Any]]:
+    for artifact in run.get("artifacts", []):
+        if artifact.get("id") == artifact_id:
+            return artifact
+    return None
+
+
+def _resolve_downloadable_artifact_path(artifact: Dict[str, Any]) -> Path:
+    path = Path(artifact.get("path") or "")
+    if not _is_path_within_root(path, APP_ROOT):
+        raise HTTPException(status_code=403, detail="Artifact path is outside the allowed workspace root")
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact file not found")
+    return path
+
+
+def _verify_run_evidence_export(run_id: str) -> Dict[str, Any]:
+    run_snapshot = db.get_run_detail(run_id)
+    if not run_snapshot:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    serialized_run = _serialize_run(run_snapshot)
+    latest_export = _find_existing_evidence_export(serialized_run)
+    if not latest_export:
+        raise HTTPException(status_code=404, detail="Evidence bundle not found for this run")
+
+    bundle_artifact = _serialize_artifact(latest_export["bundle_artifact"], run_snapshot)
+    manifest_artifact = _serialize_artifact(latest_export["manifest_artifact"], run_snapshot)
+    signature_artifact = _serialize_artifact(latest_export["signature_artifact"], run_snapshot)
+    public_key_artifact = _serialize_artifact(latest_export["public_key_artifact"], run_snapshot)
+    bundle_path = _resolve_downloadable_artifact_path(bundle_artifact)
+    manifest_path = _resolve_downloadable_artifact_path(manifest_artifact)
+    signature_path = _resolve_downloadable_artifact_path(signature_artifact)
+    public_key_path = _resolve_downloadable_artifact_path(public_key_artifact)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    required_files = {"manifest.json", "manifest.sig", "public_key.pem", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}
+    canonical_definition = manifest.get("canonical_files") or {}
+    manifest_payload = _canonical_json_bytes(_manifest_signature_payload(manifest))
+    expected_manifest_sha256 = manifest.get("manifest_sha256")
+    calculated_manifest_sha256 = _sha256_bytes(manifest_payload)
+    manifest_sha_valid = bool(expected_manifest_sha256) and expected_manifest_sha256 == calculated_manifest_sha256
+    signature_valid = False
+    signature_error = None
+
+    with zipfile.ZipFile(bundle_path, "r") as archive:
+        names = set(archive.namelist())
+        missing_canonical = sorted(required_files - names)
+        canonical_file_checks = []
+        artifact_checks = []
+        verified_artifacts = 0
+        bundle_manifest = json.loads(archive.read("manifest.json").decode("utf-8")) if "manifest.json" in names else None
+        public_key_bytes = archive.read("public_key.pem") if "public_key.pem" in names else public_key_path.read_bytes()
+        signature_text = archive.read("manifest.sig").decode("utf-8") if "manifest.sig" in names else signature_path.read_text(encoding="utf-8")
+
+        try:
+            signature_bytes = base64.b64decode(signature_text.strip())
+            public_key = load_pem_public_key(public_key_bytes)
+            public_key.verify(signature_bytes, manifest_payload)
+            signature_valid = True
+        except (InvalidSignature, ValueError, TypeError) as exc:
+            signature_error = str(exc) or "invalid_signature"
+
+        for canonical_name in sorted(required_files):
+            expected = canonical_definition.get(canonical_name) or {}
+            if canonical_name not in names:
+                canonical_file_checks.append(
+                    {
+                        "name": canonical_name,
+                        "verified": False,
+                        "reason": "missing_from_bundle",
+                        "expected_sha256": expected.get("sha256"),
+                        "expected_size_bytes": expected.get("size_bytes"),
+                        "actual_sha256": None,
+                        "actual_size_bytes": None,
+                    }
+                )
+                continue
+
+            entry_bytes = archive.read(canonical_name)
+            if canonical_name == "manifest.json":
+                actual_sha256 = calculated_manifest_sha256
+                actual_size_bytes = len(manifest_payload)
+            else:
+                actual_sha256 = _sha256_bytes(entry_bytes)
+                actual_size_bytes = len(entry_bytes)
+
+            expected_sha256 = expected.get("sha256")
+            expected_size_bytes = expected.get("size_bytes")
+            verified = bool(expected_sha256) and expected_sha256 == actual_sha256 and (
+                expected_size_bytes is None or expected_size_bytes == actual_size_bytes
+            )
+            canonical_file_checks.append(
+                {
+                    "name": canonical_name,
+                    "verified": verified,
+                    "reason": None if verified else "canonical_mismatch",
+                    "expected_sha256": expected_sha256,
+                    "expected_size_bytes": expected_size_bytes,
+                    "actual_sha256": actual_sha256,
+                    "actual_size_bytes": actual_size_bytes,
+                }
+            )
+
+        for artifact in manifest.get("artifacts", []):
+            if not artifact.get("included"):
+                artifact_checks.append(
+                    {
+                        "artifact_id": artifact.get("artifact_id"),
+                        "artifact_type": artifact.get("artifact_type"),
+                        "included": False,
+                        "verified": True,
+                        "reason": artifact.get("reason"),
+                    }
+                )
+                continue
+
+            relative_path = artifact.get("relative_path")
+            if not relative_path or relative_path not in names:
+                artifact_checks.append(
+                    {
+                        "artifact_id": artifact.get("artifact_id"),
+                        "artifact_type": artifact.get("artifact_type"),
+                        "included": True,
+                        "verified": False,
+                        "reason": "missing_from_bundle",
+                    }
+                )
+                continue
+
+            bundle_entry_sha256 = hashlib.sha256(archive.read(relative_path)).hexdigest()
+            manifest_sha256 = artifact.get("sha256")
+            bundle_match = bool(manifest_sha256) and bundle_entry_sha256 == manifest_sha256
+            source_match = None
+            source_reason = None
+            original_path = artifact.get("original_path")
+
+            if original_path:
+                original_file = Path(original_path)
+                if not _is_path_within_root(original_file, APP_ROOT):
+                    source_reason = "outside_allowed_root"
+                elif not original_file.exists() or not original_file.is_file():
+                    source_reason = "artifact_not_found"
+                else:
+                    source_match = _sha256_file(original_file) == manifest_sha256
+
+            verified = bundle_match and (source_match is None or source_match is True)
+            if verified:
+                verified_artifacts += 1
+
+            artifact_checks.append(
+                {
+                    "artifact_id": artifact.get("artifact_id"),
+                    "artifact_type": artifact.get("artifact_type"),
+                    "included": True,
+                    "verified": verified,
+                    "relative_path": relative_path,
+                    "manifest_sha256": manifest_sha256,
+                    "bundle_entry_sha256": bundle_entry_sha256,
+                    "bundle_match": bundle_match,
+                    "source_match": source_match,
+                    "source_reason": source_reason,
+                    }
+                )
+
+    server_key_info = _get_evidence_public_key_info(create_if_missing=False)
+    public_key_matches_server = None
+    trust_mode = "bundle_embedded_public_key"
+    if server_key_info:
+        public_key_matches_server = server_key_info.get("public_key_fingerprint") == manifest.get("public_key_fingerprint")
+        if public_key_matches_server:
+            trust_mode = "server_managed_key"
+
+    manifest_artifact_match = bundle_manifest == manifest
+    signature_artifact_match = signature_path.read_text(encoding="utf-8") == signature_text
+    public_key_artifact_match = public_key_path.read_text(encoding="utf-8") == public_key_bytes.decode("utf-8")
+    integrity_valid = (
+        manifest_sha_valid
+        and len(missing_canonical) == 0
+        and all(item.get("verified") for item in canonical_file_checks)
+        and all(item.get("verified") for item in artifact_checks)
+        and manifest_artifact_match
+        and signature_artifact_match
+        and public_key_artifact_match
+    )
+    verification_payload = {
+        "run_id": run_id,
+        "verified": signature_valid and integrity_valid,
+        "export_timestamp": latest_export["export_timestamp"],
+        "bundle_artifact": bundle_artifact,
+        "manifest_artifact": manifest_artifact,
+        "signature_artifact": signature_artifact,
+        "public_key_artifact": public_key_artifact,
+        "bundle_sha256": _sha256_file(bundle_path),
+        "manifest_sha256": manifest.get("manifest_sha256"),
+        "manifest_file_sha256": _sha256_file(manifest_path),
+        "canonical_files": sorted(required_files),
+        "missing_canonical_files": missing_canonical,
+        "canonical_file_checks": canonical_file_checks,
+        "artifact_checks": artifact_checks,
+        "artifact_count": len(manifest.get("artifacts", [])),
+        "included_count": len([artifact for artifact in manifest.get("artifacts", []) if artifact.get("included")]),
+        "verified_artifact_count": verified_artifacts,
+        "missing_count": manifest.get("missing_count", 0),
+        "warning_count": manifest.get("warning_count", 0),
+        "bundle_version": manifest.get("bundle_version"),
+        "signature_valid": signature_valid,
+        "integrity_valid": integrity_valid,
+        "signing_algorithm": manifest.get("signing_algorithm"),
+        "public_key_fingerprint": manifest.get("public_key_fingerprint"),
+        "public_key_matches_server": public_key_matches_server,
+        "trust_mode": trust_mode,
+        "signature_error": signature_error,
+        "manifest_sha_valid": manifest_sha_valid,
+        "manifest_artifact_match": manifest_artifact_match,
+        "signature_artifact_match": signature_artifact_match,
+        "public_key_artifact_match": public_key_artifact_match,
+    }
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "evidence_verified",
+        "success" if verification_payload["verified"] else "warning",
+        "Evidence bundle integrity verified" if verification_payload["verified"] else "Evidence bundle verification found issues",
+        {
+            "export_timestamp": latest_export["export_timestamp"],
+            "verified": verification_payload["verified"],
+            "signature_valid": signature_valid,
+            "integrity_valid": integrity_valid,
+            "trust_mode": trust_mode,
+            "public_key_fingerprint": manifest.get("public_key_fingerprint"),
+            "missing_canonical_files": missing_canonical,
+            "verified_artifact_count": verified_artifacts,
+            "included_count": verification_payload["included_count"],
+        },
+    )
+    return verification_payload
+
+
+def _build_run_completion_payload(run_id: str, status: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    detail = db.get_run_detail(run_id) or {}
+    steps = detail.get("steps", [])
+    payload = {
+        "run_status": status,
+        "step_count": len(steps),
+        "completed_steps": len([step for step in steps if step.get("status") == "success"]),
+        "failed_steps": len([step for step in steps if step.get("status") in {"failed", "error"}]),
+        "cancelled_steps": len([step for step in steps if step.get("status") == "cancelled"]),
+        "artifact_count": len(detail.get("artifacts", [])),
+        "lab_count": len(detail.get("labs", [])),
+    }
+    if extra:
+        payload.update({key: value for key, value in extra.items() if value is not None})
+    return payload
 
 
 def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
@@ -439,7 +1471,13 @@ async def _execute_script_step(item: Dict[str, Any]):
         db.create_execution(execution_id, item["user_id"], module, script, parameters, run_id=run_id, step_id=step_id)
         db.update_execution(execution_id, "cancelled", error_message="Execution cancelled before start")
         run_manager.update_step(step_id, run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution cancelled before start")
-        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before script start")
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            "cancelled",
+            {"execution_id": execution_id, "step_id": step_id, "module": module, "script": script, "reason": "cancelled_before_start"},
+        )
+        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before script start", metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", f"{module}/{script} cancelled before start", completion_payload)
         await _emit_and_persist(run_id, "step", step_id, "cancelled", "cancelled", f"{module}/{script} cancelled before start")
         return
 
@@ -451,7 +1489,13 @@ async def _execute_script_step(item: Dict[str, Any]):
         error_message = f"Script not found: {script_file}"
         await execution_queue.mark_failed(execution_id, error_message)
         run_manager.update_step(step_id, run_id, status="failed", completed_at=datetime.utcnow().isoformat(), error_message=error_message)
-        run_manager.mark_run_finished(run_id, "failed", error_message)
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            "failed",
+            {"execution_id": execution_id, "step_id": step_id, "module": module, "script": script, "reason": error_message},
+        )
+        run_manager.mark_run_finished(run_id, "failed", error_message, metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "completed", "failed", error_message, completion_payload)
         await _emit_and_persist(run_id, "step", step_id, "status_changed", "failed", error_message)
         return
 
@@ -512,17 +1556,43 @@ async def _execute_script_step(item: Dict[str, Any]):
     stderr_preview = "\n".join(stderr_chunks)[-1000:]
     output = "\n".join(stdout_chunks)
     error_output = "\n".join(stderr_chunks) or output
+    cancelled = (control.get("cancel_requested") and process.returncode != 0) or process.returncode in {-15, -9, 130}
+    result_status = "cancelled" if cancelled else "success" if process.returncode == 0 else "failed"
+
     stdout_artifact = _write_runtime_artifact(run_id, step_id, "stdout", output)
     stderr_artifact = _write_runtime_artifact(run_id, step_id, "stderr", "\n".join(stderr_chunks))
     if stdout_artifact:
-        run_manager.add_artifact(run_id, "stdout_log", stdout_artifact, label=f"stdout {module}/{script}", metadata={"step_id": step_id, "execution_id": execution_id})
+        run_manager.add_artifact(
+            run_id,
+            "stdout_log",
+            stdout_artifact,
+            label=f"stdout {module}/{script}",
+            metadata=_build_runtime_artifact_metadata(
+                stdout_artifact,
+                "stdout_log",
+                result_status,
+                step_status=result_status,
+                step_id=step_id,
+                execution_id=execution_id,
+            ),
+        )
     if stderr_artifact:
-        run_manager.add_artifact(run_id, "stderr_log", stderr_artifact, label=f"stderr {module}/{script}", metadata={"step_id": step_id, "execution_id": execution_id})
-
-    cancelled = (control.get("cancel_requested") and process.returncode != 0) or process.returncode in {-15, -9, 130}
+        run_manager.add_artifact(
+            run_id,
+            "stderr_log",
+            stderr_artifact,
+            label=f"stderr {module}/{script}",
+            metadata=_build_runtime_artifact_metadata(
+                stderr_artifact,
+                "stderr_log",
+                result_status,
+                step_status=result_status,
+                step_id=step_id,
+                execution_id=execution_id,
+            ),
+        )
 
     if cancelled:
-        result_status = "cancelled"
         await execution_queue.mark_completed(execution_id, {"status": result_status, "run_id": run_id, "step_id": step_id})
         db.update_execution(execution_id, "cancelled", error_message="Execution cancelled", execution_time=duration)
         run_manager.update_step(
@@ -537,10 +1607,31 @@ async def _execute_script_step(item: Dict[str, Any]):
             error_message="Execution cancelled",
             message=f"Script step cancelled: {module}/{script}",
         )
-        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} cancelled", metadata={"execution_id": execution_id})
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            result_status,
+            {
+                "execution_id": execution_id,
+                "step_id": step_id,
+                "module": module,
+                "script": script,
+                "exit_code": process.returncode,
+                "duration": duration,
+                "reason": "Execution cancelled",
+            },
+        )
+        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} cancelled", metadata=completion_payload)
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "cancelled",
+            result_status,
+            f"Script {module}/{script} cancelled",
+            completion_payload,
+        )
         await _emit_and_persist(run_id, "step", step_id, "cancelled", result_status, f"{module}/{script} cancelled", {"exit_code": process.returncode, "duration": duration})
     elif process.returncode == 0:
-        result_status = "success"
         await execution_queue.mark_completed(execution_id, {"status": result_status, "exit_code": process.returncode, "run_id": run_id, "step_id": step_id})
         db.update_execution(execution_id, result_status, output=output, execution_time=duration)
         run_manager.update_step(
@@ -554,12 +1645,32 @@ async def _execute_script_step(item: Dict[str, Any]):
             stderr_preview=stderr_preview,
             message=f"Script step finished: {module}/{script}",
         )
-        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} completed", metadata={"execution_id": execution_id})
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            result_status,
+            {
+                "execution_id": execution_id,
+                "step_id": step_id,
+                "module": module,
+                "script": script,
+                "exit_code": process.returncode,
+                "duration": duration,
+            },
+        )
+        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} completed", metadata=completion_payload)
         if control.get("cancel_requested"):
             await _emit_and_persist(run_id, "run", run_id, "cancel_requested", "success", "Cancel requested after process completed", {"forced": False})
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "completed",
+            result_status,
+            f"Script {module}/{script} completed",
+            completion_payload,
+        )
         await _emit_and_persist(run_id, "step", step_id, "completed", result_status, f"{module}/{script} completed", {"exit_code": process.returncode, "duration": duration})
     else:
-        result_status = "failed"
         await execution_queue.mark_failed(execution_id, error_output)
         db.update_execution(execution_id, "error", error_message=error_output, execution_time=duration)
         run_manager.update_step(
@@ -574,7 +1685,29 @@ async def _execute_script_step(item: Dict[str, Any]):
             error_message=error_output,
             message=f"Script step failed: {module}/{script}",
         )
-        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} failed", metadata={"execution_id": execution_id, "exit_code": process.returncode})
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            result_status,
+            {
+                "execution_id": execution_id,
+                "step_id": step_id,
+                "module": module,
+                "script": script,
+                "exit_code": process.returncode,
+                "duration": duration,
+                "reason": error_output,
+            },
+        )
+        run_manager.mark_run_finished(run_id, result_status, f"Script {module}/{script} failed", metadata=completion_payload)
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "completed",
+            result_status,
+            f"Script {module}/{script} failed",
+            completion_payload,
+        )
         await _emit_and_persist(run_id, "step", step_id, "completed", result_status, error_output, {"exit_code": process.returncode, "duration": duration})
 
     _clear_cancel_marker(control.get("step_cancel_file"))
@@ -593,7 +1726,19 @@ async def process_execution_queue():
         except Exception as exc:
             await execution_queue.mark_failed(item["execution_id"], str(exc))
             run_manager.update_step(item["step_id"], item["run_id"], status="failed", completed_at=datetime.utcnow().isoformat(), error_message=str(exc))
-            run_manager.mark_run_finished(item["run_id"], "failed", f"Execution error: {exc}")
+            completion_payload = _build_run_completion_payload(
+                item["run_id"],
+                "failed",
+                {
+                    "execution_id": item["execution_id"],
+                    "step_id": item["step_id"],
+                    "module": item["module"],
+                    "script": item["script"],
+                    "reason": str(exc),
+                },
+            )
+            run_manager.mark_run_finished(item["run_id"], "failed", f"Execution error: {exc}", metadata=completion_payload)
+            await _emit_and_persist(item["run_id"], "run", item["run_id"], "completed", "failed", str(exc), completion_payload)
             await _emit_and_persist(item["run_id"], "step", item["step_id"], "completed", "failed", str(exc))
 
 
@@ -674,11 +1819,25 @@ async def _start_flow_run(
                 },
             )
             final_status = result.get("status", "failed")
-            run_manager.mark_run_finished(run_id, final_status, f"Flow {flow_id} completed", metadata={"flow_id": flow_id})
-            await _emit_and_persist(run_id, "run", run_id, "cancelled" if final_status == "cancelled" else "completed", final_status, f"Flow {flow_id} completed", {"flow_id": flow_id})
+            completion_payload = _build_run_completion_payload(
+                run_id,
+                final_status,
+                {"flow_id": flow_id, "cancelled_at_step": result.get("cancelled_at_step"), "cause": result.get("cause")},
+            )
+            run_manager.mark_run_finished(run_id, final_status, f"Flow {flow_id} completed", metadata=completion_payload)
+            await _emit_and_persist(
+                run_id,
+                "run",
+                run_id,
+                "cancelled" if final_status == "cancelled" else "completed",
+                final_status,
+                f"Flow {flow_id} completed",
+                completion_payload,
+            )
         except Exception as exc:
-            run_manager.mark_run_finished(run_id, "failed", f"Flow {flow_id} failed", metadata={"error": str(exc)})
-            await _emit_and_persist(run_id, "run", run_id, "completed", "failed", str(exc), {"flow_id": flow_id})
+            completion_payload = _build_run_completion_payload(run_id, "failed", {"flow_id": flow_id, "cause": str(exc)})
+            run_manager.mark_run_finished(run_id, "failed", f"Flow {flow_id} failed", metadata=completion_payload)
+            await _emit_and_persist(run_id, "run", run_id, "completed", "failed", str(exc), completion_payload)
         finally:
             _clear_cancel_marker(control.get("run_cancel_file"))
             _clear_cancel_marker(control.get("step_cancel_file"))
@@ -855,7 +2014,7 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(auth_mana
 async def root():
     return {
         "name": "BOFA Operational Control Plane",
-        "version": "2.8.2",
+        "version": "2.8.5",
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "capabilities": {"runs": True, "script_execution": True, "lab_management": True, "flow_execution": True, "timeline": True},
@@ -912,6 +2071,23 @@ async def health_labs():
 @app.get("/health/queue")
 async def health_queue():
     return {"service": "execution_queue", "status": "healthy", "stats": _queue_snapshot(), "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/evidence/public-key")
+async def get_evidence_public_key(
+    download: bool = False,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    key_info = _get_evidence_public_key_info(create_if_missing=True)
+    if not key_info:
+        raise HTTPException(status_code=500, detail="Evidence public key is unavailable")
+    if download:
+        return FileResponse(
+            path=key_info["path"],
+            media_type="text/plain",
+            filename=Path(key_info["path"]).name,
+        )
+    return key_info
 
 
 @app.get("/modules")
@@ -1056,12 +2232,74 @@ async def get_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_manag
 
 @app.get("/runs/{run_id}/timeline")
 async def get_run_timeline(run_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
-    run = db.get_run(run_id)
+    run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    return {"run_id": run_id, "events": db.get_run_events(run_id), "artifacts": db.get_run_artifacts(run_id)}
+    return {"run_id": run_id, "events": db.get_run_events(run_id), "artifacts": _serialize_artifacts(run.get("artifacts", []), run)}
+
+
+@app.get("/runs/{run_id}/artifacts/{artifact_id}/preview")
+async def get_run_artifact_preview(run_id: str, artifact_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    artifact = next((item for item in run.get("artifacts", []) if item.get("id") == artifact_id), None)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return _build_artifact_preview_payload(run_id, artifact, run)
+
+
+@app.get("/runs/{run_id}/artifacts/{artifact_id}/download")
+async def download_run_artifact(run_id: str, artifact_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    artifact = _find_run_artifact(run, artifact_id)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    safe_path = _resolve_downloadable_artifact_path(artifact)
+    serialized = _serialize_artifact(artifact, run)
+    return FileResponse(
+        path=safe_path,
+        media_type=(serialized.get("metadata") or {}).get("content_type") or "application/octet-stream",
+        filename=safe_path.name,
+    )
+
+
+@app.get("/runs/{run_id}/export")
+async def export_run_evidence(run_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    export_payload = _create_run_evidence_export(run_id)
+    bundle_path = Path(export_payload["bundle_path"])
+    if not bundle_path.exists():
+        raise HTTPException(status_code=500, detail="Evidence bundle was not created")
+
+    return FileResponse(
+        path=bundle_path,
+        media_type="application/zip",
+        filename=bundle_path.name,
+    )
+
+
+@app.get("/runs/{run_id}/export/verify")
+async def verify_run_evidence_export(run_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return _verify_run_evidence_export(run_id)
 
 
 @app.post("/runs/{run_id}/cancel")
@@ -1089,8 +2327,9 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
             db.create_execution(execution_id, current_user["user_id"], step.get("module") or "unknown", step.get("script_name") or step.get("step_key") or step["id"], step.get("parameters") or {}, run_id=run_id, step_id=step["id"])
             db.update_execution(execution_id, "cancelled", error_message="Execution cancelled before start")
             run_manager.update_step(step["id"], run_id, status="cancelled", completed_at=datetime.utcnow().isoformat(), error_message="Execution cancelled before start")
-        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before execution")
-        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Run cancelled before execution")
+        completion_payload = _build_run_completion_payload(run_id, "cancelled", {"reason": "cancelled_before_execution"})
+        run_manager.mark_run_finished(run_id, "cancelled", "Run cancelled before execution", metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Run cancelled before execution", completion_payload)
         _clear_cancel_marker(control.get("run_cancel_file"))
         return {
             "run_id": run_id,
@@ -1128,8 +2367,9 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
         }
 
     if run.get("run_type") == "lab_session":
-        run_manager.mark_run_finished(run_id, "cancelled", "Lab cancellation requested", metadata={"cancelled": True})
-        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Lab cancellation requested")
+        completion_payload = _build_run_completion_payload(run_id, "cancelled", {"cancelled": True, "reason": "lab_cancellation_requested"})
+        run_manager.mark_run_finished(run_id, "cancelled", "Lab cancellation requested", metadata=completion_payload)
+        await _emit_and_persist(run_id, "run", run_id, "cancelled", "cancelled", "Lab cancellation requested", completion_payload)
         _clear_cancel_marker(control.get("run_cancel_file"))
         return {
             "run_id": run_id,
