@@ -1,5 +1,5 @@
 /**
- * BOFA v2.8.2 - Control Plane Smoke Suite
+ * BOFA v2.8.5 - Signed Evidence Verification
  * Configuración centralizada de la aplicación
  */
 
@@ -7,9 +7,9 @@ export const APP_CONFIG = {
   // Información de la aplicación
   name: "BOFA",
   fullName: "Best Of All Cybersecurity Suite",
-  version: "2.8.2",
-  codename: "Control Plane Smoke Suite",
-  releaseDate: "2026-04-06",
+  version: "2.8.5",
+  codename: "Signed Evidence Verification",
+  releaseDate: "2026-04-09",
   
   // Información del desarrollador
   developer: {
