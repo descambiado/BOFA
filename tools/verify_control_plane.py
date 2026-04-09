@@ -7,6 +7,8 @@ and legacy history compatibility. Designed to run without external services.
 """
 
 import ast
+import asyncio
+import json
 import os
 import sys
 import uuid
@@ -31,6 +33,9 @@ def _load_main_functions(*names):
     tree = ast.parse(source, filename="api/main.py")
     selected = {}
     base_globals = {
+        "asyncio": asyncio,
+        "json": json,
+        "Path": Path,
         "datetime": datetime,
         "timedelta": timedelta,
         "List": List,
@@ -240,12 +245,178 @@ def _check_legacy_history_merge():
     )
 
 
+async def _check_runtime_cancellation_updates_run_and_children():
+    _, _, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="cancel.local",
+        status="running",
+    )
+    step_id = manager.create_step(
+        run_id=run_id,
+        step_type="script",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_info",
+        parameters={"json": True},
+        status="running",
+    )
+    lab_run_id = manager.attach_lab(run_id, "lab-cancel", status="running", container_id="container-cancel", port=4444)
+
+    helpers = _load_main_functions(
+        "_cancel_file_path",
+        "_get_runtime_control",
+        "_write_cancel_marker",
+        "_request_runtime_cancellation",
+    )
+
+    emitted = []
+
+    async def _emit_stub(*args, **kwargs):
+        emitted.append((args, kwargs))
+        manager.add_event(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
+        return None
+
+    runtime_controls = {}
+    cancel_dir = _VERIFY_ROOT / "cancel_markers"
+    cancel_dir.mkdir(parents=True, exist_ok=True)
+
+    cancel_file_path = helpers["_cancel_file_path"]
+    cancel_file_path.__globals__["CANCEL_DIR"] = cancel_dir
+    cancel_file_path.__globals__["Path"] = Path
+
+    get_runtime_control = helpers["_get_runtime_control"]
+    get_runtime_control.__globals__["runtime_controls"] = runtime_controls
+    get_runtime_control.__globals__["_cancel_file_path"] = cancel_file_path
+
+    write_cancel_marker = helpers["_write_cancel_marker"]
+    write_cancel_marker.__globals__["Path"] = Path
+    write_cancel_marker.__globals__["json"] = json
+    write_cancel_marker.__globals__["datetime"] = datetime
+
+    request_runtime_cancellation = helpers["_request_runtime_cancellation"]
+    request_runtime_cancellation.__globals__["_get_runtime_control"] = get_runtime_control
+    request_runtime_cancellation.__globals__["_write_cancel_marker"] = write_cancel_marker
+    request_runtime_cancellation.__globals__["_emit_and_persist"] = _emit_stub
+    request_runtime_cancellation.__globals__["run_manager"] = manager
+    request_runtime_cancellation.__globals__["db"] = db
+    request_runtime_cancellation.__globals__["runtime_controls"] = runtime_controls
+    request_runtime_cancellation.__globals__["RUN_STATUSES_FINAL"] = {"success", "failed", "error", "partial", "cancelled"}
+    request_runtime_cancellation.__globals__["CANCEL_GRACE_SECONDS"] = 4
+    request_runtime_cancellation.__globals__["datetime"] = datetime
+
+    run_detail = db.get_run_detail(run_id)
+    control = await request_runtime_cancellation(run_detail, reason="smoke_cancel")
+    updated = db.get_run_detail(run_id)
+    marker_path = Path(control["run_cancel_file"])
+
+    return (
+        control.get("cancel_requested") is True
+        and updated is not None
+        and updated.get("status") == "cancelling"
+        and updated["steps"][0].get("status") == "cancelling"
+        and updated["labs"][0].get("status") == "cancelling"
+        and marker_path.exists()
+        and any(event.get("event_type") == "cancelling" for event in updated.get("events", []))
+        and emitted
+        and emitted[0][0][3] == "cancelling"
+        and emitted[0][0][4] == "cancelling"
+        and emitted[0][0][6].get("cancel_reason") == "smoke_cancel"
+        and step_id == updated["steps"][0].get("id")
+        and lab_run_id == updated["labs"][0].get("id")
+    )
+
+
+async def _check_runtime_cancellation_is_idempotent():
+    _, _, db, manager = _make_runtime()
+    run_id = manager.create_run(
+        user_id=1,
+        run_type="flow",
+        source="verify_control_plane",
+        requested_action="execute_flow",
+        target="idempotent.local",
+        status="running",
+    )
+    manager.create_step(
+        run_id=run_id,
+        step_type="flow_step",
+        step_index=1,
+        step_key="step_1",
+        module="examples",
+        script_name="example_info",
+        parameters={},
+        status="running",
+    )
+
+    helpers = _load_main_functions(
+        "_cancel_file_path",
+        "_get_runtime_control",
+        "_write_cancel_marker",
+        "_request_runtime_cancellation",
+    )
+
+    emitted = []
+
+    async def _emit_stub(*args, **kwargs):
+        emitted.append((args, kwargs))
+        manager.add_event(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
+        return None
+
+    runtime_controls = {}
+    cancel_dir = _VERIFY_ROOT / "cancel_markers"
+    cancel_dir.mkdir(parents=True, exist_ok=True)
+
+    cancel_file_path = helpers["_cancel_file_path"]
+    cancel_file_path.__globals__["CANCEL_DIR"] = cancel_dir
+    cancel_file_path.__globals__["Path"] = Path
+
+    get_runtime_control = helpers["_get_runtime_control"]
+    get_runtime_control.__globals__["runtime_controls"] = runtime_controls
+    get_runtime_control.__globals__["_cancel_file_path"] = cancel_file_path
+
+    write_cancel_marker = helpers["_write_cancel_marker"]
+    write_cancel_marker.__globals__["Path"] = Path
+    write_cancel_marker.__globals__["json"] = json
+    write_cancel_marker.__globals__["datetime"] = datetime
+
+    request_runtime_cancellation = helpers["_request_runtime_cancellation"]
+    request_runtime_cancellation.__globals__["_get_runtime_control"] = get_runtime_control
+    request_runtime_cancellation.__globals__["_write_cancel_marker"] = write_cancel_marker
+    request_runtime_cancellation.__globals__["_emit_and_persist"] = _emit_stub
+    request_runtime_cancellation.__globals__["run_manager"] = manager
+    request_runtime_cancellation.__globals__["db"] = db
+    request_runtime_cancellation.__globals__["runtime_controls"] = runtime_controls
+    request_runtime_cancellation.__globals__["RUN_STATUSES_FINAL"] = {"success", "failed", "error", "partial", "cancelled"}
+    request_runtime_cancellation.__globals__["CANCEL_GRACE_SECONDS"] = 4
+    request_runtime_cancellation.__globals__["datetime"] = datetime
+
+    run_detail = db.get_run_detail(run_id)
+    first = await request_runtime_cancellation(run_detail, reason="first_cancel")
+    event_count_after_first = len(db.get_run_events(run_id))
+    second = await request_runtime_cancellation(db.get_run_detail(run_id), reason="second_cancel")
+    event_count_after_second = len(db.get_run_events(run_id))
+
+    return (
+        first.get("cancel_requested") is True
+        and second.get("cancel_requested") is True
+        and first.get("cancel_requested_at") == second.get("cancel_requested_at")
+        and event_count_after_first == event_count_after_second
+        and len(emitted) == 1
+    )
+
+
 def main():
     checks = [
         ("run lifecycle persists steps labs events and artifacts", _check_run_lifecycle_persistence()),
         ("retry payload preserves lineage and last failed step", _check_retry_lineage()),
         ("run listing filters by status and type", _check_run_listing_filters()),
         ("legacy history merge keeps modern and legacy rows", _check_legacy_history_merge()),
+        ("runtime cancellation updates run steps labs and markers", asyncio.run(_check_runtime_cancellation_updates_run_and_children())),
+        ("runtime cancellation is idempotent once requested", asyncio.run(_check_runtime_cancellation_is_idempotent())),
     ]
 
     failed = [name for name, ok in checks if not ok]
