@@ -14,6 +14,7 @@ python3 tools/verify_bofa.py
 - **Comprobar MCP (opcional)**: `python3 tools/verify_bofa.py --mcp` — además del modo rápido, comprueba que las herramientas MCP responden si tienes instalado `pip install .[mcp]`. Si no tienes MCP instalado, se marca como "SKIP" y no cuenta como fallo.
 - **Comprobar agente (opcional)**: `python3 tools/verify_bofa.py --agent` — verifica que el módulo del agente autónomo se importa correctamente (sin ejecutar LLM).
 - **Comprobar hardening del runtime**: `python3 tools/verify_runtime_hardening.py` — valida cancelación de cola, compatibilidad legacy de estados/historial, drenaje seguro de flows y preservación del timeout real en el engine.
+- **Comprobar el control plane**: `python3 tools/verify_control_plane.py` — valida persistencia de runs, steps, labs, timeline, artifacts, filtros de listado, retry lineage y mezcla de historial legacy.
 
 Código de salida: 0 = todo OK, 1 = hay fallos (revisar la salida).
 
@@ -22,9 +23,10 @@ Código de salida: 0 = todo OK, 1 = hay fallos (revisar la salida).
 ```bash
 python3 tools/verify_bofa.py
 python3 tools/verify_runtime_hardening.py
+python3 tools/verify_control_plane.py
 ```
 
-Si ambos terminan en OK, el control plane queda validado a nivel básico antes de mergear o taggear una release.
+Si los tres terminan en OK, BOFA queda validado a nivel básico antes de mergear o taggear una release.
 
 ## Agente autónomo
 
