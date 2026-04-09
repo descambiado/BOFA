@@ -4,6 +4,18 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.8.2 (2026-04-09) - Control Plane Smoke Suite
+
+### Verificación operativa
+- **Smoke suite del control plane**: nuevo `tools/verify_control_plane.py` para validar persistencia de runs, steps, labs, timeline, artifacts, filtros y mezcla de historial legacy.
+- **Cancelación medida**: la smoke suite cubre transiciones a `cancelling`, propagación a steps y labs, creación de cancel markers e idempotencia al repetir la solicitud.
+- **Retry trazado**: se valida el linaje entre run origen y run hijo con eventos `retry_requested` y `retried_from`, además de `parent_run_id` y metadata asociada.
+
+### Runbook
+- **Verificación de release ampliada**: `tools/README.md` incorpora `python3 tools/verify_control_plane.py` como parte del flujo recomendado antes de merge y versionado.
+
+---
+
 ## v2.8.1 (2026-04-06) - Runtime Hardening
 
 ### Fiabilidad operacional
