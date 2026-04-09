@@ -63,6 +63,8 @@ export interface RunArtifactMetadata {
   content_type?: string;
   size_bytes?: number;
   partial?: boolean;
+  downloadable?: boolean;
+  download_reason?: string | null;
 }
 
 export interface RunArtifact {
@@ -85,6 +87,39 @@ export interface RunArtifactPreview {
   content_type?: string;
   size_bytes?: number;
   reason?: string | null;
+}
+
+export interface RunEvidenceArtifactCheck {
+  artifact_id: string;
+  artifact_type: string;
+  included: boolean;
+  verified: boolean;
+  reason?: string | null;
+  relative_path?: string | null;
+  manifest_sha256?: string | null;
+  bundle_entry_sha256?: string | null;
+  bundle_match?: boolean;
+  source_match?: boolean | null;
+  source_reason?: string | null;
+}
+
+export interface RunEvidenceVerification {
+  run_id: string;
+  verified: boolean;
+  export_timestamp: string;
+  bundle_artifact: RunArtifact;
+  manifest_artifact: RunArtifact;
+  bundle_sha256: string;
+  manifest_sha256: string;
+  canonical_files: string[];
+  missing_canonical_files: string[];
+  artifact_checks: RunEvidenceArtifactCheck[];
+  artifact_count: number;
+  included_count: number;
+  verified_artifact_count: number;
+  missing_count: number;
+  warning_count: number;
+  bundle_version?: string;
 }
 
 export interface RunStep {
@@ -729,6 +764,44 @@ export const apiService = {
     }
   },
 
+  downloadRunArtifact: async (runId: string, artifactId: string): Promise<{ filename: string; demo?: boolean }> => {
+    try {
+      const response = await fetch(`${API_BASE}/runs/${runId}/artifacts/${artifactId}/download`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(20000)
+      });
+      if (!response.ok) throw new Error('No se pudo descargar el artifact');
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+      const filename = filenameMatch?.[1] || `bofa_artifact_${artifactId}`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename };
+    } catch (error) {
+      const preview = await apiService.getRunArtifactPreview(runId, artifactId);
+      const content = preview.preview ?? JSON.stringify(preview, null, 2);
+      const blob = new Blob([content], { type: preview.content_type || 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const filename = `${artifactId}_demo.txt`;
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return { filename, demo: true };
+    }
+  },
+
   downloadRunExport: async (runId: string): Promise<{ filename: string; demo?: boolean }> => {
     try {
       const response = await fetch(`${API_BASE}/runs/${runId}/export`, {
@@ -764,6 +837,15 @@ export const apiService = {
       URL.revokeObjectURL(url);
       return { filename, demo: true };
     }
+  },
+
+  verifyRunEvidenceExport: async (runId: string): Promise<RunEvidenceVerification> => {
+    const response = await fetch(`${API_BASE}/runs/${runId}/export/verify`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error('No se pudo verificar el evidence bundle');
+    return await response.json();
   },
 
   cancelRun: async (runId: string): Promise<any> => {

@@ -280,6 +280,17 @@ def _artifact_size_bytes(path_str: Optional[str]) -> Optional[int]:
         return None
 
 
+def _artifact_download_state(path_str: Optional[str]) -> Dict[str, Any]:
+    if not path_str:
+        return {"downloadable": False, "download_reason": "artifact_path_missing"}
+    path = Path(path_str)
+    if not _is_path_within_root(path, APP_ROOT):
+        return {"downloadable": False, "download_reason": "outside_allowed_root"}
+    if not path.exists() or not path.is_file():
+        return {"downloadable": False, "download_reason": "artifact_not_found"}
+    return {"downloadable": True, "download_reason": None}
+
+
 def _build_runtime_artifact_metadata(
     path_str: str,
     artifact_type: str,
@@ -291,6 +302,7 @@ def _build_runtime_artifact_metadata(
 ) -> Dict[str, Any]:
     content_type = _artifact_content_type(path_str, artifact_type)
     preview_mode = _artifact_preview_mode(artifact_type, content_type)
+    download_state = _artifact_download_state(path_str)
     return {
         "step_id": step_id,
         "execution_id": execution_id,
@@ -302,6 +314,8 @@ def _build_runtime_artifact_metadata(
         "content_type": content_type,
         "size_bytes": _artifact_size_bytes(path_str),
         "partial": (run_status in {"partial", "cancelled", "failed", "error"}) if partial is None else partial,
+        "downloadable": download_state["downloadable"],
+        "download_reason": download_state["download_reason"],
     }
 
 
@@ -317,6 +331,7 @@ def _serialize_artifact(artifact: Dict[str, Any], run: Optional[Dict[str, Any]] 
     size_bytes = metadata.get("size_bytes")
     if size_bytes is None:
         size_bytes = _artifact_size_bytes(serialized.get("path"))
+    download_state = _artifact_download_state(serialized.get("path"))
     partial = metadata.get("partial")
     if partial is None:
         partial = (run_status in {"partial", "cancelled"}) or (step_status in {"failed", "cancelled"})
@@ -332,6 +347,8 @@ def _serialize_artifact(artifact: Dict[str, Any], run: Optional[Dict[str, Any]] 
         "content_type": content_type,
         "size_bytes": size_bytes,
         "partial": bool(partial),
+        "downloadable": metadata.get("downloadable") if "downloadable" in metadata else download_state["downloadable"],
+        "download_reason": metadata.get("download_reason") if "download_reason" in metadata else download_state["download_reason"],
     }
     return serialized
 
@@ -709,6 +726,142 @@ def _create_run_evidence_export(run_id: str) -> Dict[str, Any]:
         "export_timestamp": export_timestamp,
         "created": True,
     }
+
+
+def _find_run_artifact(run: Dict[str, Any], artifact_id: str) -> Optional[Dict[str, Any]]:
+    for artifact in run.get("artifacts", []):
+        if artifact.get("id") == artifact_id:
+            return artifact
+    return None
+
+
+def _resolve_downloadable_artifact_path(artifact: Dict[str, Any]) -> Path:
+    path = Path(artifact.get("path") or "")
+    if not _is_path_within_root(path, APP_ROOT):
+        raise HTTPException(status_code=403, detail="Artifact path is outside the allowed workspace root")
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact file not found")
+    return path
+
+
+def _verify_run_evidence_export(run_id: str) -> Dict[str, Any]:
+    run_snapshot = db.get_run_detail(run_id)
+    if not run_snapshot:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    serialized_run = _serialize_run(run_snapshot)
+    latest_export = _find_existing_evidence_export(serialized_run)
+    if not latest_export:
+        raise HTTPException(status_code=404, detail="Evidence bundle not found for this run")
+
+    bundle_artifact = _serialize_artifact(latest_export["bundle_artifact"], run_snapshot)
+    manifest_artifact = _serialize_artifact(latest_export["manifest_artifact"], run_snapshot)
+    bundle_path = _resolve_downloadable_artifact_path(bundle_artifact)
+    manifest_path = _resolve_downloadable_artifact_path(manifest_artifact)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    required_files = {"manifest.json", "run.json", "timeline.json", "steps.json", "labs.json", "README.txt"}
+
+    with zipfile.ZipFile(bundle_path, "r") as archive:
+        names = set(archive.namelist())
+        missing_canonical = sorted(required_files - names)
+        artifact_checks = []
+        verified_artifacts = 0
+
+        for artifact in manifest.get("artifacts", []):
+            if not artifact.get("included"):
+                artifact_checks.append(
+                    {
+                        "artifact_id": artifact.get("artifact_id"),
+                        "artifact_type": artifact.get("artifact_type"),
+                        "included": False,
+                        "verified": True,
+                        "reason": artifact.get("reason"),
+                    }
+                )
+                continue
+
+            relative_path = artifact.get("relative_path")
+            if not relative_path or relative_path not in names:
+                artifact_checks.append(
+                    {
+                        "artifact_id": artifact.get("artifact_id"),
+                        "artifact_type": artifact.get("artifact_type"),
+                        "included": True,
+                        "verified": False,
+                        "reason": "missing_from_bundle",
+                    }
+                )
+                continue
+
+            bundle_entry_sha256 = hashlib.sha256(archive.read(relative_path)).hexdigest()
+            manifest_sha256 = artifact.get("sha256")
+            bundle_match = bool(manifest_sha256) and bundle_entry_sha256 == manifest_sha256
+            source_match = None
+            source_reason = None
+            original_path = artifact.get("original_path")
+
+            if original_path:
+                original_file = Path(original_path)
+                if not _is_path_within_root(original_file, APP_ROOT):
+                    source_reason = "outside_allowed_root"
+                elif not original_file.exists() or not original_file.is_file():
+                    source_reason = "artifact_not_found"
+                else:
+                    source_match = _sha256_file(original_file) == manifest_sha256
+
+            verified = bundle_match and (source_match is None or source_match is True)
+            if verified:
+                verified_artifacts += 1
+
+            artifact_checks.append(
+                {
+                    "artifact_id": artifact.get("artifact_id"),
+                    "artifact_type": artifact.get("artifact_type"),
+                    "included": True,
+                    "verified": verified,
+                    "relative_path": relative_path,
+                    "manifest_sha256": manifest_sha256,
+                    "bundle_entry_sha256": bundle_entry_sha256,
+                    "bundle_match": bundle_match,
+                    "source_match": source_match,
+                    "source_reason": source_reason,
+                }
+            )
+
+    verification_payload = {
+        "run_id": run_id,
+        "verified": len(missing_canonical) == 0 and all(item.get("verified") for item in artifact_checks),
+        "export_timestamp": latest_export["export_timestamp"],
+        "bundle_artifact": bundle_artifact,
+        "manifest_artifact": manifest_artifact,
+        "bundle_sha256": _sha256_file(bundle_path),
+        "manifest_sha256": _sha256_file(manifest_path),
+        "canonical_files": sorted(required_files),
+        "missing_canonical_files": missing_canonical,
+        "artifact_checks": artifact_checks,
+        "artifact_count": len(manifest.get("artifacts", [])),
+        "included_count": len([artifact for artifact in manifest.get("artifacts", []) if artifact.get("included")]),
+        "verified_artifact_count": verified_artifacts,
+        "missing_count": manifest.get("missing_count", 0),
+        "warning_count": manifest.get("warning_count", 0),
+        "bundle_version": manifest.get("bundle_version"),
+    }
+    run_manager.add_event(
+        run_id,
+        "run",
+        run_id,
+        "evidence_verified",
+        "success" if verification_payload["verified"] else "warning",
+        "Evidence bundle integrity verified" if verification_payload["verified"] else "Evidence bundle verification found issues",
+        {
+            "export_timestamp": latest_export["export_timestamp"],
+            "verified": verification_payload["verified"],
+            "missing_canonical_files": missing_canonical,
+            "verified_artifact_count": verified_artifacts,
+            "included_count": verification_payload["included_count"],
+        },
+    )
+    return verification_payload
 
 
 def _build_run_completion_payload(run_id: str, status: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -1737,6 +1890,25 @@ async def get_run_artifact_preview(run_id: str, artifact_id: str, current_user: 
     return _build_artifact_preview_payload(run_id, artifact, run)
 
 
+@app.get("/runs/{run_id}/artifacts/{artifact_id}/download")
+async def download_run_artifact(run_id: str, artifact_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    artifact = _find_run_artifact(run, artifact_id)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    safe_path = _resolve_downloadable_artifact_path(artifact)
+    serialized = _serialize_artifact(artifact, run)
+    return FileResponse(
+        path=safe_path,
+        media_type=(serialized.get("metadata") or {}).get("content_type") or "application/octet-stream",
+        filename=safe_path.name,
+    )
+
+
 @app.get("/runs/{run_id}/export")
 async def export_run_evidence(run_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
     run = db.get_run_detail(run_id)
@@ -1755,6 +1927,16 @@ async def export_run_evidence(run_id: str, current_user: Dict[str, Any] = Depend
         media_type="application/zip",
         filename=bundle_path.name,
     )
+
+
+@app.get("/runs/{run_id}/export/verify")
+async def verify_run_evidence_export(run_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    run = db.get_run_detail(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return _verify_run_evidence_export(run_id)
 
 
 @app.post("/runs/{run_id}/cancel")

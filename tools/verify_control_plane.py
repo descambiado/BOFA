@@ -695,6 +695,8 @@ def _check_artifact_preview_helpers():
         "_is_previewable_content_type",
         "_artifact_preview_mode",
         "_artifact_size_bytes",
+        "_is_path_within_root",
+        "_artifact_download_state",
         "_serialize_artifact",
         "_build_artifact_preview_payload",
     )
@@ -705,11 +707,16 @@ def _check_artifact_preview_helpers():
     loaded["_artifact_preview_mode"].__globals__["ARTIFACT_HEAD_PREVIEW_TYPES"] = {"report_json", "report_markdown", "flow_summary_json", "flow_summary_markdown", "post_process_output"}
     loaded["_artifact_preview_mode"].__globals__["_is_previewable_content_type"] = loaded["_is_previewable_content_type"]
     loaded["_artifact_size_bytes"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_artifact_download_state"].__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
     loaded["_serialize_artifact"].__globals__["Path"] = Path
+    loaded["_serialize_artifact"].__globals__["APP_ROOT"] = _ROOT
     loaded["_serialize_artifact"].__globals__["_artifact_role"] = loaded["_artifact_role"]
     loaded["_serialize_artifact"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
     loaded["_serialize_artifact"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
     loaded["_serialize_artifact"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_serialize_artifact"].__globals__["_artifact_download_state"] = loaded["_artifact_download_state"]
     loaded["_build_artifact_preview_payload"].__globals__["Path"] = Path
     loaded["_build_artifact_preview_payload"].__globals__["ARTIFACT_PREVIEW_LIMIT"] = 4000
     loaded["_build_artifact_preview_payload"].__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
@@ -786,6 +793,7 @@ def _check_evidence_bundle_export():
         "_is_previewable_content_type",
         "_artifact_preview_mode",
         "_artifact_size_bytes",
+        "_artifact_download_state",
         "_build_runtime_artifact_metadata",
         "_serialize_artifact",
         "_serialize_artifacts",
@@ -797,6 +805,8 @@ def _check_evidence_bundle_export():
         "_build_evidence_bundle_readme",
         "_find_existing_evidence_export",
         "_create_run_evidence_export",
+        "_resolve_downloadable_artifact_path",
+        "_verify_run_evidence_export",
     )
 
     evidence_types = {"evidence_bundle_zip", "evidence_manifest_json"}
@@ -815,21 +825,31 @@ def _check_evidence_bundle_export():
     }
     loaded["_artifact_preview_mode"].__globals__["_is_previewable_content_type"] = loaded["_is_previewable_content_type"]
     loaded["_artifact_size_bytes"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["Path"] = Path
+    loaded["_artifact_download_state"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_artifact_download_state"].__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
     loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
     loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
     loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_role"] = loaded["_artifact_role"]
     loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_build_runtime_artifact_metadata"].__globals__["_artifact_download_state"] = loaded["_artifact_download_state"]
     loaded["_serialize_artifact"].__globals__["Path"] = Path
+    loaded["_serialize_artifact"].__globals__["APP_ROOT"] = _ROOT
     loaded["_serialize_artifact"].__globals__["_artifact_role"] = loaded["_artifact_role"]
     loaded["_serialize_artifact"].__globals__["_artifact_content_type"] = loaded["_artifact_content_type"]
     loaded["_serialize_artifact"].__globals__["_artifact_preview_mode"] = loaded["_artifact_preview_mode"]
     loaded["_serialize_artifact"].__globals__["_artifact_size_bytes"] = loaded["_artifact_size_bytes"]
+    loaded["_serialize_artifact"].__globals__["_artifact_download_state"] = loaded["_artifact_download_state"]
     loaded["_serialize_artifacts"].__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
     loaded["_serialize_run"].__globals__["_serialize_artifacts"] = loaded["_serialize_artifacts"]
     loaded["_guess_extension_from_content_type"].__globals__["mimetypes"] = mimetypes
     loaded["_sha256_file"].__globals__["hashlib"] = hashlib
     loaded["_find_existing_evidence_export"].__globals__["Path"] = Path
     loaded["_find_existing_evidence_export"].__globals__["EVIDENCE_EXPORT_ARTIFACT_TYPES"] = evidence_types
+    loaded["_resolve_downloadable_artifact_path"].__globals__["Path"] = Path
+    loaded["_resolve_downloadable_artifact_path"].__globals__["APP_ROOT"] = _ROOT
+    loaded["_resolve_downloadable_artifact_path"].__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    loaded["_resolve_downloadable_artifact_path"].__globals__["HTTPException"] = RuntimeError
 
     export_root = _VERIFY_ROOT / "evidence_exports"
     export_root.mkdir(parents=True, exist_ok=True)
@@ -856,6 +876,7 @@ def _check_evidence_bundle_export():
     create_export.__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
     create_export.__globals__["_sha256_file"] = loaded["_sha256_file"]
     create_export.__globals__["_build_evidence_bundle_readme"] = loaded["_build_evidence_bundle_readme"]
+    create_export.__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
 
     export_payload = create_export(run_id)
     second_payload = create_export(run_id)
@@ -871,6 +892,23 @@ def _check_evidence_bundle_export():
 
     with zipfile.ZipFile(bundle_path, "r") as archive:
         names = set(archive.namelist())
+
+    verify_export = loaded["_verify_run_evidence_export"]
+    verify_export.__globals__["db"] = db
+    verify_export.__globals__["run_manager"] = manager
+    verify_export.__globals__["json"] = json
+    verify_export.__globals__["Path"] = Path
+    verify_export.__globals__["zipfile"] = zipfile
+    verify_export.__globals__["hashlib"] = hashlib
+    verify_export.__globals__["APP_ROOT"] = _ROOT
+    verify_export.__globals__["_serialize_run"] = loaded["_serialize_run"]
+    verify_export.__globals__["_find_existing_evidence_export"] = loaded["_find_existing_evidence_export"]
+    verify_export.__globals__["_serialize_artifact"] = loaded["_serialize_artifact"]
+    verify_export.__globals__["_resolve_downloadable_artifact_path"] = loaded["_resolve_downloadable_artifact_path"]
+    verify_export.__globals__["_is_path_within_root"] = loaded["_is_path_within_root"]
+    verify_export.__globals__["_sha256_file"] = loaded["_sha256_file"]
+    verification = verify_export(run_id)
+    detail = db.get_run_detail(run_id)
 
     return (
         export_payload.get("created") is True
@@ -891,7 +929,11 @@ def _check_evidence_bundle_export():
         and outside_entry.get("included") is False
         and outside_entry.get("reason") == "outside_allowed_root"
         and {"evidence_bundle_zip", "evidence_manifest_json"}.issubset(artifact_types)
+        and verification.get("verified") is True
+        and verification.get("verified_artifact_count") == 1
+        and verification.get("missing_count") == 1
         and any(event.get("event_type") == "evidence_exported" for event in detail.get("events", []))
+        and any(event.get("event_type") == "evidence_verified" for event in detail.get("events", []))
         and any(event.get("event_type") == "evidence_export_warning" for event in detail.get("events", []))
     )
 
