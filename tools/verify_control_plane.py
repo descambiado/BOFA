@@ -184,6 +184,108 @@ def _check_retry_lineage():
     )
 
 
+def _check_retry_event_lineage():
+    _, _, db, manager = _make_runtime()
+    original_run_id = manager.create_run(
+        user_id=1,
+        run_type="script",
+        source="verify_control_plane",
+        requested_action="execute_script",
+        target="retry.local",
+        metadata={
+            "module": "examples",
+            "script": "example_info",
+            "parameters": {"json": True},
+            "retry_count": 0,
+        },
+    )
+    original_step_id = manager.create_step(
+        run_id=original_run_id,
+        step_type="script",
+        step_index=1,
+        step_key="script_1",
+        module="examples",
+        script_name="example_info",
+        parameters={"json": True},
+    )
+    manager.update_step(
+        original_step_id,
+        original_run_id,
+        status="failed",
+        completed_at=_utc_now(),
+        exit_code=1,
+        error_message="Synthetic retry failure",
+        message="Initial step failed for retry smoke",
+    )
+    manager.mark_run_finished(original_run_id, "failed", "Retry source failed", metadata={"retry_count": 0})
+
+    payload = manager.retry_payload(original_run_id)
+    if not payload:
+        return False
+
+    retry_metadata = {
+        "retry_of": original_run_id,
+        "retry_count": payload.get("retry_count", 1),
+        "retry_reason": "failed",
+        "last_non_success_step": payload.get("last_non_success_step"),
+    }
+    manager.add_event(
+        original_run_id,
+        "run",
+        original_run_id,
+        "retry_requested",
+        "success",
+        "Retry requested for run",
+        retry_metadata,
+    )
+    retry_run_id = manager.create_run(
+        user_id=1,
+        run_type=payload["run_type"],
+        source="retry",
+        requested_action=payload["requested_action"],
+        target=payload["target"],
+        parent_run_id=original_run_id,
+        metadata={
+            "module": "examples",
+            "script": "example_info",
+            "parameters": {"json": True},
+            **retry_metadata,
+        },
+    )
+    manager.add_event(
+        retry_run_id,
+        "run",
+        retry_run_id,
+        "retried_from",
+        "queued",
+        "Run created from retry",
+        {"parent_run_id": original_run_id, "retry_count": retry_metadata["retry_count"]},
+    )
+
+    original_detail = db.get_run_detail(original_run_id)
+    retry_detail = db.get_run_detail(retry_run_id)
+    original_events = original_detail.get("events", []) if original_detail else []
+    retry_events = retry_detail.get("events", []) if retry_detail else []
+    return (
+        original_detail is not None
+        and retry_detail is not None
+        and retry_detail.get("parent_run_id") == original_run_id
+        and retry_detail.get("metadata", {}).get("retry_of") == original_run_id
+        and any(event.get("event_type") == "retry_requested" for event in original_events)
+        and any(event.get("event_type") == "retried_from" for event in retry_events)
+        and any(
+            event.get("event_type") == "retry_requested"
+            and (event.get("payload") or {}).get("last_non_success_step", {}).get("id") == original_step_id
+            for event in original_events
+        )
+        and any(
+            event.get("event_type") == "retried_from"
+            and (event.get("payload") or {}).get("parent_run_id") == original_run_id
+            for event in retry_events
+        )
+    )
+
+
 def _check_run_listing_filters():
     _, _, db, manager = _make_runtime()
     run_script = manager.create_run(1, "script", "verify", "execute_script", target="a.local", status="queued")
@@ -413,6 +515,7 @@ def main():
     checks = [
         ("run lifecycle persists steps labs events and artifacts", _check_run_lifecycle_persistence()),
         ("retry payload preserves lineage and last failed step", _check_retry_lineage()),
+        ("retry events link original and child runs", _check_retry_event_lineage()),
         ("run listing filters by status and type", _check_run_listing_filters()),
         ("legacy history merge keeps modern and legacy rows", _check_legacy_history_merge()),
         ("runtime cancellation updates run steps labs and markers", asyncio.run(_check_runtime_cancellation_updates_run_and_children())),
