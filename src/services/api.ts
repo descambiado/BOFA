@@ -103,16 +103,38 @@ export interface RunEvidenceArtifactCheck {
   source_reason?: string | null;
 }
 
+export interface RunEvidenceCanonicalFileCheck {
+  name: string;
+  verified: boolean;
+  reason?: string | null;
+  expected_sha256?: string | null;
+  expected_size_bytes?: number | null;
+  actual_sha256?: string | null;
+  actual_size_bytes?: number | null;
+}
+
+export interface EvidencePublicKeyInfo {
+  signing_algorithm: string;
+  public_key_fingerprint: string;
+  public_key_pem: string;
+  path: string;
+  trust_anchor?: string;
+}
+
 export interface RunEvidenceVerification {
   run_id: string;
   verified: boolean;
   export_timestamp: string;
   bundle_artifact: RunArtifact;
   manifest_artifact: RunArtifact;
+  signature_artifact?: RunArtifact;
+  public_key_artifact?: RunArtifact;
   bundle_sha256: string;
   manifest_sha256: string;
+  manifest_file_sha256?: string;
   canonical_files: string[];
   missing_canonical_files: string[];
+  canonical_file_checks?: RunEvidenceCanonicalFileCheck[];
   artifact_checks: RunEvidenceArtifactCheck[];
   artifact_count: number;
   included_count: number;
@@ -120,6 +142,17 @@ export interface RunEvidenceVerification {
   missing_count: number;
   warning_count: number;
   bundle_version?: string;
+  signature_valid: boolean;
+  integrity_valid: boolean;
+  signing_algorithm?: string;
+  public_key_fingerprint?: string;
+  public_key_matches_server?: boolean | null;
+  trust_mode?: string;
+  signature_error?: string | null;
+  manifest_sha_valid?: boolean;
+  manifest_artifact_match?: boolean;
+  signature_artifact_match?: boolean;
+  public_key_artifact_match?: boolean;
 }
 
 export interface RunStep {
@@ -836,6 +869,25 @@ export const apiService = {
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
       return { filename, demo: true };
+    }
+  },
+
+  getEvidencePublicKey: async (): Promise<EvidencePublicKeyInfo> => {
+    try {
+      const response = await fetch(`${API_BASE}/evidence/public-key`, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) throw new Error('No se pudo obtener la clave publica de evidencia');
+      return await response.json();
+    } catch (error) {
+      return {
+        signing_algorithm: 'Ed25519',
+        public_key_fingerprint: 'demo-unavailable',
+        public_key_pem: '-----BEGIN PUBLIC KEY-----\nDEMO\n-----END PUBLIC KEY-----\n',
+        path: 'demo://evidence/public-key',
+        trust_anchor: 'sha256:demo-unavailable',
+      };
     }
   },
 

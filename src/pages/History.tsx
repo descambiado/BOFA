@@ -5,7 +5,7 @@ import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/UI/select";
 import { ActionButton } from "@/components/UI/ActionButton";
-import { useRunDetail, useRuns, apiService, type RunArtifact, type RunArtifactPreview, type RunEvidenceVerification, type RunSummary } from "@/services/api";
+import { useRunDetail, useRuns, apiService, type EvidencePublicKeyInfo, type RunArtifact, type RunArtifactPreview, type RunEvidenceVerification, type RunSummary } from "@/services/api";
 import { ArrowLeft, Clock, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, ShieldCheck, Square, Workflow } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +26,7 @@ const History = () => {
   const [isExportingRun, setIsExportingRun] = useState(false);
   const [verification, setVerification] = useState<RunEvidenceVerification | null>(null);
   const [isVerifyingEvidence, setIsVerifyingEvidence] = useState(false);
+  const [evidenceKeyInfo, setEvidenceKeyInfo] = useState<EvidencePublicKeyInfo | null>(null);
   const { data: runs, isLoading, refetch } = useRuns();
   const { data: selectedRun, refetch: refetchRun } = useRunDetail(selectedRunId);
 
@@ -44,7 +45,33 @@ const History = () => {
     setIsArtifactPreviewLoading(false);
     setVerification(null);
     setIsVerifyingEvidence(false);
+    setEvidenceKeyInfo(null);
   }, [selectedRunId]);
+
+  useEffect(() => {
+    let active = true;
+    const hasEvidenceArtifacts = selectedRun?.artifacts?.some((artifact) =>
+      ["evidence_bundle_zip", "evidence_manifest_json", "evidence_signature", "evidence_public_key_pem"].includes(artifact.artifact_type),
+    );
+    if (!selectedRun || !hasEvidenceArtifacts) {
+      setEvidenceKeyInfo(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    apiService.getEvidencePublicKey()
+      .then((info) => {
+        if (active) setEvidenceKeyInfo(info);
+      })
+      .catch(() => {
+        if (active) setEvidenceKeyInfo(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedRun]);
 
   const families = useMemo(() => {
     const grouped = new Map<string, RunSummary[]>();
@@ -395,15 +422,45 @@ const History = () => {
                       <Badge className={verification.verified ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-200"}>
                         {verification.verified ? "verified" : "issues detected"}
                       </Badge>
+                      <Badge className={verification.signature_valid ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200"}>
+                        {verification.signature_valid ? "signature valid" : "signature invalid"}
+                      </Badge>
+                      <Badge className={verification.integrity_valid ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200"}>
+                        {verification.integrity_valid ? "integrity valid" : "integrity failed"}
+                      </Badge>
                     </div>
                     <p className="mt-2 text-xs text-gray-400">
                       Export: {formatTimestamp(verification.export_timestamp)} · Artifactos verificados: {verification.verified_artifact_count}/{verification.included_count} · Warnings: {verification.warning_count}
                     </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Trust mode: {verification.trust_mode || "unknown"} · Algoritmo: {verification.signing_algorithm || "n/a"}
+                    </p>
+                    <p className="mt-1 break-all text-xs text-gray-400">
+                      Fingerprint del firmante: {verification.public_key_fingerprint || "n/a"}
+                    </p>
+                    {evidenceKeyInfo && (
+                      <p className="mt-1 break-all text-xs text-gray-400">
+                        Fingerprint activo del servidor: {evidenceKeyInfo.public_key_fingerprint}
+                      </p>
+                    )}
                     <p className="mt-1 break-all text-xs text-gray-400">Bundle SHA-256: {verification.bundle_sha256}</p>
                     <p className="mt-1 break-all text-xs text-gray-400">Manifest SHA-256: {verification.manifest_sha256}</p>
+                    {verification.public_key_matches_server === false && (
+                      <p className="mt-2 text-xs text-amber-300">
+                        La firma es válida, pero la clave embebida no coincide con la clave activa del servidor.
+                      </p>
+                    )}
+                    {verification.signature_error && (
+                      <p className="mt-2 text-xs text-rose-300">Error de firma: {verification.signature_error}</p>
+                    )}
                     {!!verification.missing_canonical_files.length && (
                       <p className="mt-2 text-xs text-amber-300">Faltan ficheros canónicos: {verification.missing_canonical_files.join(", ")}</p>
                     )}
+                    {verification.canonical_file_checks?.slice(0, 5).map((check) => (
+                      <p key={check.name} className={`mt-2 text-xs ${check.verified ? "text-emerald-200" : "text-amber-200"}`}>
+                        {check.name} · {check.verified ? "verified" : check.reason || "mismatch"}
+                      </p>
+                    ))}
                     {verification.artifact_checks.slice(0, 5).map((check) => (
                       <p key={check.artifact_id} className={`mt-2 text-xs ${check.verified ? "text-emerald-200" : "text-amber-200"}`}>
                         {check.artifact_type} · {check.verified ? "verified" : check.reason || check.source_reason || "mismatch"}
