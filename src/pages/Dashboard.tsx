@@ -1,5 +1,5 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/UI/card";
+import { Badge } from "@/components/UI/badge";
 import { MetricCard } from "@/components/UI/MetricCard";
 import { ActionButton } from "@/components/UI/ActionButton";
 import { useDashboardStats } from "@/services/api";

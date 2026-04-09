@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/UI/card";
+import { Badge } from "@/components/UI/badge";
+import { Button } from "@/components/UI/button";
+import { Input } from "@/components/UI/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/UI/select";
 import { ActionButton } from "@/components/UI/ActionButton";
 import { useRunDetail, useRuns, apiService, type RunArtifact, type RunArtifactPreview, type RunSummary } from "@/services/api";
 import { ArrowLeft, Clock, Copy, Download, Eye, Filter, RefreshCw, RotateCcw, Search, Square, Workflow } from "lucide-react";

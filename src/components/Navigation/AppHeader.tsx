@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/UI/button";
+import { Badge } from "@/components/UI/badge";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -10,7 +10,7 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
+} from "@/components/UI/navigation-menu";
 import { 
   Shield, 
   Terminal, 

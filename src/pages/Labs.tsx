@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/UI/card";
+import { Button } from "@/components/UI/button";
+import { Badge } from "@/components/UI/badge";
 import { StatusBadge } from "@/components/UI/StatusBadge";
 import { ActionButton } from "@/components/UI/ActionButton";
 import { ScriptExecutionConsole } from "@/components/ScriptExecutionConsole";
