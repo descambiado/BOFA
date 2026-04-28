@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Health from "./pages/Health";
 import NotFound from "./pages/NotFound";
 import Library from "./pages/Library";
+import Bounty from "./pages/Bounty";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ function App() {
                 <Route path="/scripts" element={<ProtectedRoute><Scripts /></ProtectedRoute>} />
                 <Route path="/flows" element={<ProtectedRoute><Flows /></ProtectedRoute>} />
                 <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
+                <Route path="/bounty" element={<ProtectedRoute><Bounty /></ProtectedRoute>} />
                 <Route path="/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
                 <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
                 <Route path="/study" element={<ProtectedRoute><Study /></ProtectedRoute>} />

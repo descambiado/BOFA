@@ -1,0 +1,20 @@
+skill_key: duplicate_risk
+name: Duplicate Risk
+goal: Surface findings likely to collide with already-burned public patterns.
+scope: workspace
+inputs:
+  - workspace_id
+steps:
+  - Read current novelty findings.
+  - Return only the high duplicate-risk slice.
+heuristics:
+  - Penalize obvious routes, common params and stale nodes.
+stop_conditions:
+  - The likely_duplicate queue is explicit and defensible.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    finding_count: integer
+  high_duplicate_risk: array

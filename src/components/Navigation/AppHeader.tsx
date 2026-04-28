@@ -13,6 +13,7 @@ import {
 } from "@/components/UI/navigation-menu";
 import { 
   Shield, 
+  Crosshair,
   Terminal, 
   Eye, 
   Clock, 
@@ -83,6 +84,7 @@ export const AppHeader = () => {
     { name: "Salud", href: "/health", icon: Activity },
     { name: "Scripts", href: "/scripts", icon: Terminal },
     { name: "Flows", href: "/flows", icon: Workflow },
+    { name: "Bounty", href: "/bounty", icon: Crosshair },
     { name: "Biblioteca", href: "/library", icon: Code },
     { name: "Labs", href: "/labs", icon: Eye },
     { name: "Historial", href: "/history", icon: Clock },

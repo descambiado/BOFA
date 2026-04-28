@@ -210,6 +210,123 @@ export interface RunDetail extends RunSummary {
   artifacts: RunArtifact[];
 }
 
+export interface BountyWorkspace {
+  id: string;
+  user_id?: number;
+  name: string;
+  platform: string;
+  program_handle: string;
+  notes?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  assets?: WorkspaceAsset[];
+  imports?: WorkspaceImport[];
+  graph?: BountyGraph;
+  findings?: NoveltyFinding[];
+  skills?: BountySkill[];
+}
+
+export interface WorkspaceAsset {
+  id: string;
+  workspace_id: string;
+  asset_type: string;
+  value: string;
+  normalized_value: string;
+  in_scope: boolean;
+  source?: string;
+  first_seen?: string;
+  last_seen?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface WorkspaceImport {
+  id: string;
+  workspace_id: string;
+  run_id?: string;
+  import_type: string;
+  source_label: string;
+  source_path?: string;
+  source_url?: string;
+  content_format?: string;
+  snapshot_id?: string;
+  status: string;
+  summary?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface TargetGraphNode {
+  id: string;
+  workspace_id: string;
+  node_type: string;
+  normalized_key: string;
+  value: string;
+  first_seen?: string;
+  last_seen?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface TargetGraphEdge {
+  id: string;
+  workspace_id: string;
+  from_node_id: string;
+  edge_type: string;
+  to_node_id: string;
+  first_seen?: string;
+  last_seen?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface BountyGraph {
+  nodes: TargetGraphNode[];
+  edges: TargetGraphEdge[];
+  assets: WorkspaceAsset[];
+  imports: WorkspaceImport[];
+}
+
+export interface NoveltyFinding {
+  id?: string;
+  workspace_id?: string;
+  fingerprint: string;
+  title: string;
+  category: 'what_changed' | 'what_is_weird' | 'worth_manual_time' | 'likely_duplicate' | string;
+  novelty_score: number;
+  duplicate_risk_score: number;
+  confidence: number;
+  status: string;
+  rationale: string;
+  primary_node_id?: string;
+  run_id?: string;
+  metadata?: Record<string, any>;
+  created_at?: string;
+}
+
+export interface BountySkill {
+  skill_key: string;
+  name: string;
+  goal: string;
+  scope: string;
+  inputs?: string[];
+  steps?: string[];
+  heuristics?: string[];
+  stop_conditions?: string[];
+  artifacts?: string[];
+  output_schema?: Record<string, any>;
+  path?: string;
+}
+
+export interface SkillRunResult {
+  workspace_id: string;
+  run_id: string;
+  skill_key: string;
+  skill_name: string;
+  goal?: string;
+  latest_snapshot_id?: string;
+  summary?: Record<string, any>;
+  [key: string]: any;
+}
+
 export interface FlowSummary {
   id: string;
   name: string;
@@ -699,9 +816,10 @@ export const apiService = {
     }
   },
 
-  getRuns: async (): Promise<RunSummary[]> => {
+  getRuns: async (workspaceId?: string | null): Promise<RunSummary[]> => {
     try {
-      const response = await fetch(`${API_BASE}/runs`, {
+      const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+      const response = await fetch(`${API_BASE}/runs${query}`, {
         headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
       });
@@ -725,7 +843,111 @@ export const apiService = {
         artifact_count: item.output ? 1 : 0,
         lab_count: 0,
       }));
-    }
+      }
+    },
+
+  getBountyWorkspaces: async (): Promise<BountyWorkspace[]> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudieron obtener los workspaces bounty');
+    return await response.json();
+  },
+
+  createBountyWorkspace: async (payload: {
+    name: string;
+    platform: string;
+    program_handle: string;
+    notes?: string;
+    metadata?: Record<string, any>;
+  }): Promise<BountyWorkspace> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo crear el workspace bounty');
+    return await response.json();
+  },
+
+  getBountyWorkspace: async (workspaceId: string): Promise<BountyWorkspace> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener el workspace bounty');
+    return await response.json();
+  },
+
+  importBountyWorkspaceContent: async (
+    workspaceId: string,
+    payload: {
+      import_type: string;
+      source_label: string;
+      content: string;
+      content_format?: string;
+      source_url?: string;
+      source_path?: string;
+      metadata?: Record<string, any>;
+    },
+  ): Promise<any> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/imports`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) throw new Error('No se pudo importar contenido bounty');
+    return await response.json();
+  },
+
+  analyzeBountyWorkspace: async (workspaceId: string): Promise<{ workspace_id: string; run_id: string; summary: Record<string, any>; findings: NoveltyFinding[] }> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/analyze`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error('No se pudo analizar el workspace bounty');
+    return await response.json();
+  },
+
+  getBountyWorkspaceGraph: async (workspaceId: string): Promise<BountyGraph> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/graph`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener el target graph');
+    return await response.json();
+  },
+
+  getBountyWorkspaceFindings: async (workspaceId: string): Promise<NoveltyFinding[]> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/findings`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudieron obtener los findings bounty');
+    return await response.json();
+  },
+
+  getBountySkills: async (): Promise<BountySkill[]> => {
+    const response = await fetch(`${API_BASE}/bounty/skills`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudieron obtener las skills bounty');
+    return await response.json();
+  },
+
+  runBountySkill: async (workspaceId: string, skillKey: string): Promise<SkillRunResult> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/skills/${skillKey}/run`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error('No se pudo ejecutar la skill bounty');
+    return await response.json();
   },
 
   getRun: async (runId: string): Promise<RunDetail> => {
@@ -1218,13 +1440,41 @@ export const useExecutionHistory = () => {
   });
 };
 
-export const useRuns = () => {
+export const useRuns = (workspaceId?: string | null) => {
   return useQuery({
-    queryKey: ['runs'],
-    queryFn: apiService.getRuns,
+    queryKey: ['runs', workspaceId ?? 'all'],
+    queryFn: () => apiService.getRuns(workspaceId),
     refetchInterval: 15000,
     retry: 1,
     staleTime: 10 * 1000,
+  });
+};
+
+export const useBountyWorkspaces = () => {
+  return useQuery({
+    queryKey: ['bounty-workspaces'],
+    queryFn: apiService.getBountyWorkspaces,
+    retry: 1,
+    staleTime: 20 * 1000,
+  });
+};
+
+export const useBountyWorkspace = (workspaceId: string | null) => {
+  return useQuery({
+    queryKey: ['bounty-workspace', workspaceId],
+    queryFn: () => apiService.getBountyWorkspace(workspaceId as string),
+    enabled: !!workspaceId,
+    retry: 1,
+    staleTime: 10 * 1000,
+  });
+};
+
+export const useBountySkills = () => {
+  return useQuery({
+    queryKey: ['bounty-skills'],
+    queryFn: apiService.getBountySkills,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
