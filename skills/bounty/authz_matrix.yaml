@@ -1,0 +1,21 @@
+skill_key: authz_matrix
+name: AuthZ Matrix
+goal: Correlate auth-related graph hints with disclosed auth contexts.
+scope: workspace
+inputs:
+  - workspace_id
+steps:
+  - Filter nodes containing auth, role, admin, tenant or permission indicators.
+  - Compare them with imported disclosed report auth contexts.
+heuristics:
+  - Keep this copilot-oriented; propose, do not claim exploitability.
+stop_conditions:
+  - Auth-relevant surfaces are grouped for manual testing.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    latest_snapshot_id: string
+  auth_nodes: array
+  auth_contexts: object

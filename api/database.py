@@ -228,12 +228,157 @@ class DatabaseManager:
             """
         )
 
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bounty_workspaces (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER,
+                name TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                program_handle TEXT NOT NULL,
+                notes TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS workspace_assets (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                asset_type TEXT NOT NULL,
+                value TEXT NOT NULL,
+                normalized_value TEXT NOT NULL,
+                in_scope BOOLEAN DEFAULT 1,
+                source TEXT,
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS workspace_imports (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                run_id TEXT,
+                import_type TEXT NOT NULL,
+                source_label TEXT NOT NULL,
+                source_path TEXT,
+                source_url TEXT,
+                content_format TEXT,
+                snapshot_id TEXT,
+                status TEXT DEFAULT 'queued',
+                summary TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id),
+                FOREIGN KEY (run_id) REFERENCES operation_runs (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS target_graph_nodes (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                node_type TEXT NOT NULL,
+                normalized_key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS target_graph_edges (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                from_node_id TEXT NOT NULL,
+                edge_type TEXT NOT NULL,
+                to_node_id TEXT NOT NULL,
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id),
+                FOREIGN KEY (from_node_id) REFERENCES target_graph_nodes (id),
+                FOREIGN KEY (to_node_id) REFERENCES target_graph_nodes (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS disclosed_reports (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                source TEXT,
+                external_id TEXT,
+                title TEXT NOT NULL,
+                url TEXT,
+                severity TEXT,
+                bug_class TEXT,
+                root_cause TEXT,
+                asset_hint TEXT,
+                auth_context TEXT,
+                summary TEXT,
+                published_at TIMESTAMP,
+                raw_text TEXT,
+                metadata TEXT,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS novelty_findings (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL,
+                novelty_score REAL DEFAULT 0,
+                duplicate_risk_score REAL DEFAULT 0,
+                confidence REAL DEFAULT 0,
+                status TEXT DEFAULT 'open',
+                rationale TEXT,
+                primary_node_id TEXT,
+                run_id TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id),
+                FOREIGN KEY (primary_node_id) REFERENCES target_graph_nodes (id),
+                FOREIGN KEY (run_id) REFERENCES operation_runs (id)
+            )
+            """
+        )
+
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_user_created ON operation_runs (user_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_status_created ON operation_runs (status, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_steps_run_id ON run_steps (run_id, step_index)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_labs_run_id ON run_labs (run_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_events_run_id ON run_events (run_id, created_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_artifacts_run_id ON run_artifacts (run_id, created_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_bounty_workspaces_user_updated ON bounty_workspaces (user_id, updated_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspace_assets_workspace_type ON workspace_assets (workspace_id, asset_type)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspace_imports_workspace_created ON workspace_imports (workspace_id, created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_target_graph_nodes_workspace_type_key ON target_graph_nodes (workspace_id, node_type, normalized_key)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_target_graph_edges_workspace_from_to ON target_graph_edges (workspace_id, from_node_id, to_node_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_disclosed_reports_workspace_bugclass ON disclosed_reports (workspace_id, bug_class)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_novelty_findings_workspace_category_created ON novelty_findings (workspace_id, category, created_at DESC)")
 
         self._ensure_column(cursor, "script_executions", "run_id", "TEXT")
         self._ensure_column(cursor, "script_executions", "step_id", "TEXT")
@@ -624,6 +769,7 @@ class DatabaseManager:
         user_id: Optional[int] = None,
         run_type: Optional[str] = None,
         status: Optional[str] = None,
+        workspace_id: Optional[str] = None,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
         conn = self.get_connection()
@@ -647,11 +793,13 @@ class DatabaseManager:
             ORDER BY created_at DESC
             LIMIT ?
             """,
-            (*params, limit),
+            (*params, limit * 5 if workspace_id else limit),
         )
         rows = self._rows_to_dicts(cursor.fetchall())
         conn.close()
-        return rows
+        if workspace_id:
+            rows = [row for row in rows if (row.get("metadata") or {}).get("workspace_id") == workspace_id]
+        return rows[:limit]
 
     def create_run_step(
         self,
