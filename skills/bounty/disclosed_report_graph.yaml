@@ -1,0 +1,21 @@
+skill_key: disclosed_report_graph
+name: Disclosed Report Graph
+goal: Normalize imported public reports into bug-class and root-cause signals.
+scope: workspace
+inputs:
+  - workspace_id
+steps:
+  - Read disclosed reports imported into the workspace.
+  - Count bug classes, root causes and auth contexts.
+heuristics:
+  - Treat incomplete imports as partial but still useful.
+stop_conditions:
+  - Disclosed reports are mapped to stable categories.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    report_count: integer
+    bug_classes: object
+    root_causes: object

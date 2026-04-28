@@ -9,6 +9,7 @@ import {
   Clock,
   Cpu,
   Eye,
+  Crosshair,
   HardDrive,
   Shield,
   Terminal,
@@ -99,6 +100,12 @@ const Dashboard = () => {
                 title="Flows"
                 description="Orquestar cadenas"
                 onClick={() => navigate("/flows")}
+              />
+              <ActionButton
+                icon={<Crosshair className="w-5 h-5" />}
+                title="Bounty"
+                description="Novedad y duplicates"
+                onClick={() => navigate("/bounty")}
               />
               <ActionButton
                 icon={<Eye className="w-5 h-5" />}

@@ -1,0 +1,20 @@
+skill_key: js_api_diff
+name: JS/API Diff
+goal: Highlight newly seen JavaScript files and API endpoints.
+scope: workspace
+inputs:
+  - workspace_id
+steps:
+  - Filter graph nodes by js_file and api_endpoint.
+  - Restrict to nodes first seen in the latest snapshot.
+heuristics:
+  - Favor endpoints and scripts with debug, preview, callback or token hints.
+stop_conditions:
+  - The candidate list is short enough for human review.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    latest_snapshot_id: string
+  js_and_api_nodes: array

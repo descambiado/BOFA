@@ -1,0 +1,23 @@
+skill_key: program_intel
+name: Program Intel
+goal: Build a concise operational summary of the selected bug bounty workspace.
+scope: workspace
+inputs:
+  - workspace_id
+steps:
+  - Collect workspace assets, imports, graph counts and latest snapshot.
+  - Summarize platform, program handle and imported intelligence.
+heuristics:
+  - Favor clarity over volume.
+  - Highlight missing inputs when the workspace is still sparse.
+stop_conditions:
+  - Workspace summary is evidence-backed.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    assets: integer
+    imports: integer
+    nodes: integer
+    edges: integer

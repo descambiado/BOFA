@@ -29,6 +29,7 @@ import uvicorn
 import yaml
 
 from auth import AuthManager, Roles, check_permission
+from core.bounty_service import BountyWorkspaceService
 from database import db
 from execution_queue import execution_queue
 from lab_manager import LabManager
@@ -62,9 +63,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="BOFA Operational Control Plane",
-    description="Cybersecurity platform API with unified runs, timeline and operational control.",
-    version="2.8.5",
+    title="BOFA Duplicate-Aware Bug Bounty System",
+    description="Cybersecurity platform API with unified runs, evidence and duplicate-aware bug bounty workspaces.",
+    version="2.9.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -81,6 +82,7 @@ auth_manager = AuthManager(db)
 script_executor = ScriptExecutor(db, scripts_dir=str(SCRIPTS_DIR))
 lab_manager = LabManager(db)
 run_manager = RunManager(db)
+bounty_service = BountyWorkspaceService(db, run_manager, APP_ROOT)
 
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
 ARTIFACT_PREVIEW_LIMIT = 4000
@@ -136,6 +138,24 @@ class RunCreateRequest(BaseModel):
     source: str = "api"
     requested_action: str
     target: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+
+
+class BountyWorkspaceCreateRequest(BaseModel):
+    name: str
+    platform: str = "hackerone"
+    program_handle: str
+    notes: str = ""
+    metadata: Dict[str, Any] = {}
+
+
+class WorkspaceImportRequest(BaseModel):
+    import_type: str = Field(pattern="^(scope|disclosed_reports|burp_sitemap|url_list|js_endpoints|notes)$")
+    source_label: str
+    content: str
+    content_format: str = "txt"
+    source_url: Optional[str] = None
+    source_path: Optional[str] = None
     metadata: Dict[str, Any] = {}
 
 
@@ -228,6 +248,15 @@ def _serialize_run(run: Dict[str, Any]) -> Dict[str, Any]:
         "lab_count": len(run.get("labs", [])),
         "status": status,
     }
+
+
+def _require_workspace_access(workspace_id: str, current_user: Dict[str, Any]) -> Dict[str, Any]:
+    workspace = bounty_service.get_workspace(workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    if current_user["role"] != "admin" and workspace.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return workspace
 
 
 def _artifact_role(artifact_type: Optional[str]) -> str:
@@ -2013,11 +2042,20 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(auth_mana
 @app.get("/")
 async def root():
     return {
-        "name": "BOFA Operational Control Plane",
-        "version": "2.8.5",
+        "name": "BOFA Duplicate-Aware Bug Bounty System",
+        "version": "2.9.0",
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
-        "capabilities": {"runs": True, "script_execution": True, "lab_management": True, "flow_execution": True, "timeline": True},
+        "capabilities": {
+            "runs": True,
+            "script_execution": True,
+            "lab_management": True,
+            "flow_execution": True,
+            "timeline": True,
+            "bounty": True,
+            "skills": True,
+            "duplicate_aware_analysis": True,
+        },
     }
 
 
@@ -2212,11 +2250,14 @@ async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = D
 async def list_runs_endpoint(
     run_type: Optional[str] = None,
     status: Optional[str] = None,
+    workspace_id: Optional[str] = None,
     limit: int = 50,
     current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
 ):
     user_id = None if current_user["role"] == "admin" else current_user["user_id"]
-    runs = db.list_runs(user_id=user_id, run_type=run_type, status=status, limit=limit)
+    if workspace_id:
+        _require_workspace_access(workspace_id, current_user)
+    runs = db.list_runs(user_id=user_id, run_type=run_type, status=status, workspace_id=workspace_id, limit=limit)
     return [_serialize_run(run) for run in runs]
 
 
@@ -2464,6 +2505,122 @@ async def retry_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_man
     }
 
 
+@app.post("/bounty/workspaces")
+async def create_bounty_workspace(
+    request: BountyWorkspaceCreateRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    if not check_permission(current_user, "execute_scripts"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return bounty_service.create_workspace(
+        user_id=current_user["user_id"],
+        name=request.name,
+        platform=request.platform,
+        program_handle=request.program_handle,
+        notes=request.notes,
+        metadata=request.metadata,
+    )
+
+
+@app.get("/bounty/workspaces")
+async def list_bounty_workspaces(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    return bounty_service.list_workspaces(user_id=user_id)
+
+
+@app.get("/bounty/workspaces/{workspace_id}")
+async def get_bounty_workspace(workspace_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    _require_workspace_access(workspace_id, current_user)
+    return bounty_service.get_workspace_detail(workspace_id)
+
+
+@app.post("/bounty/workspaces/{workspace_id}/imports")
+async def import_bounty_workspace_content(
+    workspace_id: str,
+    request: WorkspaceImportRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    try:
+        return bounty_service.import_content(
+            workspace_id=workspace_id,
+            user_id=current_user["user_id"],
+            import_type=request.import_type,
+            source_label=request.source_label,
+            content=request.content,
+            content_format=request.content_format,
+            source_url=request.source_url,
+            source_path=request.source_path,
+            metadata=request.metadata,
+            source="bounty_api",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/bounty/workspaces/{workspace_id}/analyze")
+async def analyze_bounty_workspace(
+    workspace_id: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    try:
+        return bounty_service.analyze_workspace(workspace_id, current_user["user_id"], source="bounty_api")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/bounty/workspaces/{workspace_id}/graph")
+async def get_bounty_workspace_graph(
+    workspace_id: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    return bounty_service.get_workspace_graph(workspace_id)
+
+
+@app.get("/bounty/workspaces/{workspace_id}/findings")
+async def list_bounty_workspace_findings(
+    workspace_id: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    return bounty_service.list_findings(workspace_id, include_archived=False)
+
+
+@app.get("/bounty/workspaces/{workspace_id}/findings/{finding_id}")
+async def get_bounty_workspace_finding(
+    workspace_id: str,
+    finding_id: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    finding = bounty_service.get_finding(workspace_id, finding_id)
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    return finding
+
+
+@app.get("/bounty/skills")
+async def list_bounty_skills(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    if not check_permission(current_user, "execute_scripts"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return bounty_service.list_skills()
+
+
+@app.post("/bounty/workspaces/{workspace_id}/skills/{skill_key}/run")
+async def run_bounty_skill(
+    workspace_id: str,
+    skill_key: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    try:
+        return bounty_service.run_skill(workspace_id, skill_key, current_user["user_id"], source="bounty_api")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/execute")
 async def execute_script(request: ExecuteScriptRequest, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
     result = await _start_script_run(current_user, request.module, request.script, request.parameters, source="legacy_execute")
@@ -2517,11 +2674,17 @@ async def get_queue_info(current_user: Dict[str, Any] = Depends(auth_manager.get
 
 
 @app.get("/history")
-async def get_execution_history(limit: int = 50, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+async def get_execution_history(
+    limit: int = 50,
+    workspace_id: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
     user_id = None if current_user["role"] == "admin" else current_user["user_id"]
-    runs = db.list_runs(user_id=user_id, limit=limit)
+    if workspace_id:
+        _require_workspace_access(workspace_id, current_user)
+    runs = db.list_runs(user_id=user_id, workspace_id=workspace_id, limit=limit)
     run_items = _normalize_history_from_runs(runs)
-    legacy_items = _normalize_legacy_history(user_id, limit)
+    legacy_items = [] if workspace_id else _normalize_legacy_history(user_id, limit)
     return _merge_history_items(run_items, legacy_items, limit)
 
 

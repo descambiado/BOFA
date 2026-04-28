@@ -1,4 +1,4 @@
-# BOFA - Cybersecurity Operations Framework Advanced
+# BOFA - Duplicate-Aware Bug Bounty and Security Operations Framework
 
 ![BOFA](https://github.com/descambiado/BOFA/blob/main/public/bofasuitebanner.png?raw=true)
 
