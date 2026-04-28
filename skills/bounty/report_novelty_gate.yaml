@@ -1,0 +1,21 @@
+skill_key: report_novelty_gate
+name: Report Novelty Gate
+goal: Produce a short queue of findings worth manual time and possible reporting.
+scope: workspace
+inputs:
+  - workspace_id
+steps:
+  - Read current novelty findings.
+  - Keep items with high novelty and lower duplicate risk.
+heuristics:
+  - Favor changes, APIs, JS and auth/context pivots.
+  - Avoid auto-claiming a bug; propose a manual review queue.
+stop_conditions:
+  - The recommended queue is small and evidence-linked.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    finding_count: integer
+  recommended: array

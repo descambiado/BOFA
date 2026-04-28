@@ -1,15 +1,8 @@
 """
-Security Agent - Agente autónomo que razona y vulnera
-======================================================
-
-Loop Observe-Think-Act: observa hallazgos, razona con LLM, ejecuta herramientas BOFA,
-hasta encontrar vulnerabilidades o agotar opciones.
-
-Soporta: Ollama (local), OpenAI, Anthropic.
+Security Agent - autonomous BOFA operator for bug bounty exploration.
 """
 
 import json
-import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -21,97 +14,74 @@ if str(_ROOT) not in sys.path:
 from core.engine import get_engine
 from flows.flow_runner import run_flow
 
-# Herramientas disponibles para el agente
-TOOLS_DESC = """
-HERRAMIENTAS BOFA (responde con JSON):
 
-1. execute_script: Ejecuta un script BOFA.
+TOOLS_DESC = """
+BOFA TOOLS (respond with JSON only):
+
+1. execute_script: Execute a BOFA script.
    {"action": "execute_script", "module": "web", "script": "param_finder", "parameters": {"url": "URL", "json": true, "insecure": true}}
 
-2. run_flow: Ejecuta un flujo completo.
+2. run_flow: Execute a BOFA flow.
    {"action": "run_flow", "flow_id": "bug_bounty_full_chain", "target": "URL"}
 
-3. correlate: Correlaciona hallazgos previos (ejecutar tras param_finder, path_scanner, fuzzer).
+3. run_skill: Execute a bounty skill for an existing workspace.
+   {"action": "run_skill", "workspace_id": "workspace_xxx", "skill_key": "delta_recon"}
+
+4. correlate: Correlate previous findings after recon/fuzzing.
    {"action": "correlate"}
 
-4. done: Termina cuando hayas encontrado vulnerabilidades o agotado opciones.
-   {"action": "done", "reason": "Explicación breve", "success": true/false}
-
-Scripts clave para vulnerar:
-- recon/web_discover, recon/http_headers (recon)
-- web/param_finder (extrae params de formularios/enlaces) -> USA insecure: true si SSL falla
-- web/path_scanner (busca admin, login, .git, etc.)
-- web/security_headers_analyzer (HSTS, CSP faltantes)
-- web/robots_txt
-- exploit/http_param_fuzzer (fuzzing con params) -> params desde param_finder, payload-set: sqli o xss
-- reporting/findings_correlator (correla param_finder+path_scanner+fuzzer para hotspots)
-
-IMPORTANTE: Si el target tiene SSL autofirmado, añade "insecure": true a todos los scripts web/recon.
-Encadena: param_finder devuelve params -> usa esos params en http_param_fuzzer con payload-set sqli,xss.
-Si path_scanner encuentra rutas -> prueba param_finder en esas URLs (url + path).
+5. done: Finish when you have enough signal or no promising steps remain.
+   {"action": "done", "reason": "short reason", "success": true/false}
 """
 
-SYSTEM_PROMPT = """Eres un pentester autónomo. Tu objetivo es encontrar vulnerabilidades en el target.
 
-Tienes acceso a herramientas BOFA. Debes:
-1. OBSERVAR los hallazgos previos
-2. RAZONAR qué probar a continuación (basándote en lo encontrado)
-3. ACTUAR ejecutando la herramienta más prometedora
-4. REPETIR hasta encontrar vulnerabilidades o agotar opciones
+SYSTEM_PROMPT = """You are a BOFA security operator.
 
-Criterios de ÉXITO (vulnerabilidad encontrada):
-- param_finder: params encontrados
-- path_scanner: rutas con 200/301/302/401/403
-- security_headers_analyzer: issues (HSTS, CSP, etc. faltantes)
-- http_param_fuzzer: anomalies (respuestas con longitud anómala)
-- findings_correlator: hotspots priorizados
+Goal:
+- explore the target,
+- reason about what to test next,
+- use BOFA tools carefully,
+- prefer evidence-rich steps,
+- avoid blind loops.
 
-Estrategia: Empieza con recon (web_discover, http_headers), luego param_finder y path_scanner.
-Si encuentras params, fuzzéalos con payload-set sqli o xss. Si encuentras rutas sensibles, profundiza.
-Correlaciona hallazgos con findings_correlator. Usa insecure: true si hay errores SSL.
-
-Responde ÚNICAMENTE con un JSON válido (action + parámetros). Sin markdown, sin explicación extra."""
+Use run_skill when a workspace_id is available and you need duplicate-aware prioritization.
+Respond with valid JSON only.
+"""
 
 
 def _extract_json(text: str) -> Optional[Dict[str, Any]]:
-    """Extrae el primer JSON del texto."""
     text = text.strip()
     start = text.find("{")
     if start < 0:
         return None
     depth = 0
-    for i, c in enumerate(text[start:], start):
-        if c == "{":
+    for idx, char in enumerate(text[start:], start):
+        if char == "{":
             depth += 1
-        elif c == "}":
+        elif char == "}":
             depth -= 1
             if depth == 0:
                 try:
-                    return json.loads(text[start : i + 1])
+                    return json.loads(text[start : idx + 1])
                 except json.JSONDecodeError:
-                    pass
-                return None
+                    return None
     return None
 
 
 def _detect_success(stdout: str, script: str) -> List[str]:
-    """Detecta si el output indica hallazgos/vulnerabilidades."""
-    successes = []
+    successes: List[str] = []
     try:
         obj = _extract_json(stdout)
         if not obj:
             return successes
         if script == "param_finder" and obj.get("params"):
-            successes.append(f"Params encontrados: {[p.get('name', p) for p in obj['params'][:10]]}")
+            successes.append(f"Params found: {[p.get('name', p) for p in obj['params'][:10]]}")
         if script == "path_scanner" and obj.get("findings"):
-            successes.append(f"Rutas encontradas: {len(obj['findings'])}")
+            successes.append(f"Routes found: {len(obj['findings'])}")
         if script == "security_headers_analyzer" and obj.get("issues"):
-            successes.append(f"Issues de cabeceras: {len(obj['issues'])}")
-        if script == "http_param_fuzzer":
-            if obj.get("anomalies"):
-                successes.append(f"Anomalías en fuzzer: {len(obj['anomalies'])}")
-            if obj.get("results") and not obj.get("errors"):
-                successes.append("Fuzzer completó sin errores")
+            successes.append(f"Header issues: {len(obj['issues'])}")
+        if script == "http_param_fuzzer" and obj.get("anomalies"):
+            successes.append(f"Fuzzer anomalies: {len(obj['anomalies'])}")
         if script == "findings_correlator" and obj.get("hotspots"):
             successes.append(f"Hotspots: {len(obj['hotspots'])}")
     except Exception:
@@ -124,93 +94,89 @@ def _execute_action(
     params: Dict[str, Any],
     target: str,
     context: Optional[List[Dict[str, Any]]] = None,
+    workspace_id: Optional[str] = None,
 ) -> Tuple[str, bool]:
-    """Ejecuta la acción y retorna (resultado_texto, si_hay_error)."""
     context = context or []
 
     if action == "run_flow":
         engine = get_engine()
         engine.initialize()
         flow_id = params.get("flow_id", "bug_bounty_full_chain")
-        t = params.get("target", target)
+        selected_target = params.get("target", target)
         try:
-            result = run_flow(flow_id, t)
+            result = run_flow(flow_id, selected_target)
             status = result.get("status", "unknown")
             steps = result.get("steps", [])
-            summary = []
-            all_successes = []
-            for s in steps:
-                st = s.get("status", "")
-                mod = s.get("module", "")
-                scr = s.get("script", "")
-                summary.append(f"{mod}/{scr}: {st}")
-                if st == "success" and s.get("stdout_preview"):
-                    succ = _detect_success(s["stdout_preview"], scr)
-                    if succ:
-                        summary.append(f"  -> {succ}")
-                        all_successes.extend(succ)
-            out = {"status": status, "steps_summary": summary}
-            if all_successes:
-                out["_successes"] = all_successes
-            return json.dumps(out, indent=2), False
-        except Exception as e:
-            return json.dumps({"error": str(e)}), True
+            summary: List[str] = []
+            successes: List[str] = []
+            for step in steps:
+                step_status = step.get("status", "")
+                module = step.get("module", "")
+                script = step.get("script", "")
+                summary.append(f"{module}/{script}: {step_status}")
+                if step_status == "success" and step.get("stdout_preview"):
+                    found = _detect_success(step["stdout_preview"], script)
+                    if found:
+                        summary.append(f"  -> {found}")
+                        successes.extend(found)
+            payload = {"status": status, "steps_summary": summary}
+            if successes:
+                payload["_successes"] = successes
+            return json.dumps(payload, indent=2), False
+        except Exception as exc:
+            return json.dumps({"error": str(exc)}), True
 
     if action == "correlate" and context:
-        # Correlaciona hallazgos previos usando findings_correlator
         steps_data = []
-        for c in context:
-            res = c.get("result", "")
+        for item in context:
+            result = item.get("result", "")
             try:
-                obj = json.loads(res)
-                stdout = obj.get("stdout", "")
-                if stdout:
-                    steps_data.append({"stdout_preview": stdout})
+                obj = json.loads(result)
             except json.JSONDecodeError:
-                pass
+                continue
+            stdout = obj.get("stdout", "")
+            if stdout:
+                steps_data.append({"stdout_preview": stdout})
         if not steps_data:
-            return json.dumps({"error": "No hay datos previos para correlacionar"}), True
+            return json.dumps({"error": "No prior data to correlate"}), True
+
         import subprocess
-        from pathlib import Path
-        script_path = Path(__file__).parent.parent / "scripts" / "reporting" / "findings_correlator.py"
+
+        script_path = _ROOT / "scripts" / "reporting" / "findings_correlator.py"
         inp = json.dumps({"steps": steps_data})
         try:
-            r = subprocess.run(
-                ["python3", str(script_path), "--target", target, "--stdin", "--json"],
-                input=inp.encode("utf-8"),
+            process = subprocess.run(
+                [sys.executable, str(script_path), "--target", target, "--stdin", "--json"],
+                input=inp,
                 capture_output=True,
                 text=True,
                 timeout=30,
-                cwd=str(Path(__file__).parent.parent),
+                cwd=str(_ROOT),
             )
-            out = r.stdout or r.stderr or ""
-            obj = _extract_json(out) or {}
-            successes = []
+            output = process.stdout or process.stderr or ""
+            obj = _extract_json(output) or {}
+            successes: List[str] = []
             if obj.get("hotspots"):
                 successes.append(f"Hotspots: {len(obj['hotspots'])}")
-            return json.dumps({"stdout": out, "_successes": successes, **obj}, indent=2), r.returncode != 0
-        except Exception as e:
-            return json.dumps({"error": str(e)}), True
+            return json.dumps({"stdout": output, "_successes": successes, **obj}, indent=2), process.returncode != 0
+        except Exception as exc:
+            return json.dumps({"error": str(exc)}), True
 
     if action == "execute_script":
         engine = get_engine()
         engine.initialize()
         module = params.get("module", "")
         script = params.get("script", "")
-        pars = params.get("parameters", params)
-        if isinstance(pars, dict) is False:
-            pars = {}
-        if "url" not in pars and "target" not in pars:
-            pars["url"] = target
+        script_params = params.get("parameters", params)
+        if not isinstance(script_params, dict):
+            script_params = {}
+        if "url" not in script_params and "target" not in script_params:
+            script_params["url"] = target
         if not module or not script:
-            return json.dumps({"error": "module y script requeridos"}), True
+            return json.dumps({"error": "module and script are required"}), True
         try:
-            result = engine.execute_script(
-                module_name=module,
-                script_name=script,
-                parameters=pars,
-            )
-            out = {
+            result = engine.execute_script(module_name=module, script_name=script, parameters=script_params)
+            payload = {
                 "status": result.status,
                 "exit_code": result.exit_code,
                 "stdout": (result.stdout or "")[:3000],
@@ -219,12 +185,33 @@ def _execute_action(
             }
             successes = _detect_success(result.stdout or "", script)
             if successes:
-                out["_successes"] = successes
-            return json.dumps(out, indent=2), result.exit_code != 0
-        except Exception as e:
-            return json.dumps({"error": str(e)}), True
+                payload["_successes"] = successes
+            return json.dumps(payload, indent=2), result.exit_code != 0
+        except Exception as exc:
+            return json.dumps({"error": str(exc)}), True
 
-    return json.dumps({"error": f"Acción desconocida: {action}"}), True
+    if action == "run_skill":
+        selected_workspace_id = params.get("workspace_id") or workspace_id
+        skill_key = params.get("skill_key")
+        if not selected_workspace_id or not skill_key:
+            return json.dumps({"error": "workspace_id and skill_key are required"}), True
+        try:
+            from api.database import db as api_db
+            from api.run_manager import RunManager as ApiRunManager
+            from core.bounty_service import BountyWorkspaceService
+
+            service = BountyWorkspaceService(api_db, ApiRunManager(api_db), _ROOT)
+            result = service.run_skill(
+                workspace_id=selected_workspace_id,
+                skill_key=skill_key,
+                user_id=1,
+                source="agent",
+            )
+            return json.dumps(result, indent=2, ensure_ascii=False), False
+        except Exception as exc:
+            return json.dumps({"error": str(exc)}), True
+
+    return json.dumps({"error": f"Unknown action: {action}"}), True
 
 
 def run_security_agent(
@@ -232,19 +219,8 @@ def run_security_agent(
     provider: str = "auto",
     max_iterations: int = 15,
     verbose: bool = True,
+    workspace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Ejecuta el agente de seguridad hasta encontrar vulnerabilidades o agotar.
-
-    Args:
-        target: URL objetivo (ej. https://yungkuoo.com)
-        provider: ollama, openai, anthropic, auto
-        max_iterations: Máximo de pasos
-        verbose: Imprimir progreso
-
-    Returns:
-        Dict con status, findings, iterations, final_reason
-    """
     from .llm_providers import get_provider
 
     target = target.strip()
@@ -259,51 +235,49 @@ def run_security_agent(
     if verbose:
         print(f"[Agent] Target: {target}")
         print(f"[Agent] Provider: {provider}")
-        print("[Agent] Iniciando loop Observe-Think-Act...")
+        if workspace_id:
+            print(f"[Agent] Workspace: {workspace_id}")
+        print("[Agent] Starting Observe-Think-Act loop...")
         print()
 
     while iteration < max_iterations:
         iteration += 1
         if verbose:
-            print(f"--- Iteración {iteration}/{max_iterations} ---")
+            print(f"--- Iteration {iteration}/{max_iterations} ---")
 
-        # Construir prompt
         context_str = ""
         if context:
-            context_str = "HALLAZGOS PREVIOS:\n"
-            for i, c in enumerate(context[-6:], 1):  # últimas 6
-                context_str += f"\n[{i}] Acción: {c.get('action', '')}\n"
-                context_str += f"Resultado: {str(c.get('result', ''))[:1500]}...\n"
-                if c.get("successes"):
-                    context_str += f"ÉXITOS: {c['successes']}\n"
+            context_str = "PREVIOUS FINDINGS:\n"
+            for index, item in enumerate(context[-6:], 1):
+                context_str += f"\n[{index}] Action: {item.get('action', '')}\n"
+                context_str += f"Result: {str(item.get('result', ''))[:1500]}...\n"
+                if item.get("successes"):
+                    context_str += f"SIGNAL: {item['successes']}\n"
 
+        workspace_context = f"\nWorkspace bounty: {workspace_id}\n" if workspace_id else "\nWorkspace bounty: none\n"
         prompt = f"""Target: {target}
+{workspace_context}
 {context_str}
 
-¿Qué herramienta ejecutas ahora? Responde SOLO con JSON."""
+What BOFA tool do you execute next? Respond with JSON only."""
 
-        # Think
         response = llm.complete(prompt, system=SYSTEM_PROMPT + "\n\n" + TOOLS_DESC, max_tokens=1024)
-
         if verbose:
             print(f"[Think] {response[:300]}...")
 
-        # Parse action
         action_data = _extract_json(response)
         if not action_data:
             if verbose:
-                print("[Agent] No se pudo parsear JSON, reintentando...")
+                print("[Agent] Could not parse JSON, retrying...")
             context.append({"action": "parse_error", "result": response[:500], "successes": []})
             continue
 
-        # Si el LLM devolvió un error (ej. Ollama no disponible)
         if action_data.get("error"):
             if verbose:
-                print(f"[Agent] Error del LLM: {action_data.get('error', '')[:100]}")
+                print(f"[Agent] LLM error: {action_data.get('error', '')[:120]}")
             if iteration == 1:
-                # Fallback: ejecutar run_flow como primera acción
                 if verbose:
-                    print("[Agent] Fallback: ejecutando run_flow bug_bounty_full_chain")
+                    print("[Agent] Fallback: running bug_bounty_full_chain")
                 action_data = {"action": "run_flow", "flow_id": "bug_bounty_full_chain", "target": target}
             else:
                 context.append({"action": "llm_error", "result": response[:500], "successes": []})
@@ -311,7 +285,7 @@ def run_security_agent(
 
         action = action_data.get("action", "")
         if action == "done":
-            reason = action_data.get("reason", "Finalizado por el agente")
+            reason = action_data.get("reason", "Finished by agent")
             success = action_data.get("success", False)
             if verbose:
                 print(f"[Done] {reason} (success={success})")
@@ -323,59 +297,50 @@ def run_security_agent(
                 "iterations": iteration,
             }
 
-        params = {k: v for k, v in action_data.items() if k != "action"}
+        params = {key: value for key, value in action_data.items() if key != "action"}
         if action == "execute_script":
             if "parameters" not in params:
-                params["parameters"] = {k: v for k, v in params.items() if k in ("url", "json", "insecure", "params", "payload_set", "payload-set", "timeout", "limit", "method", "paths")}
+                params["parameters"] = {
+                    key: value
+                    for key, value in params.items()
+                    if key in ("url", "json", "insecure", "params", "payload_set", "payload-set", "timeout", "limit", "method", "paths")
+                }
             else:
-                # Asegurar url en parameters
-                p = params["parameters"]
-                if isinstance(p, dict) and "url" not in p:
-                    p["url"] = target
-                    if "insecure" not in p:
-                        p["insecure"] = True
-                    if "json" not in p:
-                        p["json"] = True
+                script_params = params["parameters"]
+                if isinstance(script_params, dict) and "url" not in script_params:
+                    script_params["url"] = target
+                    script_params.setdefault("insecure", True)
+                    script_params.setdefault("json", True)
 
-        # Act
-        result_str, had_error = _execute_action(action, params, target, context)
+        result_str, _had_error = _execute_action(action, params, target, context, workspace_id=workspace_id)
         result_obj = json.loads(result_str) if result_str.startswith("{") else {}
         successes = result_obj.pop("_successes", [])
         all_findings.extend(successes)
 
-        context.append({
-            "action": action,
-            "params": params,
-            "result": result_str,
-            "successes": successes,
-        })
+        context.append({"action": action, "params": params, "result": result_str, "successes": successes})
 
         if verbose:
             print(f"[Act] {action} -> status={result_obj.get('status', '?')}")
             if successes:
-                print(f"[Éxito] {successes}")
-
-        # Si encontramos vulnerabilidades y el agente no dijo done, podemos sugerirle
-        if successes and iteration >= 3:
-            # Dar opción de terminar con éxito
-            pass
+                print(f"[Signal] {successes}")
 
     return {
         "status": "max_iterations",
         "success": len(all_findings) > 0,
-        "reason": f"Límite de {max_iterations} iteraciones",
+        "reason": f"Iteration limit {max_iterations}",
         "findings": all_findings,
         "iterations": iteration,
     }
 
 
 def main() -> int:
-    """CLI para el agente."""
     import argparse
-    parser = argparse.ArgumentParser(description="Agente de seguridad autónomo BOFA")
-    parser.add_argument("target", help="URL objetivo")
+
+    parser = argparse.ArgumentParser(description="BOFA autonomous security agent")
+    parser.add_argument("target", help="Target URL")
     parser.add_argument("--provider", default="auto", choices=["auto", "ollama", "openai", "anthropic"])
     parser.add_argument("--max-iterations", type=int, default=15)
+    parser.add_argument("--workspace-id", default=None)
     parser.add_argument("-q", "--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -384,19 +349,20 @@ def main() -> int:
         provider=args.provider,
         max_iterations=args.max_iterations,
         verbose=not args.quiet,
+        workspace_id=args.workspace_id,
     )
 
     print()
     print("=" * 50)
-    print("RESULTADO FINAL")
+    print("FINAL RESULT")
     print("=" * 50)
     print(f"Status: {result['status']}")
     print(f"Success: {result['success']}")
     print(f"Reason: {result['reason']}")
     print(f"Iterations: {result['iterations']}")
     print(f"Findings: {len(result['findings'])}")
-    for f in result["findings"]:
-        print(f"  - {f}")
+    for finding in result["findings"]:
+        print(f"  - {finding}")
 
     return 0 if result["success"] else 1
 

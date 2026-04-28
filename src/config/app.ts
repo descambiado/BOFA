@@ -1,15 +1,15 @@
 /**
- * BOFA v2.8.5 - Signed Evidence Verification
+ * BOFA v2.9.0 - Duplicate-Aware Bug Bounty System
  * Configuración centralizada de la aplicación
  */
 
 export const APP_CONFIG = {
   // Información de la aplicación
   name: "BOFA",
-  fullName: "Best Of All Cybersecurity Suite",
-  version: "2.8.5",
-  codename: "Signed Evidence Verification",
-  releaseDate: "2026-04-09",
+  fullName: "Best Of All Cybersecurity Framework",
+  version: "2.9.0",
+  codename: "Duplicate-Aware Bug Bounty System",
+  releaseDate: "2026-04-28",
   
   // Información del desarrollador
   developer: {

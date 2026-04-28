@@ -20,6 +20,7 @@ const History = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [familyFilter, setFamilyFilter] = useState("all");
+  const [workspaceFilter, setWorkspaceFilter] = useState("");
   const [artifactPreview, setArtifactPreview] = useState<RunArtifactPreview | null>(null);
   const [artifactPreviewId, setArtifactPreviewId] = useState<string | null>(null);
   const [isArtifactPreviewLoading, setIsArtifactPreviewLoading] = useState(false);
@@ -27,7 +28,7 @@ const History = () => {
   const [verification, setVerification] = useState<RunEvidenceVerification | null>(null);
   const [isVerifyingEvidence, setIsVerifyingEvidence] = useState(false);
   const [evidenceKeyInfo, setEvidenceKeyInfo] = useState<EvidencePublicKeyInfo | null>(null);
-  const { data: runs, isLoading, refetch } = useRuns();
+  const { data: runs, isLoading, refetch } = useRuns(workspaceFilter.trim() || null);
   const { data: selectedRun, refetch: refetchRun } = useRunDetail(selectedRunId);
 
   const isFinalStatus = (status?: string) => FINAL_STATUSES.includes(status || "");
@@ -91,9 +92,10 @@ const History = () => {
       const matchesStatus = statusFilter === "all" || run.status === statusFilter;
       const matchesType = typeFilter === "all" || run.run_type === typeFilter;
       const matchesFamily = familyFilter === "all" || getRootFamilyId(run) === familyFilter;
-      return matchesSearch && matchesStatus && matchesType && matchesFamily;
+      const matchesWorkspace = !workspaceFilter.trim() || run.metadata?.workspace_id === workspaceFilter.trim();
+      return matchesSearch && matchesStatus && matchesType && matchesFamily && matchesWorkspace;
     });
-  }, [runs, searchTerm, statusFilter, typeFilter, familyFilter]);
+  }, [runs, searchTerm, statusFilter, typeFilter, familyFilter, workspaceFilter]);
 
   const selectedFamilyRuns = useMemo(() => {
     if (!selectedRun) return [];
@@ -493,7 +495,7 @@ const History = () => {
             Investigación rápida
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
@@ -539,6 +541,12 @@ const History = () => {
               ))}
             </SelectContent>
           </Select>
+          <Input
+            value={workspaceFilter}
+            onChange={(event) => setWorkspaceFilter(event.target.value)}
+            placeholder="workspace_id (opcional)"
+            className="border-gray-700 bg-gray-900 text-white"
+          />
         </CardContent>
       </Card>
 

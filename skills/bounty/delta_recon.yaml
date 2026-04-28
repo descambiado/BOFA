@@ -1,0 +1,20 @@
+skill_key: delta_recon
+name: Delta Recon
+goal: Surface what changed since the latest workspace snapshot.
+scope: workspace
+inputs:
+  - workspace_id
+steps:
+  - Compare first_snapshot_id and last_snapshot_id on current graph nodes.
+  - Return fresh nodes for manual review.
+heuristics:
+  - Prioritize APIs, JS and unusual parameters.
+stop_conditions:
+  - New surface is isolated into a short queue.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    latest_snapshot_id: string
+  new_nodes: array
