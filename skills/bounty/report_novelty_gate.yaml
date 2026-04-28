@@ -4,18 +4,21 @@ goal: Produce a short queue of findings worth manual time and possible reporting
 scope: workspace
 inputs:
   - workspace_id
+  - snapshot_id
 steps:
-  - Read current novelty findings.
-  - Keep items with high novelty and lower duplicate risk.
+  - Read the clustered findings and current review queue.
+  - Keep only items with enough evidence and a concrete next manual step.
 heuristics:
   - Favor changes, APIs, JS and auth/context pivots.
-  - Avoid auto-claiming a bug; propose a manual review queue.
+  - Penalize obvious surfaces and repeated disclosed patterns.
+  - Avoid auto-claiming a bug; propose a short review queue first.
 stop_conditions:
-  - The recommended queue is small and evidence-linked.
+  - The recommended queue is small, evidence-linked and manually actionable.
 artifacts:
   - bounty_skill_result
   - bounty_skill_markdown
 output_schema:
   summary:
     finding_count: integer
+    review_queue_count: integer
   recommended: array

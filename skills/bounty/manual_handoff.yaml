@@ -1,0 +1,24 @@
+skill_key: manual_handoff
+name: Manual Handoff
+goal: Turn the strongest clustered findings into a short manual queue with concrete next steps and no exaggerated claims.
+scope: workspace
+inputs:
+  - workspace_id
+  - snapshot_id
+steps:
+  - Read the current review queue and finding clusters.
+  - Keep items with strong novelty, acceptable duplicate risk and enough evidence.
+  - Express the next manual step in one short sentence per hypothesis.
+heuristics:
+  - Do not claim a vulnerability unless manual evidence already exists.
+  - Prefer role, tenant, preview, callback and authz pivots over generic payload spam.
+stop_conditions:
+  - The handoff is concise enough to work from during a live hunting session.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    latest_snapshot_id: string
+    review_queue_count: integer
+  manual_queue: array

@@ -4,6 +4,25 @@ Por descambiado. Cambios notables por version.
 
 ---
 
+## v2.9.0 (2026-04-28) - Duplicate-Aware Bounty Workspaces
+
+### Flagship bounty layer
+- **Bounty workspaces**: memoria operativa por programa para separar imports, graph, findings y evidencia.
+- **Imports locales**: scope, disclosed reports, URL lists, Burp sitemap, JS endpoints y notas manuales.
+- **Target graph**: hosts, rutas, params, JS y endpoints API correlacionados dentro del mismo workspace.
+
+### Priorizacion anti-duplicados
+- **Novelty findings**: scoring dual con `novelty_score` y `duplicate_risk_score`.
+- **Skills bounty**: `program_intel`, `delta_recon`, `duplicate_risk`, `authz_matrix`, `js_api_diff` y `report_novelty_gate`.
+- **UI bounty**: vista dedicada para workspaces, imports, target graph y cola inicial de findings.
+
+### Repo y verificacion
+- **CI visible**: workflow para smoke suites y build del frontend.
+- **Verificador bounty**: `tools/verify_bounty_system.py` para validar el sistema duplicate-aware sin depender de servicios externos.
+- **Agente**: soporte inicial para `run_skill` dentro del contexto de workspace.
+
+---
+
 ## v2.8.5 (2026-04-09) - Signed Evidence Verification
 
 ### Evidencia portable y defendible

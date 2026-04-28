@@ -366,6 +366,70 @@ class DatabaseManager:
             """
         )
 
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS workspace_snapshots (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                run_id TEXT,
+                snapshot_type TEXT NOT NULL,
+                label TEXT,
+                source TEXT,
+                previous_snapshot_id TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id),
+                FOREIGN KEY (run_id) REFERENCES operation_runs (id),
+                FOREIGN KEY (previous_snapshot_id) REFERENCES workspace_snapshots (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS surface_deltas (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                snapshot_id TEXT NOT NULL,
+                previous_snapshot_id TEXT,
+                entity_type TEXT NOT NULL,
+                entity_key TEXT NOT NULL,
+                entity_label TEXT,
+                change_type TEXT NOT NULL,
+                node_id TEXT,
+                asset_id TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id),
+                FOREIGN KEY (snapshot_id) REFERENCES workspace_snapshots (id),
+                FOREIGN KEY (previous_snapshot_id) REFERENCES workspace_snapshots (id),
+                FOREIGN KEY (node_id) REFERENCES target_graph_nodes (id),
+                FOREIGN KEY (asset_id) REFERENCES workspace_assets (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS finding_clusters (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                snapshot_id TEXT,
+                cluster_key TEXT NOT NULL,
+                hypothesis TEXT NOT NULL,
+                root_cause TEXT,
+                novelty_score REAL DEFAULT 0,
+                duplicate_risk_score REAL DEFAULT 0,
+                status TEXT DEFAULT 'open',
+                rationale TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (workspace_id) REFERENCES bounty_workspaces (id),
+                FOREIGN KEY (snapshot_id) REFERENCES workspace_snapshots (id)
+            )
+            """
+        )
+
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_user_created ON operation_runs (user_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_status_created ON operation_runs (status, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_steps_run_id ON run_steps (run_id, step_index)")
@@ -379,6 +443,9 @@ class DatabaseManager:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_target_graph_edges_workspace_from_to ON target_graph_edges (workspace_id, from_node_id, to_node_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_disclosed_reports_workspace_bugclass ON disclosed_reports (workspace_id, bug_class)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_novelty_findings_workspace_category_created ON novelty_findings (workspace_id, category, created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspace_snapshots_workspace_created ON workspace_snapshots (workspace_id, created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_surface_deltas_workspace_snapshot ON surface_deltas (workspace_id, snapshot_id, entity_type)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_finding_clusters_workspace_snapshot ON finding_clusters (workspace_id, snapshot_id, created_at DESC)")
 
         self._ensure_column(cursor, "script_executions", "run_id", "TEXT")
         self._ensure_column(cursor, "script_executions", "step_id", "TEXT")
