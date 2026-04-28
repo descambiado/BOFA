@@ -7,8 +7,10 @@ La idea no es "escanear mas", sino trabajar mejor:
 - separar cada programa en un workspace propio
 - importar scope, disclosed reports y listas de URLs/endpoints
 - construir memoria operativa del target
+- persistir snapshots y deltas de superficie
 - detectar que cambio y que es raro
 - priorizar hallazgos con mas novedad y menos riesgo de duplicado
+- generar una review queue con siguiente paso manual
 
 ## Flujo recomendado
 
@@ -22,8 +24,10 @@ La idea no es "escanear mas", sino trabajar mejor:
    - `What Is Weird`
    - `Worth Manual Time`
    - `Likely Duplicate`
-7. Ejecuta skills tacticas como `delta_recon`, `authz_matrix` o `report_novelty_gate`.
-8. Solo despues invierte tiempo manual profundo en la cola mas prometedora.
+   - `Review Queue`
+7. Ejecuta skills tacticas como `delta_recon`, `authz_matrix`, `surface_regression`, `manual_handoff` o `report_novelty_gate`.
+8. Exporta la review queue si quieres una sesion corta y accionable.
+9. Solo despues invierte tiempo manual profundo en la cola mas prometedora.
 
 ## Endpoints principales
 
@@ -33,7 +37,11 @@ La idea no es "escanear mas", sino trabajar mejor:
 - `POST /bounty/workspaces/{workspace_id}/imports`
 - `POST /bounty/workspaces/{workspace_id}/analyze`
 - `GET /bounty/workspaces/{workspace_id}/graph`
+- `GET /bounty/workspaces/{workspace_id}/snapshots`
+- `GET /bounty/workspaces/{workspace_id}/diffs/latest`
 - `GET /bounty/workspaces/{workspace_id}/findings`
+- `GET /bounty/workspaces/{workspace_id}/review-queue`
+- `POST /bounty/workspaces/{workspace_id}/review-queue/export`
 - `GET /bounty/skills`
 - `POST /bounty/workspaces/{workspace_id}/skills/{skill_key}/run`
 
@@ -46,6 +54,8 @@ La idea no es "escanear mas", sino trabajar mejor:
 - `authz_matrix`
 - `duplicate_risk`
 - `report_novelty_gate`
+- `surface_regression`
+- `manual_handoff`
 
 ## Qué intenta responder BOFA
 
@@ -53,6 +63,7 @@ La idea no es "escanear mas", sino trabajar mejor:
 - Que superficie parece rara o menos trillada
 - Que cosas huelen a duplicate antes de perder tiempo
 - Donde conviene invertir testing manual de mayor calidad
+- Cual es el siguiente paso manual mas razonable por hipotesis
 
 ## Limites de esta version
 

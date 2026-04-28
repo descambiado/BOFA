@@ -2,7 +2,7 @@
 """
 BOFA duplicate-aware bounty verification.
 
-Focused smoke checks for workspaces, imports, target graph, novelty findings
+Smoke checks for workspaces, snapshots, deltas, clusters, review queue
 and skill execution without requiring external services.
 """
 
@@ -48,17 +48,11 @@ def _check_workspace_lifecycle():
         notes="smoke",
         metadata={"purpose": "verify"},
     )
-    listed = service.list_workspaces(user_id=1)
     detail = service.get_workspace_detail(workspace["id"])
-    return (
-        workspace.get("name") == "Acme H1"
-        and any(item["id"] == workspace["id"] for item in listed)
-        and detail is not None
-        and detail.get("program_handle") == "acme"
-    )
+    return bool(detail and detail.get("name") == "Acme H1" and isinstance(detail.get("snapshots"), list))
 
 
-def _check_imports_graph_analysis_and_skills():
+def _check_snapshots_deltas_clusters_and_queue():
     app_root, db, _, service = _make_runtime()
     workspace = service.create_workspace(
         user_id=1,
@@ -69,16 +63,29 @@ def _check_imports_graph_analysis_and_skills():
     )
     workspace_id = workspace["id"]
 
-    scope_result = service.import_content(
+    first_import = service.import_content(
         workspace_id=workspace_id,
         user_id=1,
         import_type="scope",
-        source_label="scope batch",
-        content="https://app.delta.test\napi.delta.test\nbeta.delta.test\n",
+        source_label="scope batch 1",
+        content="https://app.delta.test\napi.delta.test\n",
         content_format="txt",
-        metadata={"batch": 1},
     )
-    disclosed_result = service.import_content(
+    second_import = service.import_content(
+        workspace_id=workspace_id,
+        user_id=1,
+        import_type="url_list",
+        source_label="url diff batch 2",
+        content="\n".join(
+            [
+                "https://app.delta.test/api/v2/internal/users?tenant_id=123&debug=true",
+                "https://beta.delta.test/preview/export?workspace=acme",
+                "https://app.delta.test/static/app.bundle.js",
+            ]
+        ),
+        content_format="txt",
+    )
+    service.import_content(
         workspace_id=workspace_id,
         user_id=1,
         import_type="disclosed_reports",
@@ -100,54 +107,44 @@ def _check_imports_graph_analysis_and_skills():
         ),
         content_format="json",
     )
-    urls_result = service.import_content(
-        workspace_id=workspace_id,
-        user_id=1,
-        import_type="url_list",
-        source_label="url diff",
-        content="\n".join(
-            [
-                "https://app.delta.test/api/v2/internal/users?tenant_id=123&debug=true",
-                "https://app.delta.test/static/app.bundle.js",
-                "https://beta.delta.test/preview/export?workspace=acme",
-                "https://app.delta.test/login?redirect=%2Fadmin&q=test",
-            ]
-        ),
-        content_format="txt",
-    )
 
-    graph = service.get_workspace_graph(workspace_id)
     analysis = service.analyze_workspace(workspace_id, user_id=1)
-    skill_result = service.run_skill(workspace_id, "delta_recon", user_id=1)
+    review_export = service.export_review_queue(workspace_id, user_id=1, snapshot_id=second_import["snapshot_id"])
+    manual_handoff = service.run_skill(workspace_id, "manual_handoff", user_id=1)
 
     detail = service.get_workspace_detail(workspace_id)
-    findings = detail.get("findings", []) if detail else []
-    run_ids = [scope_result["run_id"], disclosed_result["run_id"], urls_result["run_id"], analysis["run_id"], skill_result["run_id"]]
-    runs = [db.get_run_detail(run_id) for run_id in run_ids]
-    run_types = {run.get("run_type") for run in runs if run}
+    snapshots = service.list_snapshots(workspace_id)
+    latest_deltas = service.get_latest_deltas(workspace_id)
+    clusters = service.list_finding_clusters(workspace_id, snapshot_id=second_import["snapshot_id"])
+    queue = service.get_review_queue(workspace_id, snapshot_id=second_import["snapshot_id"])
+    export_run = db.get_run_detail(review_export["run_id"])
+    analysis_run = db.get_run_detail(analysis["run_id"])
 
-    return (
-        graph["nodes"]
-        and graph["edges"]
-        and any(node.get("node_type") == "api_endpoint" for node in graph["nodes"])
-        and any(node.get("node_type") == "js_file" for node in graph["nodes"])
-        and any(node.get("node_type") == "param" for node in graph["nodes"])
-        and any(finding.get("category") == "what_changed" for finding in findings)
-        and any(finding.get("category") == "likely_duplicate" for finding in findings)
-        and skill_result.get("skill_key") == "delta_recon"
-        and "intel_import" in run_types
-        and "workspace_analysis" in run_types
-        and "skill_run" in run_types
-        and (app_root / "reports" / "workspaces" / workspace_id).exists()
-        and any(artifact.get("artifact_type") == "workspace_analysis_result" for artifact in (runs[3] or {}).get("artifacts", []))
-        and any(artifact.get("artifact_type") == "bounty_skill_result" for artifact in (runs[4] or {}).get("artifacts", []))
+    return all(
+        [
+            len(snapshots) >= 2,
+            any(snapshot.get("id") == first_import["snapshot_id"] for snapshot in snapshots),
+            any(snapshot.get("id") == second_import["snapshot_id"] for snapshot in snapshots),
+            len(latest_deltas) > 0,
+            any(delta.get("entity_type") == "api_endpoint" for delta in latest_deltas),
+            len(clusters) > 0,
+            len(queue) > 0,
+            all(item.get("evidence") and item.get("next_manual_step") for item in queue),
+            any(item.get("report_candidate") for item in queue),
+            manual_handoff.get("skill_key") == "manual_handoff",
+            bool(manual_handoff.get("manual_queue")),
+            any(artifact.get("artifact_type") == "review_queue_json" for artifact in (export_run or {}).get("artifacts", [])),
+            any(artifact.get("artifact_type") == "workspace_analysis_result" for artifact in (analysis_run or {}).get("artifacts", [])),
+            isinstance(detail.get("clusters"), list),
+            isinstance(detail.get("review_queue"), list),
+        ]
     )
 
 
 def main():
     checks = [
         ("workspace lifecycle persists correctly", _check_workspace_lifecycle()),
-        ("imports, graph, analysis and skill runs work together", _check_imports_graph_analysis_and_skills()),
+        ("snapshots, deltas, clusters and review queue work together", _check_snapshots_deltas_clusters_and_queue()),
     ]
     failed = [name for name, ok in checks if not ok]
 

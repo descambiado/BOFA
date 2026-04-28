@@ -3,208 +3,175 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/UI/badge";
 import { Button } from "@/components/UI/button";
 import { Input } from "@/components/UI/input";
-import { Textarea } from "@/components/UI/textarea";
 import { Label } from "@/components/UI/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/UI/select";
 import { Separator } from "@/components/UI/separator";
-import { apiService, useBountySkills, useBountyWorkspace, useBountyWorkspaces, type BountyWorkspace, type NoveltyFinding } from "@/services/api";
+import { Textarea } from "@/components/UI/textarea";
+import {
+  apiService,
+  useBountySkills,
+  useBountyWorkspace,
+  useBountyWorkspaces,
+  type BountyWorkspace,
+  type NoveltyFinding,
+  type ReviewQueueItem,
+  type SurfaceDelta,
+  type WorkspaceSnapshot,
+} from "@/services/api";
 import { toast } from "sonner";
-import { Activity, BrainCircuit, FolderSearch, GitCompareArrows, Sparkles, Upload, Waypoints } from "lucide-react";
-
-const FINDING_COLORS: Record<string, string> = {
-  what_changed: "bg-cyan-500/15 text-cyan-300 border-cyan-400/30",
-  what_is_weird: "bg-violet-500/15 text-violet-300 border-violet-400/30",
-  worth_manual_time: "bg-emerald-500/15 text-emerald-300 border-emerald-400/30",
-  likely_duplicate: "bg-amber-500/15 text-amber-300 border-amber-400/30",
-};
+import { Activity, BrainCircuit, FileJson, FolderSearch, GitCompareArrows, Sparkles, Upload, Waypoints } from "lucide-react";
 
 const Bounty = () => {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
-  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
-  const [importingContent, setImportingContent] = useState(false);
-  const [analyzingWorkspace, setAnalyzingWorkspace] = useState(false);
-  const [runningSkill, setRunningSkill] = useState<string | null>(null);
-  const [workspaceForm, setWorkspaceForm] = useState({
-    name: "",
-    platform: "hackerone",
-    program_handle: "",
-    notes: "",
-  });
-  const [importForm, setImportForm] = useState({
-    import_type: "scope",
-    source_label: "",
-    content_format: "txt",
-    source_url: "",
-    content: "",
-  });
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
+  const [latestDiffs, setLatestDiffs] = useState<SurfaceDelta[]>([]);
+  const [latestSnapshot, setLatestSnapshot] = useState<WorkspaceSnapshot | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [workspaceForm, setWorkspaceForm] = useState({ name: "", platform: "hackerone", program_handle: "", notes: "" });
+  const [importForm, setImportForm] = useState({ import_type: "scope", source_label: "", content_format: "txt", source_url: "", content: "" });
 
-  const { data: workspaces, isLoading: workspacesLoading, refetch: refetchWorkspaces } = useBountyWorkspaces();
-  const { data: selectedWorkspace, refetch: refetchWorkspace } = useBountyWorkspace(selectedWorkspaceId);
+  const { data: workspaces, refetch: refetchWorkspaces } = useBountyWorkspaces();
+  const { data: workspace, refetch: refetchWorkspace } = useBountyWorkspace(selectedWorkspaceId);
   const { data: skills } = useBountySkills();
 
   useEffect(() => {
-    if (!selectedWorkspaceId && workspaces?.length) {
-      setSelectedWorkspaceId(workspaces[0].id);
-    }
+    if (!selectedWorkspaceId && workspaces?.length) setSelectedWorkspaceId(workspaces[0].id);
   }, [workspaces, selectedWorkspaceId]);
 
-  const graphSummary = useMemo(() => {
-    const graph = selectedWorkspace?.graph;
-    const nodeCount = graph?.nodes?.length ?? 0;
-    const edgeCount = graph?.edges?.length ?? 0;
-    const assetCount = graph?.assets?.length ?? 0;
-    const importCount = graph?.imports?.length ?? 0;
-    return { nodeCount, edgeCount, assetCount, importCount };
-  }, [selectedWorkspace]);
+  useEffect(() => {
+    if (!workspace) return;
+    const preferredSnapshot = workspace.snapshots?.find((item) => item.snapshot_type === "surface") || workspace.snapshots?.[0] || null;
+    setSelectedSnapshotId((current) => current ?? preferredSnapshot?.id ?? null);
+  }, [workspace]);
 
-  const nodeTypeCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const node of selectedWorkspace?.graph?.nodes || []) {
-      counts.set(node.node_type, (counts.get(node.node_type) || 0) + 1);
-    }
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [selectedWorkspace]);
+  useEffect(() => {
+    const loadTacticalViews = async () => {
+      if (!selectedWorkspaceId) return;
+      try {
+        const [diffPayload, queuePayload] = await Promise.all([
+          apiService.getBountyWorkspaceLatestDiffs(selectedWorkspaceId),
+          apiService.getBountyWorkspaceReviewQueue(selectedWorkspaceId, selectedSnapshotId),
+        ]);
+        setLatestSnapshot(diffPayload.snapshot || null);
+        setLatestDiffs(diffPayload.deltas || []);
+        setReviewQueue(queuePayload.items || []);
+      } catch {
+        setLatestSnapshot(null);
+        setLatestDiffs([]);
+        setReviewQueue([]);
+      }
+    };
+    void loadTacticalViews();
+  }, [selectedWorkspaceId, selectedSnapshotId]);
+
+  const graphSummary = useMemo(() => ({
+    nodes: workspace?.graph?.nodes?.length ?? 0,
+    edges: workspace?.graph?.edges?.length ?? 0,
+    imports: workspace?.imports?.length ?? 0,
+    findings: workspace?.findings?.length ?? 0,
+  }), [workspace]);
 
   const groupedFindings = useMemo(() => {
-    const map = new Map<string, NoveltyFinding[]>();
-    for (const finding of selectedWorkspace?.findings || []) {
+    const groups = new Map<string, NoveltyFinding[]>();
+    for (const finding of workspace?.findings || []) {
       const key = finding.category || "unknown";
-      map.set(key, [...(map.get(key) || []), finding]);
+      groups.set(key, [...(groups.get(key) || []), finding]);
     }
-    return Array.from(map.entries());
-  }, [selectedWorkspace]);
+    return Array.from(groups.entries());
+  }, [workspace]);
 
-  const handleCreateWorkspace = async () => {
+  const selectedSnapshot = useMemo(() => {
+    const explicit = workspace?.snapshots?.find((item) => item.id === selectedSnapshotId);
+    if (explicit) return explicit;
+    return workspace?.snapshots?.find((item) => item.snapshot_type === "surface") || workspace?.snapshots?.[0] || null;
+  }, [workspace, selectedSnapshotId]);
+
+  const runAction = async (key: string, action: () => Promise<void>) => {
+    setBusyAction(key);
+    try {
+      await action();
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const createWorkspace = async () => {
     if (!workspaceForm.name.trim() || !workspaceForm.program_handle.trim()) {
       toast.error("Nombre y programa son obligatorios");
       return;
     }
-    setCreatingWorkspace(true);
-    try {
-      const workspace = await apiService.createBountyWorkspace(workspaceForm);
+    await runAction("create-workspace", async () => {
+      const created = await apiService.createBountyWorkspace(workspaceForm);
       toast.success("Workspace bounty creado");
       setWorkspaceForm({ name: "", platform: "hackerone", program_handle: "", notes: "" });
       await refetchWorkspaces();
-      setSelectedWorkspaceId(workspace.id);
-    } catch {
-      toast.error("No se pudo crear el workspace bounty");
-    } finally {
-      setCreatingWorkspace(false);
-    }
+      setSelectedWorkspaceId(created.id);
+    });
   };
 
-  const handleImport = async () => {
+  const importContent = async () => {
     if (!selectedWorkspaceId) return;
     if (!importForm.source_label.trim() || !importForm.content.trim()) {
       toast.error("Etiqueta y contenido son obligatorios");
       return;
     }
-    setImportingContent(true);
-    try {
-      await apiService.importBountyWorkspaceContent(selectedWorkspaceId, importForm);
-      toast.success("Import ejecutado y trazado como intel_import");
+    await runAction("import", async () => {
+      const result = await apiService.importBountyWorkspaceContent(selectedWorkspaceId, importForm);
+      toast.success(`Import ejecutado en snapshot ${result.snapshot_id}`);
       setImportForm((current) => ({ ...current, content: "" }));
       await refetchWorkspace();
-    } catch {
-      toast.error("No se pudo importar el contenido");
-    } finally {
-      setImportingContent(false);
-    }
+      setSelectedSnapshotId(result.snapshot_id);
+    });
   };
 
-  const handleAnalyze = async () => {
+  const analyzeWorkspace = async () => {
     if (!selectedWorkspaceId) return;
-    setAnalyzingWorkspace(true);
-    try {
+    await runAction("analyze", async () => {
       const result = await apiService.analyzeBountyWorkspace(selectedWorkspaceId);
-      toast.success(`Analisis completado: ${result.findings.length} findings priorizados`);
+      toast.success(`Analisis completado: ${result.findings.length} findings y ${result.review_queue?.length || 0} items`);
       await refetchWorkspace();
-    } catch {
-      toast.error("No se pudo analizar el workspace");
-    } finally {
-      setAnalyzingWorkspace(false);
-    }
+    });
   };
 
-  const handleRunSkill = async (skillKey: string) => {
+  const runSkill = async (skillKey: string) => {
     if (!selectedWorkspaceId) return;
-    setRunningSkill(skillKey);
-    try {
+    await runAction(`skill:${skillKey}`, async () => {
       await apiService.runBountySkill(selectedWorkspaceId, skillKey);
       toast.success(`Skill ejecutada: ${skillKey}`);
       await refetchWorkspace();
-    } catch {
-      toast.error("No se pudo ejecutar la skill");
-    } finally {
-      setRunningSkill(null);
-    }
+    });
+  };
+
+  const exportQueue = async () => {
+    if (!selectedWorkspaceId) return;
+    await runAction("export-queue", async () => {
+      const result = await apiService.exportBountyWorkspaceReviewQueue(selectedWorkspaceId, selectedSnapshot?.id || null);
+      toast.success(`Review queue exportada con ${result.item_count} items`);
+      await refetchWorkspace();
+    });
   };
 
   return (
     <div className="container mx-auto max-w-7xl space-y-8 px-6 py-8">
       <section className="rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-slate-950 via-cyan-950/70 to-slate-900 p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <Badge className="bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">Duplicate-Aware Bounty</Badge>
-            <div>
-              <h1 className="text-4xl font-bold text-white">BOFA Bounty Workspaces</h1>
-              <p className="mt-2 max-w-3xl text-slate-300">
-                Menos recon plana y menos duplicates. Esta capa intenta responder a tres preguntas útiles:
-                qué cambió, qué es raro y qué merece tiempo manual antes de reportar.
-              </p>
-            </div>
-          </div>
-          <div className="grid min-w-[280px] grid-cols-2 gap-3">
-            <Card className="border-cyan-500/20 bg-slate-950/70">
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-400">Workspaces</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{workspaces?.length ?? 0}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-cyan-500/20 bg-slate-950/70">
-              <CardContent className="p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-400">Findings vivos</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{selectedWorkspace?.findings?.length ?? 0}</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <Badge className="border border-cyan-400/30 bg-cyan-500/15 text-cyan-300">Duplicate-Aware Bounty</Badge>
+        <h1 className="mt-3 text-4xl font-bold text-white">BOFA Bounty Workspaces</h1>
+        <p className="mt-2 max-w-3xl text-slate-300">BOFA intenta responder que cambio, que es raro y que tiene menos riesgo de ser duplicate.</p>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[320px,1fr]">
         <Card className="border-slate-800 bg-slate-900/80">
           <CardHeader>
             <CardTitle className="text-cyan-300">Crear workspace</CardTitle>
-            <CardDescription>Separa programas, memoria y evidencia por campaña.</CardDescription>
+            <CardDescription>Una memoria operativa por programa.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nombre</Label>
-              <Input value={workspaceForm.name} onChange={(event) => setWorkspaceForm({ ...workspaceForm, name: event.target.value })} placeholder="Acme H1 main" />
-            </div>
-            <div className="space-y-2">
-              <Label>Plataforma</Label>
-              <Select value={workspaceForm.platform} onValueChange={(value) => setWorkspaceForm({ ...workspaceForm, platform: value })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hackerone">HackerOne</SelectItem>
-                  <SelectItem value="bugcrowd">Bugcrowd</SelectItem>
-                  <SelectItem value="intigriti">Intigriti</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Programa / handle</Label>
-              <Input value={workspaceForm.program_handle} onChange={(event) => setWorkspaceForm({ ...workspaceForm, program_handle: event.target.value })} placeholder="acme-corp" />
-            </div>
-            <div className="space-y-2">
-              <Label>Notas</Label>
-              <Textarea value={workspaceForm.notes} onChange={(event) => setWorkspaceForm({ ...workspaceForm, notes: event.target.value })} placeholder="Stack, disclosed notes, strategy..." className="min-h-28" />
-            </div>
-            <Button className="w-full" onClick={handleCreateWorkspace} disabled={creatingWorkspace}>
-              <FolderSearch className="mr-2 h-4 w-4" /> {creatingWorkspace ? "Creando..." : "Crear workspace"}
-            </Button>
+            <div className="space-y-2"><Label>Nombre</Label><Input value={workspaceForm.name} onChange={(event) => setWorkspaceForm({ ...workspaceForm, name: event.target.value })} /></div>
+            <div className="space-y-2"><Label>Plataforma</Label><Input value={workspaceForm.platform} onChange={(event) => setWorkspaceForm({ ...workspaceForm, platform: event.target.value })} /></div>
+            <div className="space-y-2"><Label>Programa</Label><Input value={workspaceForm.program_handle} onChange={(event) => setWorkspaceForm({ ...workspaceForm, program_handle: event.target.value })} /></div>
+            <div className="space-y-2"><Label>Notas</Label><Textarea className="min-h-24" value={workspaceForm.notes} onChange={(event) => setWorkspaceForm({ ...workspaceForm, notes: event.target.value })} /></div>
+            <Button className="w-full" onClick={createWorkspace} disabled={busyAction === "create-workspace"}><FolderSearch className="mr-2 h-4 w-4" />Crear workspace</Button>
           </CardContent>
         </Card>
 
@@ -212,121 +179,44 @@ const Bounty = () => {
           <Card className="border-slate-800 bg-slate-900/80">
             <CardHeader>
               <CardTitle className="text-cyan-300">Workspaces activos</CardTitle>
-              <CardDescription>Elige una campaña para ver imports, grafo, findings y skills.</CardDescription>
+              <CardDescription>Selecciona una campana para ver snapshots, deltas y review queue.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {(workspaces || []).map((workspace: BountyWorkspace) => (
-                <button
-                  key={workspace.id}
-                  type="button"
-                  onClick={() => setSelectedWorkspaceId(workspace.id)}
-                  className={`rounded-2xl border p-4 text-left transition-all ${selectedWorkspaceId === workspace.id ? "border-cyan-400 bg-cyan-500/10" : "border-slate-800 bg-slate-950/60 hover:border-cyan-500/30"}`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-white">{workspace.name}</p>
-                      <p className="text-sm text-slate-400">{workspace.platform} · {workspace.program_handle}</p>
-                    </div>
-                    <Badge className="bg-slate-800 text-slate-200">{workspace.metadata?.last_snapshot_id ? "con memoria" : "nuevo"}</Badge>
-                  </div>
+              {(workspaces || []).map((item: BountyWorkspace) => (
+                <button key={item.id} type="button" onClick={() => { setSelectedWorkspaceId(item.id); setSelectedSnapshotId(null); }} className={`rounded-2xl border p-4 text-left ${selectedWorkspaceId === item.id ? "border-cyan-400 bg-cyan-500/10" : "border-slate-800 bg-slate-950/60"}`}>
+                  <p className="font-medium text-white">{item.name}</p>
+                  <p className="text-sm text-slate-400">{item.platform} · {item.program_handle}</p>
                 </button>
               ))}
-              {!workspacesLoading && !workspaces?.length && (
-                <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
-                  Aun no hay workspaces bounty.
-                </div>
-              )}
             </CardContent>
           </Card>
 
-          {selectedWorkspace && (
+          {workspace && (
             <>
               <section className="grid gap-6 lg:grid-cols-4">
-                <Card className="border-slate-800 bg-slate-900/80">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 text-cyan-300"><Waypoints className="h-5 w-5" /> Target Graph</div>
-                    <p className="mt-3 text-3xl font-semibold text-white">{graphSummary.nodeCount}</p>
-                    <p className="text-sm text-slate-400">{graphSummary.edgeCount} relaciones</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-800 bg-slate-900/80">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 text-cyan-300"><Upload className="h-5 w-5" /> Imports</div>
-                    <p className="mt-3 text-3xl font-semibold text-white">{graphSummary.importCount}</p>
-                    <p className="text-sm text-slate-400">{graphSummary.assetCount} assets</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-800 bg-slate-900/80">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 text-cyan-300"><GitCompareArrows className="h-5 w-5" /> What Changed</div>
-                    <p className="mt-3 text-3xl font-semibold text-white">{(selectedWorkspace.findings || []).filter((item) => item.category === "what_changed").length}</p>
-                    <p className="text-sm text-slate-400">Cambios detectados</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-800 bg-slate-900/80">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 text-cyan-300"><Sparkles className="h-5 w-5" /> Worth Manual Time</div>
-                    <p className="mt-3 text-3xl font-semibold text-white">{(selectedWorkspace.findings || []).filter((item) => item.category === "worth_manual_time").length}</p>
-                    <p className="text-sm text-slate-400">Hipótesis priorizadas</p>
-                  </CardContent>
-                </Card>
+                <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><Waypoints className="h-5 w-5" />Graph</div><p className="mt-3 text-3xl font-semibold text-white">{graphSummary.nodes}</p><p className="text-sm text-slate-400">{graphSummary.edges} relaciones</p></CardContent></Card>
+                <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><Upload className="h-5 w-5" />Imports</div><p className="mt-3 text-3xl font-semibold text-white">{graphSummary.imports}</p><p className="text-sm text-slate-400">{workspace.snapshots?.length || 0} snapshots</p></CardContent></Card>
+                <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><GitCompareArrows className="h-5 w-5" />What Changed</div><p className="mt-3 text-3xl font-semibold text-white">{latestDiffs.length}</p><p className="text-sm text-slate-400">{latestSnapshot?.label || "snapshot actual"}</p></CardContent></Card>
+                <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><Sparkles className="h-5 w-5" />Review Queue</div><p className="mt-3 text-3xl font-semibold text-white">{reviewQueue.length}</p><p className="text-sm text-slate-400">{graphSummary.findings} findings vivos</p></CardContent></Card>
               </section>
 
-              <section className="grid gap-6 xl:grid-cols-[420px,1fr]">
+              <section className="grid gap-6 xl:grid-cols-[400px,1fr]">
                 <Card className="border-slate-800 bg-slate-900/80">
                   <CardHeader>
                     <CardTitle className="text-cyan-300">Import panel</CardTitle>
-                    <CardDescription>Scope, disclosed, URL lists, Burp exports, JS endpoints o notas manuales.</CardDescription>
+                    <CardDescription>Scope, disclosed, URLs, JS endpoints o notas manuales.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Tipo</Label>
-                        <Select value={importForm.import_type} onValueChange={(value) => setImportForm({ ...importForm, import_type: value })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="scope">scope</SelectItem>
-                            <SelectItem value="disclosed_reports">disclosed_reports</SelectItem>
-                            <SelectItem value="burp_sitemap">burp_sitemap</SelectItem>
-                            <SelectItem value="url_list">url_list</SelectItem>
-                            <SelectItem value="js_endpoints">js_endpoints</SelectItem>
-                            <SelectItem value="notes">notes</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Formato</Label>
-                        <Select value={importForm.content_format} onValueChange={(value) => setImportForm({ ...importForm, content_format: value })}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="txt">txt</SelectItem>
-                            <SelectItem value="json">json</SelectItem>
-                            <SelectItem value="csv">csv</SelectItem>
-                            <SelectItem value="md">md</SelectItem>
-                            <SelectItem value="html">html</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <div className="space-y-2"><Label>Tipo</Label><Select value={importForm.import_type} onValueChange={(value) => setImportForm({ ...importForm, import_type: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="scope">scope</SelectItem><SelectItem value="disclosed_reports">disclosed_reports</SelectItem><SelectItem value="burp_sitemap">burp_sitemap</SelectItem><SelectItem value="url_list">url_list</SelectItem><SelectItem value="js_endpoints">js_endpoints</SelectItem><SelectItem value="notes">notes</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label>Formato</Label><Select value={importForm.content_format} onValueChange={(value) => setImportForm({ ...importForm, content_format: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="txt">txt</SelectItem><SelectItem value="json">json</SelectItem><SelectItem value="csv">csv</SelectItem><SelectItem value="md">md</SelectItem><SelectItem value="html">html</SelectItem></SelectContent></Select></div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Etiqueta</Label>
-                      <Input value={importForm.source_label} onChange={(event) => setImportForm({ ...importForm, source_label: event.target.value })} placeholder="h1 scope april / disclosed authz batch / burp sitemap beta" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>URL fuente opcional</Label>
-                      <Input value={importForm.source_url} onChange={(event) => setImportForm({ ...importForm, source_url: event.target.value })} placeholder="https://hackerone.com/..." />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Contenido</Label>
-                      <Textarea value={importForm.content} onChange={(event) => setImportForm({ ...importForm, content: event.target.value })} className="min-h-56 font-mono text-xs" placeholder="Pega aquí scope, disclosed reports, URLs, endpoints JS o notas del hunter..." />
-                    </div>
+                    <div className="space-y-2"><Label>Etiqueta</Label><Input value={importForm.source_label} onChange={(event) => setImportForm({ ...importForm, source_label: event.target.value })} /></div>
+                    <div className="space-y-2"><Label>URL fuente</Label><Input value={importForm.source_url} onChange={(event) => setImportForm({ ...importForm, source_url: event.target.value })} /></div>
+                    <div className="space-y-2"><Label>Contenido</Label><Textarea className="min-h-56 font-mono text-xs" value={importForm.content} onChange={(event) => setImportForm({ ...importForm, content: event.target.value })} /></div>
                     <div className="flex gap-3">
-                      <Button onClick={handleImport} disabled={importingContent} className="flex-1">
-                        <Upload className="mr-2 h-4 w-4" /> {importingContent ? "Importando..." : "Importar"}
-                      </Button>
-                      <Button variant="outline" onClick={handleAnalyze} disabled={analyzingWorkspace}>
-                        <BrainCircuit className="mr-2 h-4 w-4" /> {analyzingWorkspace ? "Analizando..." : "Analizar"}
-                      </Button>
+                      <Button className="flex-1" onClick={importContent} disabled={busyAction === "import"}><Upload className="mr-2 h-4 w-4" />Importar</Button>
+                      <Button variant="outline" onClick={analyzeWorkspace} disabled={busyAction === "analyze"}><BrainCircuit className="mr-2 h-4 w-4" />Analizar</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -334,105 +224,56 @@ const Bounty = () => {
                 <div className="space-y-6">
                   <Card className="border-slate-800 bg-slate-900/80">
                     <CardHeader>
-                      <CardTitle className="text-cyan-300">Target graph</CardTitle>
-                      <CardDescription>Vista operativa simple: nodos, relaciones y memoria de imports.</CardDescription>
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <CardTitle className="text-cyan-300">Snapshots y deltas</CardTitle>
+                          <CardDescription>La foto operativa para entender por que algo merece minutos humanos.</CardDescription>
+                        </div>
+                        <div className="flex gap-3">
+                          <Select value={selectedSnapshot?.id || ""} onValueChange={(value) => setSelectedSnapshotId(value)}><SelectTrigger className="min-w-[240px]"><SelectValue /></SelectTrigger><SelectContent>{(workspace.snapshots || []).map((item) => <SelectItem key={item.id} value={item.id}>{item.label || item.source || item.id}</SelectItem>)}</SelectContent></Select>
+                          <Button variant="outline" onClick={exportQueue} disabled={busyAction === "export-queue"}><FileJson className="mr-2 h-4 w-4" />Exportar queue</Button>
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent className="space-y-5">
-                      <div className="flex flex-wrap gap-2">
-                        {nodeTypeCounts.map(([nodeType, count]) => (
-                          <Badge key={nodeType} className="bg-slate-800 text-slate-200">{nodeType}: {count}</Badge>
-                        ))}
-                      </div>
+                    <CardContent className="space-y-4">
+                      <div className="flex flex-wrap gap-2">{(workspace.snapshots || []).slice(0, 8).map((item) => <Badge key={item.id} className={item.id === selectedSnapshot?.id ? "border border-cyan-400/30 bg-cyan-500/15 text-cyan-300" : "bg-slate-800 text-slate-200"}>{item.snapshot_type} · {item.label || item.source || item.id}</Badge>)}</div>
                       <Separator className="bg-slate-800" />
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {(selectedWorkspace.graph?.nodes || []).slice(0, 16).map((node) => (
-                          <div key={node.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <Badge className="bg-slate-800 text-slate-100">{node.node_type}</Badge>
-                              {(node.metadata?.is_new_since_last_snapshot || node.metadata?.first_snapshot_id === selectedWorkspace.metadata?.last_snapshot_id) && (
-                                <Badge className="bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">nuevo</Badge>
-                              )}
-                            </div>
-                            <p className="mt-3 break-all text-sm text-white">{node.value}</p>
-                          </div>
-                        ))}
-                      </div>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{(latestDiffs || []).slice(0, 12).map((delta) => <div key={delta.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><Badge className="bg-slate-800 text-slate-200">{delta.change_type}</Badge><p className="mt-3 break-all text-sm text-white">{delta.entity_label || delta.entity_key}</p><p className="mt-2 text-xs text-slate-500">{delta.entity_type}</p></div>)}</div>
                     </CardContent>
                   </Card>
 
                   <Card className="border-slate-800 bg-slate-900/80">
                     <CardHeader>
-                      <CardTitle className="text-cyan-300">Novelty queue</CardTitle>
-                      <CardDescription>La cola principal para decidir dónde invertir tiempo manual.</CardDescription>
+                      <CardTitle className="text-cyan-300">Review Queue</CardTitle>
+                      <CardDescription>Hypothesis, why now, evidence, scores y siguiente paso manual.</CardDescription>
                     </CardHeader>
+                    <CardContent className="space-y-3">
+                      {reviewQueue.slice(0, 12).map((item) => (
+                        <div key={item.cluster_key} className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                          <div className="grid gap-4 lg:grid-cols-[2fr,1fr,1fr,2fr]">
+                            <div><p className="text-xs uppercase tracking-wide text-slate-500">Hypothesis</p><p className="mt-2 font-medium text-white">{item.hypothesis}</p><p className="mt-2 text-sm text-slate-300">{item.why_now}</p></div>
+                            <div><p className="text-xs uppercase tracking-wide text-slate-500">Evidence</p><p className="mt-2 text-sm text-slate-300">{item.evidence.length} links</p><p className="mt-2 text-sm text-cyan-300">novelty {item.novelty_score}</p><p className="text-sm text-amber-300">dup risk {item.duplicate_risk_score}</p></div>
+                            <div><p className="text-xs uppercase tracking-wide text-slate-500">Signal</p><div className="mt-2 flex flex-wrap gap-2">{item.report_candidate && <Badge className="border border-emerald-400/30 bg-emerald-500/15 text-emerald-300">report candidate</Badge>}{item.root_cause && <Badge className="bg-slate-800 text-slate-200">{item.root_cause}</Badge>}</div></div>
+                            <div><p className="text-xs uppercase tracking-wide text-slate-500">Next Manual Step</p><p className="mt-2 text-sm text-slate-300">{item.next_manual_step}</p></div>
+                          </div>
+                        </div>
+                      ))}
+                      {!reviewQueue.length && <div className="rounded-xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">La review queue aparecera cuando haya findings agrupados con evidencia y siguiente paso manual.</div>}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-slate-800 bg-slate-900/80">
+                    <CardHeader><CardTitle className="text-cyan-300">Skills bounty</CardTitle><CardDescription>Copilot tactico sobre el mismo contexto del workspace.</CardDescription></CardHeader>
+                    <CardContent className="grid gap-3 md:grid-cols-2">{(skills || []).map((skill) => <div key={skill.skill_key} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><p className="font-medium text-white">{skill.name}</p><p className="mt-2 text-sm text-slate-300">{skill.goal}</p><Button className="mt-4 w-full" variant="outline" disabled={busyAction === `skill:${skill.skill_key}`} onClick={() => runSkill(skill.skill_key)}><Activity className="mr-2 h-4 w-4" />Run skill</Button></div>)}</CardContent>
+                  </Card>
+
+                  <Card className="border-slate-800 bg-slate-900/80">
+                    <CardHeader><CardTitle className="text-cyan-300">Novelty queue</CardTitle><CardDescription>Findings vivos agrupados por categoria.</CardDescription></CardHeader>
                     <CardContent className="space-y-5">
                       {groupedFindings.map(([category, items]) => (
                         <div key={category} className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <Badge className={FINDING_COLORS[category] || "bg-slate-800 text-slate-100"}>{category}</Badge>
-                            <span className="text-sm text-slate-400">{items.length} findings</span>
-                          </div>
-                          <div className="grid gap-3">
-                            {items.slice(0, 6).map((finding) => (
-                              <div key={finding.fingerprint} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="font-medium text-white">{finding.title}</p>
-                                  <Badge className="bg-slate-800 text-slate-100">novelty {finding.novelty_score}</Badge>
-                                  <Badge className="bg-slate-800 text-slate-100">dup risk {finding.duplicate_risk_score}</Badge>
-                                </div>
-                                <p className="mt-3 text-sm text-slate-300">{finding.rationale}</p>
-                                <p className="mt-2 text-xs text-slate-500">evidence: {finding.metadata?.node_type} · {finding.metadata?.node_value}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                      {!selectedWorkspace.findings?.length && (
-                        <div className="rounded-xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">
-                          Todavía no hay findings. Importa inteligencia y lanza el análisis.
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-slate-800 bg-slate-900/80">
-                    <CardHeader>
-                      <CardTitle className="text-cyan-300">Skills bounty</CardTitle>
-                      <CardDescription>Copilot táctico: resumen, delta, authz y riesgo de duplicado.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-3 md:grid-cols-2">
-                      {(skills || []).map((skill) => (
-                        <div key={skill.skill_key} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-medium text-white">{skill.name}</p>
-                              <p className="mt-2 text-sm text-slate-300">{skill.goal}</p>
-                            </div>
-                            <Badge className="bg-slate-800 text-slate-100">{skill.skill_key}</Badge>
-                          </div>
-                          <Button className="mt-4 w-full" variant="outline" disabled={runningSkill === skill.skill_key} onClick={() => handleRunSkill(skill.skill_key)}>
-                            <Activity className="mr-2 h-4 w-4" /> {runningSkill === skill.skill_key ? "Ejecutando..." : "Run skill"}
-                          </Button>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-slate-800 bg-slate-900/80">
-                    <CardHeader>
-                      <CardTitle className="text-cyan-300">Imports recientes</CardTitle>
-                      <CardDescription>Todo queda trazado como `intel_import` y enlazado al workspace.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {(selectedWorkspace.imports || []).slice(0, 8).map((item) => (
-                        <div key={item.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="font-medium text-white">{item.source_label}</p>
-                              <p className="text-sm text-slate-400">{item.import_type} · snapshot {item.snapshot_id || "n/a"}</p>
-                            </div>
-                            <Badge className="bg-slate-800 text-slate-100">{item.status}</Badge>
-                          </div>
+                          <div className="flex items-center gap-3"><Badge className="bg-slate-800 text-slate-200">{category}</Badge><span className="text-sm text-slate-400">{items?.length || 0} findings</span></div>
+                          <div className="grid gap-3">{(items || []).slice(0, 4).map((finding) => <div key={finding.fingerprint} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><p className="font-medium text-white">{finding.title}</p><p className="mt-2 text-sm text-slate-300">{finding.rationale}</p><p className="mt-2 text-xs text-cyan-300">{String(finding.metadata?.next_manual_step || "")}</p></div>)}</div>
                         </div>
                       ))}
                     </CardContent>
