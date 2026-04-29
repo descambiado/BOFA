@@ -38,16 +38,11 @@ docker-compose up --build
 
 ### Instalación Manual
 ```bash
-# CLI
-cd cli
-pip install -r requirements.txt
-
-# API
-cd ../api
-pip install -r requirements.txt
+# CLI + core platform
+pip install -r requirements-platform.txt
+pip install -r cli/requirements.txt
 
 # Web
-cd ../web
 npm install
 ```
 

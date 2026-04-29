@@ -65,10 +65,12 @@ Walkthrough:
 ```bash
 git clone https://github.com/descambiado/BOFA
 cd BOFA
-pip install -r requirements.txt
+pip install -r requirements-platform.txt
 npm install
 ./bofa.sh
 ```
+
+If you want the broader, category-heavy dependency inventory for extra local tooling, keep `requirements.txt` as an optional second layer rather than the default install path.
 
 ### Frontend
 

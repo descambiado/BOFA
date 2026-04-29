@@ -1,0 +1,4 @@
+# Lean dependency entrypoint for BOFA smoke CI.
+# Keep this aligned with the supported platform baseline, not the full optional arsenal.
+
+-r requirements-platform.txt

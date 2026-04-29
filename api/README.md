@@ -24,7 +24,7 @@ api/
 ├── middleware/          # Middleware personalizado
 ├── tests/               # Tests automatizados
 ├── migrations/          # Migraciones de BD
-└── requirements.txt     # Dependencias Python
+└── ../requirements-platform.txt  # Baseline estable de la plataforma
 ```
 
 ## 🔧 Configuración
@@ -63,8 +63,8 @@ python3 -m venv venv
 source venv/bin/activate  # Linux/macOS
 # venv\Scripts\activate   # Windows
 
-# Instalar dependencias
-pip install -r requirements.txt
+# Instalar baseline de la plataforma
+pip install -r ../requirements-platform.txt
 
 # Configurar variables de entorno
 cp .env.template .env
