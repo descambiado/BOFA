@@ -222,8 +222,12 @@ export interface BountyWorkspace {
   updated_at: string;
   assets?: WorkspaceAsset[];
   imports?: WorkspaceImport[];
+  snapshots?: WorkspaceSnapshot[];
+  deltas?: SurfaceDelta[];
   graph?: BountyGraph;
   findings?: NoveltyFinding[];
+  clusters?: FindingCluster[];
+  review_queue?: ReviewQueueItem[];
   skills?: BountySkill[];
 }
 
@@ -300,6 +304,64 @@ export interface NoveltyFinding {
   run_id?: string;
   metadata?: Record<string, any>;
   created_at?: string;
+}
+
+export interface WorkspaceSnapshot {
+  id: string;
+  workspace_id: string;
+  run_id?: string;
+  snapshot_type: string;
+  label?: string;
+  source?: string;
+  previous_snapshot_id?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface SurfaceDelta {
+  id: string;
+  workspace_id: string;
+  snapshot_id: string;
+  previous_snapshot_id?: string;
+  entity_type: string;
+  entity_key: string;
+  entity_label?: string;
+  change_type: string;
+  node_id?: string;
+  asset_id?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface FindingCluster {
+  id: string;
+  workspace_id: string;
+  snapshot_id?: string;
+  cluster_key: string;
+  hypothesis: string;
+  root_cause?: string;
+  novelty_score: number;
+  duplicate_risk_score: number;
+  status: string;
+  rationale?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface ReviewQueueItem {
+  cluster_id?: string;
+  cluster_key: string;
+  snapshot_id?: string;
+  hypothesis: string;
+  why_now: string;
+  evidence: Array<Record<string, any>>;
+  novelty_score: number;
+  duplicate_risk_score: number;
+  next_manual_step: string;
+  report_candidate: boolean;
+  finding_ids?: string[];
+  finding_titles?: string[];
+  root_cause?: string;
 }
 
 export interface BountySkill {
@@ -903,7 +965,7 @@ export const apiService = {
     return await response.json();
   },
 
-  analyzeBountyWorkspace: async (workspaceId: string): Promise<{ workspace_id: string; run_id: string; summary: Record<string, any>; findings: NoveltyFinding[] }> => {
+  analyzeBountyWorkspace: async (workspaceId: string): Promise<{ workspace_id: string; run_id: string; summary: Record<string, any>; findings: NoveltyFinding[]; clusters?: FindingCluster[]; review_queue?: ReviewQueueItem[] }> => {
     const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/analyze`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -922,12 +984,51 @@ export const apiService = {
     return await response.json();
   },
 
+  getBountyWorkspaceSnapshots: async (workspaceId: string): Promise<WorkspaceSnapshot[]> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/snapshots`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudieron obtener los snapshots del workspace');
+    return await response.json();
+  },
+
+  getBountyWorkspaceLatestDiffs: async (workspaceId: string): Promise<{ workspace_id: string; snapshot: WorkspaceSnapshot | null; deltas: SurfaceDelta[] }> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/diffs/latest`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudieron obtener los deltas del workspace');
+    return await response.json();
+  },
+
   getBountyWorkspaceFindings: async (workspaceId: string): Promise<NoveltyFinding[]> => {
     const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/findings`, {
       headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000)
     });
     if (!response.ok) throw new Error('No se pudieron obtener los findings bounty');
+    return await response.json();
+  },
+
+  getBountyWorkspaceReviewQueue: async (workspaceId: string, snapshotId?: string | null): Promise<{ workspace_id: string; snapshot_id?: string | null; items: ReviewQueueItem[] }> => {
+    const query = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : '';
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/review-queue${query}`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener la review queue');
+    return await response.json();
+  },
+
+  exportBountyWorkspaceReviewQueue: async (workspaceId: string, snapshotId?: string | null): Promise<{ workspace_id: string; snapshot_id: string; run_id: string; item_count: number; artifacts: string[] }> => {
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/review-queue/export`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ snapshot_id: snapshotId || null }),
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) throw new Error('No se pudo exportar la review queue');
     return await response.json();
   },
 
