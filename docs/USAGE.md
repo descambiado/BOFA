@@ -187,7 +187,7 @@ docker-compose restart
 chmod +x scripts/category/script.py
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements-platform.txt
 
 # Check Python path
 export PYTHONPATH="/path/to/BOFA:$PYTHONPATH"

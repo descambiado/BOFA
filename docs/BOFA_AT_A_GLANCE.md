@@ -15,7 +15,7 @@ Framework open-source de ciberseguridad con core estable, CLI profesional y mód
 ```bash
 git clone https://github.com/descambiado/BOFA
 cd BOFA
-pip install -r requirements.txt
+pip install -r requirements-platform.txt
 ./bofa.sh
 ```
 
