@@ -1,0 +1,24 @@
+skill_key: surface_regression
+name: Surface Regression
+goal: Compare the latest workspace snapshot against prior surface and highlight newly exposed or changed attack surface.
+scope: workspace
+inputs:
+  - workspace_id
+  - snapshot_id
+steps:
+  - Load the latest persisted snapshot and its deltas.
+  - Highlight newly exposed assets, routes, params, JS files and API endpoints.
+  - Group changes that look related into a short tactical list.
+heuristics:
+  - Favor new APIs, JS-emitted routes, preview/debug paths and tenant-sensitive params.
+  - Down-rank stale or obvious deltas with no manual angle.
+stop_conditions:
+  - The delta list is small enough to inspect manually.
+artifacts:
+  - bounty_skill_result
+  - bounty_skill_markdown
+output_schema:
+  summary:
+    latest_snapshot_id: string
+    delta_count: integer
+  surface_deltas: array

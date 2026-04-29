@@ -63,9 +63,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="BOFA Duplicate-Aware Bug Bounty System",
-    description="Cybersecurity platform API with unified runs, evidence and duplicate-aware bug bounty workspaces.",
-    version="2.9.0",
+    title="BOFA Duplicate-Aware Hunter Workflows",
+    description="Cybersecurity platform API with unified runs, evidence, snapshots and duplicate-aware hunter workflows.",
+    version="2.9.1",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -157,6 +157,10 @@ class WorkspaceImportRequest(BaseModel):
     source_url: Optional[str] = None
     source_path: Optional[str] = None
     metadata: Dict[str, Any] = {}
+
+
+class ReviewQueueExportRequest(BaseModel):
+    snapshot_id: Optional[str] = None
 
 
 def load_script_configs() -> Dict[str, list]:
@@ -2042,8 +2046,8 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(auth_mana
 @app.get("/")
 async def root():
     return {
-        "name": "BOFA Duplicate-Aware Bug Bounty System",
-        "version": "2.9.0",
+        "name": "BOFA Duplicate-Aware Hunter Workflows",
+        "version": "2.9.1",
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "capabilities": {
@@ -2579,6 +2583,28 @@ async def get_bounty_workspace_graph(
     return bounty_service.get_workspace_graph(workspace_id)
 
 
+@app.get("/bounty/workspaces/{workspace_id}/snapshots")
+async def list_bounty_workspace_snapshots(
+    workspace_id: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    return bounty_service.list_snapshots(workspace_id)
+
+
+@app.get("/bounty/workspaces/{workspace_id}/diffs/latest")
+async def get_bounty_workspace_latest_diffs(
+    workspace_id: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    return {
+        "workspace_id": workspace_id,
+        "snapshot": bounty_service.get_latest_surface_snapshot(workspace_id),
+        "deltas": bounty_service.get_latest_deltas(workspace_id),
+    }
+
+
 @app.get("/bounty/workspaces/{workspace_id}/findings")
 async def list_bounty_workspace_findings(
     workspace_id: str,
@@ -2599,6 +2625,39 @@ async def get_bounty_workspace_finding(
     if not finding:
         raise HTTPException(status_code=404, detail="Finding not found")
     return finding
+
+
+@app.get("/bounty/workspaces/{workspace_id}/review-queue")
+async def get_bounty_workspace_review_queue(
+    workspace_id: str,
+    snapshot_id: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    latest_snapshot = bounty_service.get_latest_surface_snapshot(workspace_id)
+    return {
+        "workspace_id": workspace_id,
+        "snapshot_id": snapshot_id or (latest_snapshot.get("id") if latest_snapshot else None),
+        "items": bounty_service.get_review_queue(workspace_id, snapshot_id=snapshot_id),
+    }
+
+
+@app.post("/bounty/workspaces/{workspace_id}/review-queue/export")
+async def export_bounty_workspace_review_queue(
+    workspace_id: str,
+    request: ReviewQueueExportRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    try:
+        return bounty_service.export_review_queue(
+            workspace_id=workspace_id,
+            user_id=current_user["user_id"],
+            snapshot_id=request.snapshot_id,
+            source="bounty_api",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/bounty/skills")

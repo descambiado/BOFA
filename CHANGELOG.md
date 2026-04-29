@@ -2,6 +2,42 @@
 
 Por descambiado. Cambios notables por version.
 
+## v2.9.1 (2026-04-29) - Duplicate-Aware Hunter Workflows
+
+### Hunter workflow refinement
+- **Snapshots explicitos**: cada import y analisis del workspace queda ligado a snapshots formales para separar inteligencia y superficie observable.
+- **Surface deltas**: BOFA detecta mejor que cambio entre snapshots y lo eleva a una vista operativa centrada en `what_changed`.
+- **Finding clusters**: los hints relacionados ya no salen como cola plana; ahora se agrupan por hipotesis mas cercana a root cause.
+
+### Tiempo manual mejor invertido
+- **Review queue**: nueva cola tactica con `why_now`, evidencia enlazada y `next_manual_step` para decidir mejor donde invertir tiempo humano.
+- **Export ligero**: la review queue se puede exportar en JSON o Markdown para sesiones de hunting y handoff manual.
+- **Skills nuevas**: `surface_regression` y `manual_handoff` profundizan el modo copilot sin caer en autopilot ciego.
+
+### Credibilidad y narrativa
+- **Posicionamiento publico**: README y STATUS se alinean con la promesa flagship de BOFA para bug bounty web/API.
+- **Walkthrough bounty**: la documentacion muestra mejor el flujo real de crear workspace, importar, analizar y revisar candidatos.
+- **Verificacion mantenida**: runtime hardening, control plane, bounty verifier, `tsc` y `build` siguen formando parte del release gate.
+
+---
+
+## v2.9.0 (2026-04-28) - Duplicate-Aware Bounty Workspaces
+
+### Flagship bounty layer
+- **Bounty workspaces**: memoria operativa por programa para separar imports, graph, findings y evidencia.
+- **Imports locales**: scope, disclosed reports, URL lists, Burp sitemap, JS endpoints y notas manuales.
+- **Target graph**: hosts, rutas, params, JS y endpoints API correlacionados dentro del mismo workspace.
+
+### Priorizacion anti-duplicados
+- **Novelty findings**: scoring dual con `novelty_score` y `duplicate_risk_score`.
+- **Skills bounty**: `program_intel`, `delta_recon`, `duplicate_risk`, `authz_matrix`, `js_api_diff` y `report_novelty_gate`.
+- **UI bounty**: vista dedicada para workspaces, imports, target graph y cola inicial de findings.
+
+### Repo y verificacion
+- **CI visible**: workflow para smoke suites y build del frontend.
+- **Verificador bounty**: `tools/verify_bounty_system.py` para validar el sistema duplicate-aware sin depender de servicios externos.
+- **Agente**: soporte inicial para `run_skill` dentro del contexto de workspace.
+
 ---
 
 ## v2.8.5 (2026-04-09) - Signed Evidence Verification

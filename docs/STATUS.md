@@ -1,91 +1,97 @@
-# Estado actual de BOFA
+# BOFA Status
 
-Autor: descambiado. Referencia: en que punto estamos y hacia donde va el framework.
-
----
-
-## Estado actual (resumen)
-
-| Área | Estado | Detalle |
-|------|--------|---------|
-| **Core** | OK Cerrado | Engine, config, logger, errors, module_loader, script_validator. Contrato claro ([MODULE_CONTRACT.md](MODULE_CONTRACT.md)). No se añaden nombres de productos externos en la documentación del framework. |
-| **CLI** | OK Listo | `./bofa.sh` / `cli/bofa_cli.py`. Menú, módulos, scripts, flujos (F). Solo usa el core. |
-| **Modulos y scripts** | OK Operativo | 20 modulos, 96 scripts. Verificacion `tools/verify_bofa.py --full` -> 0 fallos. Paramentos `--key value`, YAML alineado. |
-| **Flujos (BOFA Flow)** | OK Listo | `config/flows/` (demo, recon, full_recon, bug_bounty_full_chain, vuln_triage, vuln_to_action, bug_bounty_web_*, cloud_config_review, malware_static_recon, network_zero_trust_overview, etc.). `flows/flow_runner.py`: list_flows, run_flow, informes Markdown en `reports/`. Orquestables por LLM. |
-| **Servidor MCP** | OK Listo | `mcp/bofa_mcp.py`. Expone: listar módulos/scripts, info de script, ejecutar script, listar/ejecutar flujos. Transporte stdio. Opcional: `pip install .[mcp]`. |
-| **Agente autónomo** | OK Listo | `agents/security_agent.py`, `tools/run_agent.py`. Loop Observe-Think-Act con LLM (Ollama, OpenAI, Anthropic) hasta vulnerar. Ver [AGENT.md](AGENT.md). |
-| **Verificación** | OK Listo | `python3 tools/verify_bofa.py` (quick), `--full`, `--mcp`. Resultado: TODO OK. |
-| **Documentación** | OK Actualizada | README, BOFA_AT_A_GLANCE, CORE_ARCHITECTURE, MODULE_CONTRACT, MODULE_CHECKLIST, MCP_CURSOR_INTEGRATION, QUICK_START_FIRST_MODULE, NEXT_STEPS_AND_ROADMAP, REPORTS_CONVENTION, LLM_CYBERSECURITY, ZERO_DAY_AND_REPORTING, AGENT. |
-| **Config clientes MCP** | OK Ejemplo | `.cursor/mcp.json.example` para usar BOFA desde Cursor u otros clientes. |
-| **LLM + ciberseguridad** | OK Documentado | Un LLM (Cursor, Claude) usa las herramientas MCP para pruebas autónomas; agente autónomo con `run_agent` (sin Cursor). Ver [LLM_CYBERSECURITY.md](LLM_CYBERSECURITY.md) y [AGENT.md](AGENT.md). |
-| **Zero-day y reporte** | OK Soporte | Recon, vuln intel, exploit tools + módulo `reporting` (report_finding) para informe de hallazgo y disclosure; ver [ZERO_DAY_AND_REPORTING.md](ZERO_DAY_AND_REPORTING.md). |
-
-**Conclusión**: El framework está **production-ready** para uso local (CLI, core, flujos) y para uso desde clientes MCP. Sobre si los scripts son reales, novedosos y como seguir: [ARSENAL_AND_QUALITY.md](ARSENAL_AND_QUALITY.md). La **IA funciona** conectando un LLM al servidor MCP. **Zero-days**: BOFA no los encuentra automáticamente; sí da recon, vuln intel, exploit tools y **reporte de hallazgos** (report_finding) para disclosure.
+Autor: descambiado. Esta pagina intenta dejar claro que parte del proyecto es hoy operativa, que parte es educativa y donde esta la apuesta flagship.
 
 ---
 
-## Números actuales
+## Resumen ejecutivo
 
-| Concepto | BOFA |
-|----------|------|
-| Modulos (categorias) | 20 (examples, exploit, red, blue, purple, osint, recon, web, cloud, ai, malware, forensics, vulnerability, reporting, etc.) |
-| Scripts | 96 |
-| Flujos predefinidos | 25 (incl. bug_bounty_full_chain, vuln_to_action: CVE->exploit_chain_suggester->zero_day_disclosure_kit) |
-| Herramientas MCP expuestas | 8 (list_modules, list_scripts, script_info, execute_script, list_flows, run_flow, capabilities, suggest_tools) |
+BOFA ya no es solo una coleccion de scripts. Hoy tiene tres capas distintas:
 
----
+| Area | Estado | Lo importante |
+|------|--------|---------------|
+| **Core / Runtime / Evidence** | Operativo | Runs unificados, timeline, artifacts, export firmado, verificacion offline y smoke suites. |
+| **Labs y UI educativa** | Util / educativa | Sirven para aprender, practicar y explorar, pero no son el argumento principal del proyecto. |
+| **Duplicate-aware bounty** | Flagship activo | Workspaces, imports, snapshots, deltas, novelty findings, review queue y skills para priorizar tiempo manual y reducir duplicates. |
 
-## Objetivo: arsenal completo y de referencia
+La propuesta de valor que hoy queremos reforzar es esta:
 
-BOFA aspira a ser el framework de ciberseguridad más completo en un solo proyecto:
-
-- **Más herramientas**: seguir ampliando módulos y scripts (recon, web, binary, cloud, exploit, blue, purple, etc.) hasta cubrir todas las áreas operativas.
-- **Más flujos**: secuencias predefinidas (recon web, blue team, pentest básico, etc.) con informes unificados.
-- **Inteligencia de vulnerabilidades**: datos o scripts para CVE y explotación (consultas a fuentes públicas, metadatos, plantillas).
-- **Reportes estandarizados**: salida JSON/Markdown por script y por flujo, agregable.
-- **MCP y automatización**: servidor MCP estable para que cualquier cliente (Cursor, Claude, etc.) use BOFA como backend; flujo prompt -> ejecucion -> feedback.
-- **Calidad y extensibilidad**: core estable, contrato claro, sin tocar el core para añadir módulos; certificación de módulos y tests por módulo cuando se definan.
-
-Todo lo anterior es desarrollo propio de BOFA; no se referencia ni depende de productos externos.
+**BOFA ayuda a hunters web/API a ver que cambio, que es raro y que tiene menos riesgo de ser duplicate.**
 
 ---
 
-## Próximos pasos (cerrar core y crecer)
+## Lo que esta realmente fuerte
 
-1. **Core cerrado**: asegurar que no falte nada en engine, config, logger, errors, module_loader, script_validator; documentación de contrato y uso al día.
-2. **Ampliar arsenal**: más scripts por categoría (recon, web, exploit, cloud, binary, etc.) hasta tener cobertura amplia.
-3. **Más flujos**: nuevos YAML en `config/flows/` para casos de uso recurrentes.
-4. **Inteligencia CVE/exploit**: ya existe módulo `vulnerability` (cve_lookup + cve_data.yaml); ampliable con más entradas o scripts.
-5. **Reportes**: convención en [REPORTS_CONVENTION.md](REPORTS_CONVENTION.md); seguir ampliando si hace falta.
-6. **Innovación**: checklist de módulo certificado en [MODULE_CHECKLIST.md](MODULE_CHECKLIST.md); framework de tests por módulo y documentación interactiva cuando se priorice.
+### 1. Control plane y runtime
+
+- Runs, steps, labs, events y artifacts estan persistidos.
+- Scripts, flows y labs comparten trazabilidad por `run_id`.
+- Hay cancelacion operativa, retry con linaje y evidencia por run.
+- Los exports de evidencia se firman y se pueden verificar offline.
+
+### 2. Bounty workspaces
+
+- Workspaces por programa o campana.
+- Imports manuales de scope, disclosed reports, URL lists, Burp sitemaps, JS endpoints y notas.
+- Target graph local-first.
+- Findings con `novelty_score` y `duplicate_risk_score`.
+- Skills orientadas a inteligencia de programa, delta recon, duplicate risk y handoff manual.
+
+### 3. Calidad operativa
+
+- Smoke suites para runtime hardening, control plane y bounty system.
+- `tsc` y `build` pasan en frontend.
+- Hay CI visible en GitHub Actions.
 
 ---
 
-## Cerrar proyecto (resumen)
+## Lo que NO estamos vendiendo como si ya estuviera cerrado
 
-| Entregable | Estado |
-|------------|--------|
-| Core estable y cerrado | OK |
-| CLI, flujos, MCP, verificación | OK |
-| Arsenal (96 scripts, 20 módulos, 25 flujos) | OK |
-| LLM + ciberseguridad (doc + MCP) | OK |
-| Zero-day y reporte (doc + reporting/report_finding) | OK |
-| Documentación (contrato, checklist, convenciones, LLM, zero-day) | OK |
+### 1. Browser automation autenticada
 
-Siguientes pasos opcionales: ampliar arsenal (más scripts por categoría), más flujos, más entradas CVE en vulnerability, o tests automatizados por módulo. El proyecto está **listo para uso** y para seguir creciendo sin tocar el core.
+No esta en el nucleo actual del sistema bounty.
+
+### 2. Integracion autenticada con HackerOne
+
+Todavia no se usa la API autenticada de HackerOne. En esta fase el modelo es `public + import first`.
+
+### 3. Auto-reporting
+
+BOFA no envia reportes automaticamente. El modo correcto sigue siendo copilot: sugerir, priorizar y dejar el juicio final al hunter.
 
 ---
 
-## Enlaces rápidos
+## Posicionamiento recomendado
 
-| Qué | Dónde |
-|-----|--------|
-| Verificación (quick/full/MCP) | `python3 tools/verify_bofa.py` [tools/README.md](../tools/README.md) |
-| **LLM + ciberseguridad** | [LLM_CYBERSECURITY.md](LLM_CYBERSECURITY.md) |
-| **Zero-day y reporte** | [ZERO_DAY_AND_REPORTING.md](ZERO_DAY_AND_REPORTING.md) |
-| Integración MCP (Cursor y otros) | [MCP_CURSOR_INTEGRATION.md](MCP_CURSOR_INTEGRATION.md) |
-| Checklist módulo certificado | [MODULE_CHECKLIST.md](MODULE_CHECKLIST.md) |
-| Convención de reportes | [REPORTS_CONVENTION.md](REPORTS_CONVENTION.md) |
-| Roadmap y próximos pasos | [NEXT_STEPS_AND_ROADMAP.md](NEXT_STEPS_AND_ROADMAP.md) |
-| BOFA en una pagina | [BOFA_AT_A_GLANCE.md](BOFA_AT_A_GLANCE.md) |
-| Indice de documentacion | [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) |
+Si alguien pregunta "que es BOFA hoy", la respuesta mas honesta y mas fuerte es:
+
+> BOFA es una plataforma local-first para hunting web/API con memoria operativa, evidencia defendible y una capa duplicate-aware para decidir mejor donde gastar tiempo manual.
+
+Todo lo educativo sigue siendo valioso, pero no deberia eclipsar la historia principal.
+
+---
+
+## Donde vamos
+
+Los siguientes hitos deben seguir esta regla:
+
+1. Priorizar edge real para bug bounty web/API individual.
+2. Reducir duplicates y mejorar el tiempo manual antes que ampliar catalogo por catalogo.
+3. Mantener evidencia, reproducibilidad y verificacion como parte del producto, no como detalle secundario.
+
+Las lineas de trabajo mas valiosas ahora mismo son:
+
+- snapshots y deltas mas finos
+- clustering por hipotesis
+- review queue mejor
+- skills honestas y utiles
+- mejor importacion de intelligence publica
+
+---
+
+## Enlaces rapidos
+
+- [Bounty Workspaces](BUG_BOUNTY_WORKSPACES.md)
+- [Agent](AGENT.md)
+- [Tools README](../tools/README.md)
+- [Changelog](../CHANGELOG.md)
