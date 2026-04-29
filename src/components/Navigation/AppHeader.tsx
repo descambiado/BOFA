@@ -29,7 +29,8 @@ import {
   User,
   LogOut,
   Code,
-  Activity
+  Activity,
+  Boxes
 } from "lucide-react";
 import { APP_CONFIG } from "@/config/app";
 import { authService } from "@/services/api";
@@ -84,6 +85,7 @@ export const AppHeader = () => {
     { name: "Salud", href: "/health", icon: Activity },
     { name: "Scripts", href: "/scripts", icon: Terminal },
     { name: "Flows", href: "/flows", icon: Workflow },
+    { name: "Projects", href: "/projects", icon: Boxes },
     { name: "Bounty", href: "/bounty", icon: Crosshair },
     { name: "Biblioteca", href: "/library", icon: Code },
     { name: "Labs", href: "/labs", icon: Eye },

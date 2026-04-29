@@ -30,11 +30,13 @@ class RunManager:
         parent_run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         status: str = "queued",
+        project_id: Optional[str] = None,
     ) -> str:
         run_id = self._id("run")
         self.db.create_run(
             run_id=run_id,
             user_id=user_id,
+            project_id=project_id,
             run_type=run_type,
             source=source,
             requested_action=requested_action,
