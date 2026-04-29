@@ -56,6 +56,58 @@ class DatabaseManager:
 
         cursor.execute(
             """
+            CREATE TABLE IF NOT EXISTS projects (
+                id TEXT PRIMARY KEY,
+                owner_user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT,
+                project_type TEXT DEFAULT 'workspace',
+                status TEXT DEFAULT 'active',
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (owner_user_id) REFERENCES users (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS project_members (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                role TEXT DEFAULT 'member',
+                status TEXT DEFAULT 'active',
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects (id),
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS project_environments (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                environment_type TEXT DEFAULT 'web',
+                base_url TEXT,
+                scope TEXT,
+                metadata TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS script_executions (
                 id TEXT PRIMARY KEY,
                 user_id INTEGER,
@@ -139,6 +191,7 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS operation_runs (
                 id TEXT PRIMARY KEY,
                 user_id INTEGER,
+                project_id TEXT,
                 run_type TEXT NOT NULL,
                 source TEXT,
                 status TEXT DEFAULT 'queued',
@@ -149,7 +202,8 @@ class DatabaseManager:
                 completed_at TIMESTAMP,
                 parent_run_id TEXT,
                 metadata TEXT,
-                FOREIGN KEY (user_id) REFERENCES users (id)
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                FOREIGN KEY (project_id) REFERENCES projects (id)
             )
             """
         )
@@ -233,6 +287,7 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS bounty_workspaces (
                 id TEXT PRIMARY KEY,
                 user_id INTEGER,
+                project_id TEXT,
                 name TEXT NOT NULL,
                 platform TEXT NOT NULL,
                 program_handle TEXT NOT NULL,
@@ -240,7 +295,8 @@ class DatabaseManager:
                 metadata TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (id)
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                FOREIGN KEY (project_id) REFERENCES projects (id)
             )
             """
         )
@@ -430,13 +486,25 @@ class DatabaseManager:
             """
         )
 
+        self._ensure_column(cursor, "script_executions", "run_id", "TEXT")
+        self._ensure_column(cursor, "script_executions", "step_id", "TEXT")
+        self._ensure_column(cursor, "lab_instances", "run_id", "TEXT")
+        self._ensure_column(cursor, "operation_runs", "project_id", "TEXT")
+        self._ensure_column(cursor, "bounty_workspaces", "project_id", "TEXT")
+
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_owner_updated ON projects (owner_user_id, updated_at DESC)")
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_project_members_unique_user ON project_members (project_id, user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_project_members_project_status ON project_members (project_id, status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_project_environments_project_updated ON project_environments (project_id, updated_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_user_created ON operation_runs (user_id, created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_project_created ON operation_runs (project_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_status_created ON operation_runs (status, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_steps_run_id ON run_steps (run_id, step_index)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_labs_run_id ON run_labs (run_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_events_run_id ON run_events (run_id, created_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_artifacts_run_id ON run_artifacts (run_id, created_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_bounty_workspaces_user_updated ON bounty_workspaces (user_id, updated_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_bounty_workspaces_project_updated ON bounty_workspaces (project_id, updated_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspace_assets_workspace_type ON workspace_assets (workspace_id, asset_type)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspace_imports_workspace_created ON workspace_imports (workspace_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_target_graph_nodes_workspace_type_key ON target_graph_nodes (workspace_id, node_type, normalized_key)")
@@ -446,10 +514,6 @@ class DatabaseManager:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspace_snapshots_workspace_created ON workspace_snapshots (workspace_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_surface_deltas_workspace_snapshot ON surface_deltas (workspace_id, snapshot_id, entity_type)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_finding_clusters_workspace_snapshot ON finding_clusters (workspace_id, snapshot_id, created_at DESC)")
-
-        self._ensure_column(cursor, "script_executions", "run_id", "TEXT")
-        self._ensure_column(cursor, "script_executions", "step_id", "TEXT")
-        self._ensure_column(cursor, "lab_instances", "run_id", "TEXT")
 
         conn.commit()
         conn.close()
@@ -775,16 +839,17 @@ class DatabaseManager:
         target: str = None,
         parent_run_id: str = None,
         metadata: Dict[str, Any] = None,
+        project_id: Optional[str] = None,
     ):
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute(
             """
             INSERT INTO operation_runs
-            (id, user_id, run_type, source, status, target, requested_action, parent_run_id, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, user_id, project_id, run_type, source, status, target, requested_action, parent_run_id, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (run_id, user_id, run_type, source, status, target, requested_action, parent_run_id, self._to_json(metadata)),
+            (run_id, user_id, project_id, run_type, source, status, target, requested_action, parent_run_id, self._to_json(metadata)),
         )
         conn.commit()
         conn.close()
@@ -834,6 +899,7 @@ class DatabaseManager:
     def list_runs(
         self,
         user_id: Optional[int] = None,
+        project_id: Optional[str] = None,
         run_type: Optional[str] = None,
         status: Optional[str] = None,
         workspace_id: Optional[str] = None,
@@ -846,6 +912,9 @@ class DatabaseManager:
         if user_id is not None:
             clauses.append("user_id = ?")
             params.append(user_id)
+        if project_id:
+            clauses.append("project_id = ?")
+            params.append(project_id)
         if run_type:
             clauses.append("run_type = ?")
             params.append(run_type)

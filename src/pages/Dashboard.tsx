@@ -15,6 +15,7 @@ import {
   Terminal,
   TimerReset,
   Workflow,
+  Boxes,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -100,6 +101,12 @@ const Dashboard = () => {
                 title="Flows"
                 description="Orquestar cadenas"
                 onClick={() => navigate("/flows")}
+              />
+              <ActionButton
+                icon={<Boxes className="w-5 h-5" />}
+                title="Projects"
+                description="Contexto SaaS compartido"
+                onClick={() => navigate("/projects")}
               />
               <ActionButton
                 icon={<Crosshair className="w-5 h-5" />}

@@ -30,6 +30,7 @@ import yaml
 
 from auth import AuthManager, Roles, check_permission
 from core.bounty_service import BountyWorkspaceService
+from core.project_service import ProjectService
 from database import db
 from execution_queue import execution_queue
 from lab_manager import LabManager
@@ -83,6 +84,7 @@ script_executor = ScriptExecutor(db, scripts_dir=str(SCRIPTS_DIR))
 lab_manager = LabManager(db)
 run_manager = RunManager(db)
 bounty_service = BountyWorkspaceService(db, run_manager, APP_ROOT)
+project_service = ProjectService(db)
 
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
 ARTIFACT_PREVIEW_LIMIT = 4000
@@ -138,14 +140,38 @@ class RunCreateRequest(BaseModel):
     source: str = "api"
     requested_action: str
     target: Optional[str] = None
+    project_id: Optional[str] = None
     metadata: Dict[str, Any] = {}
 
 
 class BountyWorkspaceCreateRequest(BaseModel):
+    project_id: Optional[str] = None
     name: str
     platform: str = "hackerone"
     program_handle: str
     notes: str = ""
+    metadata: Dict[str, Any] = {}
+
+
+class ProjectCreateRequest(BaseModel):
+    name: str
+    slug: Optional[str] = None
+    description: str = ""
+    project_type: str = "workspace"
+    metadata: Dict[str, Any] = {}
+
+
+class ProjectMemberCreateRequest(BaseModel):
+    username: str
+    role: str = "member"
+    metadata: Dict[str, Any] = {}
+
+
+class ProjectEnvironmentCreateRequest(BaseModel):
+    name: str
+    environment_type: str = "web"
+    base_url: str = ""
+    scope: str = ""
     metadata: Dict[str, Any] = {}
 
 
@@ -258,9 +284,41 @@ def _require_workspace_access(workspace_id: str, current_user: Dict[str, Any]) -
     workspace = bounty_service.get_workspace(workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    if current_user["role"] != "admin" and workspace.get("user_id") != current_user["user_id"]:
+    if current_user["role"] == "admin":
+        return workspace
+    if workspace.get("user_id") == current_user["user_id"]:
+        return workspace
+    project_id = workspace.get("project_id")
+    if project_id and project_service.user_can_access(project_id, current_user["user_id"], current_user["role"]):
+        return workspace
+    raise HTTPException(status_code=403, detail="Access denied")
+
+
+def _require_project_access(project_id: str, current_user: Dict[str, Any]) -> Dict[str, Any]:
+    project = project_service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not project_service.user_can_access(project_id, current_user["user_id"], current_user["role"]):
         raise HTTPException(status_code=403, detail="Access denied")
-    return workspace
+    return project
+
+
+def _require_project_manage_access(project_id: str, current_user: Dict[str, Any]) -> Dict[str, Any]:
+    project = _require_project_access(project_id, current_user)
+    if not project_service.user_can_manage(project_id, current_user["user_id"], current_user["role"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return project
+
+
+def _require_run_access(run: Dict[str, Any], current_user: Dict[str, Any]):
+    if current_user["role"] == "admin":
+        return
+    if run.get("user_id") == current_user["user_id"]:
+        return
+    project_id = run.get("project_id")
+    if project_id and project_service.user_can_access(project_id, current_user["user_id"], current_user["role"]):
+        return
+    raise HTTPException(status_code=403, detail="Access denied")
 
 
 def _artifact_role(artifact_type: Optional[str]) -> str:
@@ -1782,6 +1840,7 @@ async def _start_script_run(
     parameters: Dict[str, Any],
     source: str = "api",
     parent_run_id: Optional[str] = None,
+    project_id: Optional[str] = None,
     metadata_extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     metadata = {"module": module, "script": script, "parameters": parameters}
@@ -1789,6 +1848,7 @@ async def _start_script_run(
         metadata.update(metadata_extra)
     run_id = run_manager.create_run(
         user_id=current_user["user_id"],
+        project_id=project_id,
         run_type="script",
         source=source,
         requested_action="execute_script",
@@ -1810,6 +1870,7 @@ async def _start_flow_run(
     target: str,
     source: str = "api",
     parent_run_id: Optional[str] = None,
+    project_id: Optional[str] = None,
     metadata_extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     metadata = {"flow_id": flow_id}
@@ -1817,6 +1878,7 @@ async def _start_flow_run(
         metadata.update(metadata_extra)
     run_id = run_manager.create_run(
         user_id=current_user["user_id"],
+        project_id=project_id,
         run_type="flow",
         source=source,
         requested_action="execute_flow",
@@ -1887,6 +1949,7 @@ async def _start_lab_run(
     action: str,
     source: str = "api",
     parent_run_id: Optional[str] = None,
+    project_id: Optional[str] = None,
     metadata_extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     if action not in {"start_lab", "stop_lab"}:
@@ -1896,6 +1959,7 @@ async def _start_lab_run(
         metadata.update(metadata_extra)
     run_id = run_manager.create_run(
         user_id=current_user["user_id"],
+        project_id=project_id,
         run_type="lab_session",
         source=source,
         requested_action=action,
@@ -2051,6 +2115,7 @@ async def root():
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "capabilities": {
+            "projects": True,
             "runs": True,
             "script_execution": True,
             "lab_management": True,
@@ -2222,6 +2287,8 @@ async def websocket_execution_alias(websocket: WebSocket, identifier: str):
 
 @app.post("/runs")
 async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    if request.project_id:
+        _require_project_access(request.project_id, current_user)
     if request.run_type == "script":
         if not check_permission(current_user, "execute_scripts"):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -2230,7 +2297,7 @@ async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = D
         parameters = request.metadata.get("parameters", {})
         if not module or not script:
             raise HTTPException(status_code=400, detail="Script runs require metadata.module and metadata.script")
-        return await _start_script_run(current_user, module, script, parameters, source=request.source)
+        return await _start_script_run(current_user, module, script, parameters, source=request.source, project_id=request.project_id)
     if request.run_type == "flow":
         if not check_permission(current_user, "execute_scripts"):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -2238,7 +2305,7 @@ async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = D
         target = request.target or request.metadata.get("target")
         if not flow_id or not target:
             raise HTTPException(status_code=400, detail="Flow runs require metadata.flow_id and target")
-        return await _start_flow_run(current_user, flow_id, target, source=request.source)
+        return await _start_flow_run(current_user, flow_id, target, source=request.source, project_id=request.project_id)
     if request.run_type == "lab_session":
         if not check_permission(current_user, "manage_labs"):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -2246,7 +2313,7 @@ async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = D
         action = request.requested_action or request.metadata.get("action") or "start_lab"
         if not lab_id:
             raise HTTPException(status_code=400, detail="Lab runs require metadata.lab_id")
-        return await _start_lab_run(current_user, lab_id, action, source=request.source)
+        return await _start_lab_run(current_user, lab_id, action, source=request.source, project_id=request.project_id)
     raise HTTPException(status_code=400, detail="Unsupported run_type")
 
 
@@ -2254,14 +2321,20 @@ async def create_run(request: RunCreateRequest, current_user: Dict[str, Any] = D
 async def list_runs_endpoint(
     run_type: Optional[str] = None,
     status: Optional[str] = None,
+    project_id: Optional[str] = None,
     workspace_id: Optional[str] = None,
     limit: int = 50,
     current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
 ):
-    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    workspace = None
+    if project_id:
+        _require_project_access(project_id, current_user)
     if workspace_id:
-        _require_workspace_access(workspace_id, current_user)
-    runs = db.list_runs(user_id=user_id, run_type=run_type, status=status, workspace_id=workspace_id, limit=limit)
+        workspace = _require_workspace_access(workspace_id, current_user)
+    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    if project_id or (workspace and workspace.get("project_id")):
+        user_id = None
+    runs = db.list_runs(user_id=user_id, project_id=project_id, run_type=run_type, status=status, workspace_id=workspace_id, limit=limit)
     return [_serialize_run(run) for run in runs]
 
 
@@ -2270,8 +2343,7 @@ async def get_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_manag
     run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
     return _serialize_run(run)
 
 
@@ -2280,8 +2352,7 @@ async def get_run_timeline(run_id: str, current_user: Dict[str, Any] = Depends(a
     run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
     return {"run_id": run_id, "events": db.get_run_events(run_id), "artifacts": _serialize_artifacts(run.get("artifacts", []), run)}
 
 
@@ -2290,8 +2361,7 @@ async def get_run_artifact_preview(run_id: str, artifact_id: str, current_user: 
     run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
     artifact = next((item for item in run.get("artifacts", []) if item.get("id") == artifact_id), None)
     if not artifact:
         raise HTTPException(status_code=404, detail="Artifact not found")
@@ -2303,8 +2373,7 @@ async def download_run_artifact(run_id: str, artifact_id: str, current_user: Dic
     run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
     artifact = _find_run_artifact(run, artifact_id)
     if not artifact:
         raise HTTPException(status_code=404, detail="Artifact not found")
@@ -2322,8 +2391,7 @@ async def export_run_evidence(run_id: str, current_user: Dict[str, Any] = Depend
     run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
 
     export_payload = _create_run_evidence_export(run_id)
     bundle_path = Path(export_payload["bundle_path"])
@@ -2342,8 +2410,7 @@ async def verify_run_evidence_export(run_id: str, current_user: Dict[str, Any] =
     run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
     return _verify_run_evidence_export(run_id)
 
 
@@ -2352,8 +2419,7 @@ async def cancel_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_ma
     run = db.get_run_detail(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
     if run.get("status") in RUN_STATUSES_FINAL:
         return {
             "run_id": run_id,
@@ -2438,8 +2504,7 @@ async def retry_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_man
     run = db.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if current_user["role"] != "admin" and run.get("user_id") != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
+    _require_run_access(run, current_user)
     if run.get("status") not in {"failed", "error", "partial", "cancelled"}:
         raise HTTPException(status_code=400, detail="Retry only supported for failed, partial or cancelled runs")
     payload = run_manager.retry_payload(run_id)
@@ -2469,6 +2534,7 @@ async def retry_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_man
             metadata.get("parameters", {}),
             source="retry",
             parent_run_id=run_id,
+            project_id=run.get("project_id"),
             metadata_extra=retry_metadata,
         )
     elif payload["run_type"] == "flow":
@@ -2478,6 +2544,7 @@ async def retry_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_man
             payload.get("target"),
             source="retry",
             parent_run_id=run_id,
+            project_id=run.get("project_id"),
             metadata_extra=retry_metadata,
         )
     elif payload["run_type"] == "lab_session":
@@ -2487,6 +2554,7 @@ async def retry_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_man
             payload.get("requested_action") or metadata.get("action") or "start_lab",
             source="retry",
             parent_run_id=run_id,
+            project_id=run.get("project_id"),
             metadata_extra=retry_metadata,
         )
     else:
@@ -2509,6 +2577,84 @@ async def retry_run(run_id: str, current_user: Dict[str, Any] = Depends(auth_man
     }
 
 
+@app.post("/projects")
+async def create_project(request: ProjectCreateRequest, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    if not check_permission(current_user, "execute_scripts"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    try:
+        return project_service.create_project(
+            owner_user_id=current_user["user_id"],
+            name=request.name,
+            slug=request.slug,
+            description=request.description,
+            project_type=request.project_type,
+            metadata=request.metadata,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/projects")
+async def list_projects(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    return project_service.list_projects(user_id=user_id)
+
+
+@app.get("/projects/{project_id}")
+async def get_project(project_id: str, current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    _require_project_access(project_id, current_user)
+    detail = project_service.get_project_detail(project_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return detail
+
+
+@app.post("/projects/{project_id}/members")
+async def add_project_member(
+    project_id: str,
+    request: ProjectMemberCreateRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_project_manage_access(project_id, current_user)
+    try:
+        return project_service.add_member(
+            project_id=project_id,
+            actor_user_id=current_user["user_id"],
+            actor_role=current_user["role"],
+            username=request.username,
+            role=request.role,
+            metadata=request.metadata,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/projects/{project_id}/environments")
+async def create_project_environment(
+    project_id: str,
+    request: ProjectEnvironmentCreateRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_project_manage_access(project_id, current_user)
+    try:
+        return project_service.create_environment(
+            project_id=project_id,
+            actor_user_id=current_user["user_id"],
+            actor_role=current_user["role"],
+            name=request.name,
+            environment_type=request.environment_type,
+            base_url=request.base_url,
+            scope=request.scope,
+            metadata=request.metadata,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/bounty/workspaces")
 async def create_bounty_workspace(
     request: BountyWorkspaceCreateRequest,
@@ -2516,8 +2662,11 @@ async def create_bounty_workspace(
 ):
     if not check_permission(current_user, "execute_scripts"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if request.project_id:
+        _require_project_access(request.project_id, current_user)
     return bounty_service.create_workspace(
         user_id=current_user["user_id"],
+        project_id=request.project_id,
         name=request.name,
         platform=request.platform,
         program_handle=request.program_handle,
@@ -2527,9 +2676,20 @@ async def create_bounty_workspace(
 
 
 @app.get("/bounty/workspaces")
-async def list_bounty_workspaces(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
-    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
-    return bounty_service.list_workspaces(user_id=user_id)
+async def list_bounty_workspaces(
+    project_id: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    if project_id:
+        _require_project_access(project_id, current_user)
+    if current_user["role"] == "admin":
+        return bounty_service.list_workspaces(user_id=None, project_id=project_id)
+    accessible_project_ids = [project["id"] for project in project_service.list_projects(user_id=current_user["user_id"])]
+    return bounty_service.list_workspaces(
+        user_id=current_user["user_id"],
+        project_id=project_id,
+        project_ids=accessible_project_ids,
+    )
 
 
 @app.get("/bounty/workspaces/{workspace_id}")
@@ -2635,10 +2795,11 @@ async def get_bounty_workspace_review_queue(
 ):
     _require_workspace_access(workspace_id, current_user)
     latest_snapshot = bounty_service.get_latest_surface_snapshot(workspace_id)
+    resolved_snapshot_id = snapshot_id or (latest_snapshot.get("id") if latest_snapshot else None)
     return {
         "workspace_id": workspace_id,
-        "snapshot_id": snapshot_id or (latest_snapshot.get("id") if latest_snapshot else None),
-        "items": bounty_service.get_review_queue(workspace_id, snapshot_id=snapshot_id),
+        "snapshot_id": resolved_snapshot_id,
+        "items": bounty_service.get_review_queue(workspace_id, snapshot_id=resolved_snapshot_id),
     }
 
 
@@ -2697,8 +2858,8 @@ async def get_execution_status(execution_id: str, current_user: Dict[str, Any] =
     status = await execution_queue.get_status(execution_id)
     if status:
         run = db.get_run_detail(status["run_id"])
-        if current_user["role"] != "admin" and run and run.get("user_id") != current_user["user_id"]:
-            raise HTTPException(status_code=403, detail="Access denied")
+        if run:
+            _require_run_access(run, current_user)
         step = next((item for item in (run or {}).get("steps", []) if item["id"] == status["step_id"]), None)
         legacy_status = _legacy_execution_status(step.get("status") if step else status.get("status"))
         return {
@@ -2738,9 +2899,12 @@ async def get_execution_history(
     workspace_id: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
 ):
-    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    workspace = None
     if workspace_id:
-        _require_workspace_access(workspace_id, current_user)
+        workspace = _require_workspace_access(workspace_id, current_user)
+    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    if workspace and workspace.get("project_id"):
+        user_id = None
     runs = db.list_runs(user_id=user_id, workspace_id=workspace_id, limit=limit)
     run_items = _normalize_history_from_runs(runs)
     legacy_items = [] if workspace_id else _normalize_legacy_history(user_id, limit)

@@ -187,6 +187,7 @@ export interface RunLab {
 
 export interface RunSummary {
   id: string;
+  project_id?: string | null;
   run_type: string;
   source: string;
   status: string;
@@ -210,9 +211,59 @@ export interface RunDetail extends RunSummary {
   artifacts: RunArtifact[];
 }
 
+export interface ProjectMember {
+  id: string;
+  project_id: string;
+  user_id: number;
+  username: string;
+  email?: string;
+  global_role?: string;
+  role: string;
+  status: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectEnvironment {
+  id: string;
+  project_id: string;
+  name: string;
+  environment_type: string;
+  base_url?: string;
+  scope?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Project {
+  id: string;
+  owner_user_id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  project_type: string;
+  status: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  members?: ProjectMember[];
+  environments?: ProjectEnvironment[];
+  workspaces?: BountyWorkspace[];
+  recent_runs?: RunSummary[];
+  stats?: {
+    member_count: number;
+    environment_count: number;
+    workspace_count: number;
+    recent_run_count: number;
+  };
+}
+
 export interface BountyWorkspace {
   id: string;
   user_id?: number;
+  project_id?: string | null;
   name: string;
   platform: string;
   program_handle: string;
@@ -878,9 +929,12 @@ export const apiService = {
     }
   },
 
-  getRuns: async (workspaceId?: string | null): Promise<RunSummary[]> => {
+  getRuns: async (workspaceId?: string | null, projectId?: string | null): Promise<RunSummary[]> => {
     try {
-      const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+      const params = new URLSearchParams();
+      if (workspaceId) params.set('workspace_id', workspaceId);
+      if (projectId) params.set('project_id', projectId);
+      const query = params.toString() ? `?${params.toString()}` : '';
       const response = await fetch(`${API_BASE}/runs${query}`, {
         headers: getAuthHeaders(),
         signal: AbortSignal.timeout(5000)
@@ -918,6 +972,7 @@ export const apiService = {
   },
 
   createBountyWorkspace: async (payload: {
+    project_id?: string | null;
     name: string;
     platform: string;
     program_handle: string;
@@ -931,6 +986,73 @@ export const apiService = {
       signal: AbortSignal.timeout(8000)
     });
     if (!response.ok) throw new Error('No se pudo crear el workspace bounty');
+    return await response.json();
+  },
+
+  createProject: async (payload: {
+    name: string;
+    slug?: string;
+    description?: string;
+    project_type?: string;
+    metadata?: Record<string, any>;
+  }): Promise<Project> => {
+    const response = await fetch(`${API_BASE}/projects`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo crear el proyecto');
+    return await response.json();
+  },
+
+  getProjects: async (): Promise<Project[]> => {
+    const response = await fetch(`${API_BASE}/projects`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudieron obtener los proyectos');
+    return await response.json();
+  },
+
+  getProject: async (projectId: string): Promise<Project> => {
+    const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error('No se pudo obtener el proyecto');
+    return await response.json();
+  },
+
+  addProjectMember: async (projectId: string, payload: {
+    username: string;
+    role?: string;
+    metadata?: Record<string, any>;
+  }): Promise<ProjectMember> => {
+    const response = await fetch(`${API_BASE}/projects/${projectId}/members`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo agregar el miembro al proyecto');
+    return await response.json();
+  },
+
+  createProjectEnvironment: async (projectId: string, payload: {
+    name: string;
+    environment_type?: string;
+    base_url?: string;
+    scope?: string;
+    metadata?: Record<string, any>;
+  }): Promise<ProjectEnvironment> => {
+    const response = await fetch(`${API_BASE}/projects/${projectId}/environments`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!response.ok) throw new Error('No se pudo crear el entorno del proyecto');
     return await response.json();
   },
 
@@ -1541,11 +1663,30 @@ export const useExecutionHistory = () => {
   });
 };
 
-export const useRuns = (workspaceId?: string | null) => {
+export const useRuns = (workspaceId?: string | null, projectId?: string | null) => {
   return useQuery({
-    queryKey: ['runs', workspaceId ?? 'all'],
-    queryFn: () => apiService.getRuns(workspaceId),
+    queryKey: ['runs', workspaceId ?? 'all', projectId ?? 'all-projects'],
+    queryFn: () => apiService.getRuns(workspaceId, projectId),
     refetchInterval: 15000,
+    retry: 1,
+    staleTime: 10 * 1000,
+  });
+};
+
+export const useProjects = () => {
+  return useQuery({
+    queryKey: ['projects'],
+    queryFn: apiService.getProjects,
+    retry: 1,
+    staleTime: 20 * 1000,
+  });
+};
+
+export const useProject = (projectId: string | null) => {
+  return useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => apiService.getProject(projectId as string),
+    enabled: !!projectId,
     retry: 1,
     staleTime: 10 * 1000,
   });

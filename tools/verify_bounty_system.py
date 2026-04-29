@@ -25,6 +25,7 @@ os.environ.setdefault("BOFA_DB_PATH", str(_VERIFY_ROOT / "bootstrap.db"))
 from api.database import DatabaseManager
 from api.run_manager import RunManager
 from core.bounty_service import BountyWorkspaceService
+from core.project_service import ProjectService
 
 
 def _make_runtime():
@@ -35,11 +36,12 @@ def _make_runtime():
     db = DatabaseManager(str(db_path))
     manager = RunManager(db)
     service = BountyWorkspaceService(db, manager, app_root, skills_dir=_ROOT / "skills" / "bounty")
-    return app_root, db, manager, service
+    project_service = ProjectService(db)
+    return app_root, db, manager, service, project_service
 
 
 def _check_workspace_lifecycle():
-    _, _, _, service = _make_runtime()
+    _, _, _, service, _ = _make_runtime()
     workspace = service.create_workspace(
         user_id=1,
         name="Acme H1",
@@ -53,13 +55,21 @@ def _check_workspace_lifecycle():
 
 
 def _check_snapshots_deltas_clusters_and_queue():
-    app_root, db, _, service = _make_runtime()
+    app_root, db, _, service, project_service = _make_runtime()
+    project = project_service.create_project(
+        owner_user_id=1,
+        name="Delta SaaS",
+        slug="delta-saas",
+        description="Shared Sotyhub context",
+        project_type="saas",
+    )
     workspace = service.create_workspace(
         user_id=1,
         name="Delta Target",
         platform="hackerone",
         program_handle="delta-target",
         notes="Focus on web/API deltas",
+        project_id=project["id"],
     )
     workspace_id = workspace["id"]
 
@@ -137,6 +147,8 @@ def _check_snapshots_deltas_clusters_and_queue():
             any(artifact.get("artifact_type") == "workspace_analysis_result" for artifact in (analysis_run or {}).get("artifacts", [])),
             isinstance(detail.get("clusters"), list),
             isinstance(detail.get("review_queue"), list),
+            detail.get("project_id") == project["id"],
+            any(linked.get("id") == workspace_id for linked in (project_service.get_project_detail(project["id"]) or {}).get("workspaces", [])),
         ]
     )
 

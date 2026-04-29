@@ -119,6 +119,7 @@ class BountyWorkspaceService:
         program_handle: str,
         notes: str = "",
         metadata: Optional[Dict[str, Any]] = None,
+        project_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         workspace_id = self._id("workspace")
         now = _utc_now()
@@ -128,25 +129,46 @@ class BountyWorkspaceService:
         cursor.execute(
             """
             INSERT INTO bounty_workspaces
-            (id, user_id, name, platform, program_handle, notes, metadata, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, user_id, project_id, name, platform, program_handle, notes, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (workspace_id, user_id, name, platform, program_handle, notes, json.dumps(payload), now, now),
+            (workspace_id, user_id, project_id, name, platform, program_handle, notes, json.dumps(payload), now, now),
         )
         conn.commit()
         conn.close()
         return self.get_workspace_detail(workspace_id) or {}
 
-    def list_workspaces(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    def list_workspaces(
+        self,
+        user_id: Optional[int] = None,
+        project_id: Optional[str] = None,
+        project_ids: Optional[Sequence[str]] = None,
+    ) -> List[Dict[str, Any]]:
         conn = self.db.get_connection()
         cursor = conn.cursor()
-        if user_id is None:
-            cursor.execute("SELECT * FROM bounty_workspaces ORDER BY updated_at DESC, created_at DESC")
-        else:
-            cursor.execute(
-                "SELECT * FROM bounty_workspaces WHERE user_id = ? ORDER BY updated_at DESC, created_at DESC",
-                (user_id,),
-            )
+        clauses: List[str] = []
+        params: List[Any] = []
+        if user_id is not None:
+            owner_clause = "user_id = ?"
+            params.append(user_id)
+            if project_ids:
+                placeholders = ", ".join("?" for _ in project_ids)
+                clauses.append(f"({owner_clause} OR project_id IN ({placeholders}))")
+                params.extend(project_ids)
+            else:
+                clauses.append(owner_clause)
+        elif project_ids:
+            placeholders = ", ".join("?" for _ in project_ids)
+            clauses.append(f"project_id IN ({placeholders})")
+            params.extend(project_ids)
+        if project_id:
+            clauses.append("project_id = ?")
+            params.append(project_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        cursor.execute(
+            f"SELECT * FROM bounty_workspaces {where} ORDER BY updated_at DESC, created_at DESC",
+            params,
+        )
         rows = self.db._rows_to_dicts(cursor.fetchall())
         conn.close()
         return [self._serialize_workspace(row, include_children=False) for row in rows]
@@ -349,6 +371,7 @@ class BountyWorkspaceService:
         run_metadata = {"workspace_id": workspace_id, "snapshot_id": snapshot["id"], "export_type": "review_queue"}
         run_id = self.run_manager.create_run(
             user_id=user_id,
+            project_id=workspace.get("project_id"),
             run_type="skill_run",
             source=source,
             requested_action="export_review_queue",
@@ -459,6 +482,7 @@ class BountyWorkspaceService:
         }
         run_id = self.run_manager.create_run(
             user_id=user_id,
+            project_id=workspace.get("project_id"),
             run_type="intel_import",
             source=source,
             requested_action=f"import_{import_type}",
@@ -620,6 +644,7 @@ class BountyWorkspaceService:
         run_metadata = {"workspace_id": workspace_id, "snapshot_id": latest_snapshot_id}
         run_id = self.run_manager.create_run(
             user_id=user_id,
+            project_id=workspace.get("project_id"),
             run_type="workspace_analysis",
             source=source,
             requested_action="analyze_workspace",
@@ -731,6 +756,7 @@ class BountyWorkspaceService:
         run_metadata = {"workspace_id": workspace_id, "skill_key": skill_key, "snapshot_id": latest_snapshot_id}
         run_id = self.run_manager.create_run(
             user_id=user_id,
+            project_id=workspace.get("project_id"),
             run_type="skill_run",
             source=source,
             requested_action="run_skill",
@@ -827,6 +853,7 @@ class BountyWorkspaceService:
         base = {
             "id": workspace.get("id"),
             "user_id": workspace.get("user_id"),
+            "project_id": workspace.get("project_id"),
             "name": workspace.get("name"),
             "platform": workspace.get("platform"),
             "program_handle": workspace.get("program_handle"),

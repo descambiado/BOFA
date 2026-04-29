@@ -12,6 +12,7 @@ import {
   useBountySkills,
   useBountyWorkspace,
   useBountyWorkspaces,
+  useProjects,
   type BountyWorkspace,
   type NoveltyFinding,
   type ReviewQueueItem,
@@ -28,12 +29,14 @@ const Bounty = () => {
   const [latestDiffs, setLatestDiffs] = useState<SurfaceDelta[]>([]);
   const [latestSnapshot, setLatestSnapshot] = useState<WorkspaceSnapshot | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [workspaceForm, setWorkspaceForm] = useState({ name: "", platform: "hackerone", program_handle: "", notes: "" });
+  const [tacticalRefreshToken, setTacticalRefreshToken] = useState(0);
+  const [workspaceForm, setWorkspaceForm] = useState({ project_id: "", name: "", platform: "hackerone", program_handle: "", notes: "" });
   const [importForm, setImportForm] = useState({ import_type: "scope", source_label: "", content_format: "txt", source_url: "", content: "" });
 
   const { data: workspaces, refetch: refetchWorkspaces } = useBountyWorkspaces();
   const { data: workspace, refetch: refetchWorkspace } = useBountyWorkspace(selectedWorkspaceId);
   const { data: skills } = useBountySkills();
+  const { data: projects } = useProjects();
 
   useEffect(() => {
     if (!selectedWorkspaceId && workspaces?.length) setSelectedWorkspaceId(workspaces[0].id);
@@ -63,7 +66,7 @@ const Bounty = () => {
       }
     };
     void loadTacticalViews();
-  }, [selectedWorkspaceId, selectedSnapshotId]);
+  }, [selectedWorkspaceId, selectedSnapshotId, tacticalRefreshToken]);
 
   const graphSummary = useMemo(() => ({
     nodes: workspace?.graph?.nodes?.length ?? 0,
@@ -96,6 +99,11 @@ const Bounty = () => {
     }
   };
 
+  const refreshWorkspaceContext = async () => {
+    await refetchWorkspace();
+    setTacticalRefreshToken((current) => current + 1);
+  };
+
   const createWorkspace = async () => {
     if (!workspaceForm.name.trim() || !workspaceForm.program_handle.trim()) {
       toast.error("Nombre y programa son obligatorios");
@@ -104,7 +112,7 @@ const Bounty = () => {
     await runAction("create-workspace", async () => {
       const created = await apiService.createBountyWorkspace(workspaceForm);
       toast.success("Workspace bounty creado");
-      setWorkspaceForm({ name: "", platform: "hackerone", program_handle: "", notes: "" });
+      setWorkspaceForm({ project_id: "", name: "", platform: "hackerone", program_handle: "", notes: "" });
       await refetchWorkspaces();
       setSelectedWorkspaceId(created.id);
     });
@@ -120,7 +128,7 @@ const Bounty = () => {
       const result = await apiService.importBountyWorkspaceContent(selectedWorkspaceId, importForm);
       toast.success(`Import ejecutado en snapshot ${result.snapshot_id}`);
       setImportForm((current) => ({ ...current, content: "" }));
-      await refetchWorkspace();
+      await refreshWorkspaceContext();
       setSelectedSnapshotId(result.snapshot_id);
     });
   };
@@ -130,7 +138,7 @@ const Bounty = () => {
     await runAction("analyze", async () => {
       const result = await apiService.analyzeBountyWorkspace(selectedWorkspaceId);
       toast.success(`Analisis completado: ${result.findings.length} findings y ${result.review_queue?.length || 0} items`);
-      await refetchWorkspace();
+      await refreshWorkspaceContext();
     });
   };
 
@@ -139,7 +147,7 @@ const Bounty = () => {
     await runAction(`skill:${skillKey}`, async () => {
       await apiService.runBountySkill(selectedWorkspaceId, skillKey);
       toast.success(`Skill ejecutada: ${skillKey}`);
-      await refetchWorkspace();
+      await refreshWorkspaceContext();
     });
   };
 
@@ -148,7 +156,7 @@ const Bounty = () => {
     await runAction("export-queue", async () => {
       const result = await apiService.exportBountyWorkspaceReviewQueue(selectedWorkspaceId, selectedSnapshot?.id || null);
       toast.success(`Review queue exportada con ${result.item_count} items`);
-      await refetchWorkspace();
+      await refreshWorkspaceContext();
     });
   };
 
@@ -167,6 +175,18 @@ const Bounty = () => {
             <CardDescription>Una memoria operativa por programa.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Proyecto</Label>
+              <Select value={workspaceForm.project_id || "none"} onValueChange={(value) => setWorkspaceForm({ ...workspaceForm, project_id: value === "none" ? "" : value })}>
+                <SelectTrigger><SelectValue placeholder="Sin proyecto" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin proyecto</SelectItem>
+                  {(projects || []).map((project) => (
+                    <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2"><Label>Nombre</Label><Input value={workspaceForm.name} onChange={(event) => setWorkspaceForm({ ...workspaceForm, name: event.target.value })} /></div>
             <div className="space-y-2"><Label>Plataforma</Label><Input value={workspaceForm.platform} onChange={(event) => setWorkspaceForm({ ...workspaceForm, platform: event.target.value })} /></div>
             <div className="space-y-2"><Label>Programa</Label><Input value={workspaceForm.program_handle} onChange={(event) => setWorkspaceForm({ ...workspaceForm, program_handle: event.target.value })} /></div>
