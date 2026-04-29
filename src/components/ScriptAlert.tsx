@@ -1,5 +1,5 @@
 
-import { Alert, AlertDescription } from "@/components/UI/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Shield, Info } from "lucide-react";
 
 interface Script {
