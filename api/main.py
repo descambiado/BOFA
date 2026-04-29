@@ -63,9 +63,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="BOFA Duplicate-Aware Bug Bounty System",
-    description="Cybersecurity platform API with unified runs, evidence and duplicate-aware bug bounty workspaces.",
-    version="2.9.0",
+    title="BOFA Duplicate-Aware Hunter Workflows",
+    description="Cybersecurity platform API with unified runs, evidence, snapshots and duplicate-aware hunter workflows.",
+    version="2.9.1",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -2046,8 +2046,8 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(auth_mana
 @app.get("/")
 async def root():
     return {
-        "name": "BOFA Duplicate-Aware Bug Bounty System",
-        "version": "2.9.0",
+        "name": "BOFA Duplicate-Aware Hunter Workflows",
+        "version": "2.9.1",
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "capabilities": {

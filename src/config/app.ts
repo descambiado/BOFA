@@ -1,5 +1,5 @@
 /**
- * BOFA v2.9.0 - Duplicate-Aware Bug Bounty System
+ * BOFA v2.9.1 - Duplicate-Aware Hunter Workflows
  * Configuración centralizada de la aplicación
  */
 
@@ -7,9 +7,9 @@ export const APP_CONFIG = {
   // Información de la aplicación
   name: "BOFA",
   fullName: "Best Of All Cybersecurity Framework",
-  version: "2.9.0",
-  codename: "Duplicate-Aware Bug Bounty System",
-  releaseDate: "2026-04-28",
+  version: "2.9.1",
+  codename: "Duplicate-Aware Hunter Workflows",
+  releaseDate: "2026-04-29",
   
   // Información del desarrollador
   developer: {
