@@ -2,6 +2,23 @@
 
 Por descambiado. Cambios notables por version.
 
+## v2.9.1 (2026-04-29) - Duplicate-Aware Hunter Workflows
+
+### Hunter workflow refinement
+- **Snapshots explicitos**: cada import y analisis del workspace queda ligado a snapshots formales para separar inteligencia y superficie observable.
+- **Surface deltas**: BOFA detecta mejor que cambio entre snapshots y lo eleva a una vista operativa centrada en `what_changed`.
+- **Finding clusters**: los hints relacionados ya no salen como cola plana; ahora se agrupan por hipotesis mas cercana a root cause.
+
+### Tiempo manual mejor invertido
+- **Review queue**: nueva cola tactica con `why_now`, evidencia enlazada y `next_manual_step` para decidir mejor donde invertir tiempo humano.
+- **Export ligero**: la review queue se puede exportar en JSON o Markdown para sesiones de hunting y handoff manual.
+- **Skills nuevas**: `surface_regression` y `manual_handoff` profundizan el modo copilot sin caer en autopilot ciego.
+
+### Credibilidad y narrativa
+- **Posicionamiento publico**: README y STATUS se alinean con la promesa flagship de BOFA para bug bounty web/API.
+- **Walkthrough bounty**: la documentacion muestra mejor el flujo real de crear workspace, importar, analizar y revisar candidatos.
+- **Verificacion mantenida**: runtime hardening, control plane, bounty verifier, `tsc` y `build` siguen formando parte del release gate.
+
 ---
 
 ## v2.9.0 (2026-04-28) - Duplicate-Aware Bounty Workspaces
