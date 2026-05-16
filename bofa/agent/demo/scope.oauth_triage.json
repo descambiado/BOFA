@@ -1,0 +1,23 @@
+{
+  "mission_id": "bofa-agent-oauth-triage-v1",
+  "title": "Passive triage of suspicious OAuth application",
+  "report_profile": "passive-oauth-triage",
+  "allowed_tools": [
+    "inspect_oauth_metadata",
+    "evaluate_permissions",
+    "score_risk"
+  ],
+  "blocked_tools": [
+    "fetch_live_tenant_users",
+    "call_external_graph_api",
+    "scan_real_target"
+  ],
+  "constraints": [
+    "synthetic-input-only",
+    "no-real-targets",
+    "no-credentials",
+    "no-external-apis",
+    "passive-triage-only"
+  ]
+}
+
