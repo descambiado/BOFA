@@ -1,0 +1,32 @@
+{
+  "run_id": "demo-oauth-triage-001",
+  "observed_at": "2026-05-16T21:30:00Z",
+  "planned_tool_calls": [
+    "inspect_oauth_metadata",
+    "evaluate_permissions",
+    "fetch_live_tenant_users",
+    "score_risk"
+  ],
+  "application": {
+    "application_id": "synthetic-app-001",
+    "display_name": "Contoso Docs Sync Preview",
+    "publisher": "Unknown Publisher",
+    "publisher_verified": false,
+    "redirect_uris": [
+      "https://docs-sync.example.invalid/oauth/callback",
+      "http://localhost.invalid/callback"
+    ],
+    "permissions": [
+      "User.Read",
+      "Mail.Read",
+      "offline_access"
+    ],
+    "sample_consents": [
+      {
+        "user": "analyst@example.invalid",
+        "granted_at": "2026-05-15T12:00:00Z"
+      }
+    ]
+  }
+}
+

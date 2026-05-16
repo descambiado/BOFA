@@ -1,0 +1,11 @@
+{
+  "classification": {
+    "risk_score": 80,
+    "severity": "high",
+    "status": "review_required"
+  },
+  "findings_count": 4,
+  "blocked_tools_count": 1,
+  "sotyhub_ingestion_type": "passive_oauth_triage_report"
+}
+
