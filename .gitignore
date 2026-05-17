@@ -43,3 +43,7 @@ BOFA/
 /bofa/agent/demo/output/
 /bofa/**/__pycache__/
 /bofa/**/*.py[cod]
+
+# Demo production scratch/storyboard outputs
+/docs/demo-assets/bofa-agent/internal-storyboard/
+/tools/render_bofa_agent_demo.py
