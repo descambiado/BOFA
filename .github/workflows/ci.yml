@@ -33,6 +33,9 @@ jobs:
       - name: Verify bounty system
         run: python tools/verify_bounty_system.py
 
+      - name: Generate demo bounty workspace
+        run: python tools/demo_bounty_workspace.py --fresh
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

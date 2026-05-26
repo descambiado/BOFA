@@ -1,75 +1,78 @@
-# BOFA en una pagina
+# BOFA at a glance
 
-Por descambiado. Todo lo esencial del framework en un solo lugar.
+BOFA is a local-first security runtime for duplicate-aware web/API hunting,
+evidence, and AI copilots.
 
----
+Its strongest story today is simple:
 
-## Qué es BOFA
+- keep memory per program
+- import public intelligence and local notes
+- detect what changed between snapshots
+- surface novelty and duplicate risk
+- turn noisy findings into a short manual review queue
+- keep artifacts and evidence tied to the same operational history
 
-Framework open-source de ciberseguridad con core estable, CLI profesional y módulos descubiertos automáticamente. 96+ scripts, 20 módulos, 25 flujos. CLI, API, MCP para LLM. Incluye flujos bug bounty (bug_bounty_full_chain con encadenamiento contextual), correlación de hallazgos (findings_correlator, flow_report_aggregator, risk_scorer), payloads (sqli, xss, ssti, lfi) y CVE (cve_enricher con Exploit-DB).
-
----
-
-## Arrancar en 30 segundos
+## Try the flagship flow fast
 
 ```bash
 git clone https://github.com/descambiado/BOFA
 cd BOFA
 pip install -r requirements.txt
-./bofa.sh
+python tools/demo_bounty_workspace.py --fresh
 ```
 
----
+That generates a real offline workspace with:
 
-## Estructura en 3 capas
+- scope imports
+- observed URLs and API routes
+- disclosed reports
+- analyst notes
+- snapshots and deltas
+- findings and review queue exports
 
-| Capa | Qué hace |
-|------|----------|
-| **Core** | Descubre módulos en `scripts/`, valida y ejecuta scripts, config, logging, errores. |
-| **CLI** | Menú interactivo sobre el core. No tiene lógica de negocio. |
-| **Módulos** | Carpetas en `scripts/<nombre>/` con `.py` y opcionalmente `.yaml`. |
+## What BOFA is today
 
-Un **módulo nuevo** = nueva carpeta en `scripts/`. El core lo descubre solo. No se toca el core.
+### 1. Runtime and evidence
 
----
+- unified runs, steps, labs, events, and artifacts
+- retry lineage and cancellation handling
+- signed evidence bundles and offline verification
 
-## Crear tu primer módulo (5 min)
+### 2. Duplicate-aware bounty workspaces
 
-1. `mkdir scripts/mi_modulo`
-2. Crea `hola.py` con `def main(): print("Hola"); return 0` y `if __name__ == "__main__": sys.exit(main())`
-3. Opcional: `hola.yaml` con `name`, `description`, `parameters`
-4. `./bofa.sh` -> tu modulo aparece. O: `engine.execute_script("mi_modulo", "hola")`
+- workspaces per program
+- imports for scope, disclosed reports, URL lists, Burp sitemap, JS endpoints, and notes
+- local-first target graph
+- novelty scoring and duplicate-risk scoring
+- tactical review queue and bounty skills
 
-Guía completa: [Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md).
+### 3. Interfaces
 
----
+- CLI
+- FastAPI backend
+- React web UI
+- MCP-friendly integration
 
-## Documentación clave
+## What BOFA is not pretending to be
 
-| Necesito... | Documento |
-|-----------|-----------|
-| Indice de documentacion | [DOCUMENTATION_INDEX](DOCUMENTATION_INDEX.md) |
-| Saber en que punto estamos | [Estado actual](STATUS.md) |
-| Crear un módulo | [Tu primer módulo en 5 min](QUICK_START_FIRST_MODULE.md) |
-| Entender el core | [Arquitectura del Core](CORE_ARCHITECTURE.md) |
-| Usar el engine desde código | [Uso del Core](CORE_USAGE.md) |
-| Contrato modulo <-> core | [Contrato Core-Modulos](MODULE_CONTRACT.md) |
-| Checklist módulo certificado | [MODULE_CHECKLIST](MODULE_CHECKLIST.md) |
-| Reportes (flujos y scripts) | [Convención de reportes](REPORTS_CONVENTION.md) |
-| Errores y logging | [Errores y Logging](ERRORS_AND_LOGGING.md) |
-| Copiar un ejemplo | [Módulos de ejemplo](../scripts/examples/README.md) |
-| Usar la CLI | [CLI](../cli/README.md) |
+- It is not a full replacement for every specialist tool in security
+- It is not browser-authenticated crawling at the core today
+- It is not auto-reporting to bug bounty platforms
+- It is not "AI does everything for you"
 
----
+## Where BOFA wins
 
-## Criterios de listo
+BOFA wins when the problem is not "run recon once", but:
 
-- **Usar BOFA sin el autor**: documentación y ejemplos suficientes.
-- **Que un tercero entienda el README**: valor claro y enlaces a todo.
-- **Crear un módulo sin tocar el core**: descubrimiento automático y contrato claro.
-- **CLI estable y predecible**: una sola entrada, capa sobre el core.
-- **Proyecto que inspire confianza**: errores claros, logging consistente, código limpio.
+- keep context over time
+- compare surface snapshots
+- reduce duplicate-heavy manual work
+- keep evidence and runtime history attached to the same workflow
 
----
+## Best next docs
 
-BOFA - Cybersecurity Operations Framework Advanced. Por [@descambiado](https://github.com/descambiado). [GitHub](https://github.com/descambiado/BOFA)
+- [README](../README.md)
+- [STATUS](STATUS.md)
+- [Bounty Workspaces](BUG_BOUNTY_WORKSPACES.md)
+- [Tools README](../tools/README.md)
+- [Next Steps and Roadmap](NEXT_STEPS_AND_ROADMAP.md)

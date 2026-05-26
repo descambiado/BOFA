@@ -263,6 +263,20 @@ class BountyWorkspaceService:
     def get_latest_surface_snapshot(self, workspace_id: str) -> Optional[Dict[str, Any]]:
         return self.get_latest_snapshot(workspace_id, snapshot_type="surface")
 
+    def get_snapshot(
+        self,
+        workspace_id: str,
+        snapshot_id: str,
+        snapshot_type: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        for snapshot in self.list_snapshots(workspace_id):
+            if snapshot.get("id") != snapshot_id:
+                continue
+            if snapshot_type and snapshot.get("snapshot_type") != snapshot_type:
+                return None
+            return snapshot
+        return None
+
     def get_latest_deltas(self, workspace_id: str) -> List[Dict[str, Any]]:
         snapshot = self.get_latest_surface_snapshot(workspace_id)
         if not snapshot:
@@ -338,9 +352,10 @@ class BountyWorkspaceService:
         workspace = self.get_workspace(workspace_id)
         if not workspace:
             raise ValueError("Workspace not found")
-        snapshot = self.get_latest_surface_snapshot(workspace_id) if snapshot_id is None else next(
-            (item for item in self.list_snapshots(workspace_id) if item.get("id") == snapshot_id),
-            None,
+        snapshot = (
+            self.get_latest_surface_snapshot(workspace_id)
+            if snapshot_id is None
+            else self.get_snapshot(workspace_id, snapshot_id)
         )
         if not snapshot:
             raise ValueError("Snapshot not found")

@@ -114,6 +114,10 @@ def _check_snapshots_deltas_clusters_and_queue():
 
     detail = service.get_workspace_detail(workspace_id)
     snapshots = service.list_snapshots(workspace_id)
+    first_snapshot = service.get_snapshot(workspace_id, first_import["snapshot_id"])
+    second_snapshot = service.get_snapshot(workspace_id, second_import["snapshot_id"])
+    first_deltas = service.get_snapshot_deltas(workspace_id, first_import["snapshot_id"])
+    second_deltas = service.get_snapshot_deltas(workspace_id, second_import["snapshot_id"])
     latest_deltas = service.get_latest_deltas(workspace_id)
     clusters = service.list_finding_clusters(workspace_id, snapshot_id=second_import["snapshot_id"])
     queue = service.get_review_queue(workspace_id, snapshot_id=second_import["snapshot_id"])
@@ -125,7 +129,14 @@ def _check_snapshots_deltas_clusters_and_queue():
             len(snapshots) >= 2,
             any(snapshot.get("id") == first_import["snapshot_id"] for snapshot in snapshots),
             any(snapshot.get("id") == second_import["snapshot_id"] for snapshot in snapshots),
+            first_snapshot is not None,
+            second_snapshot is not None,
+            len(first_deltas) > 0,
+            len(second_deltas) > len(first_deltas),
             len(latest_deltas) > 0,
+            latest_deltas == second_deltas,
+            all(delta.get("snapshot_id") == first_import["snapshot_id"] for delta in first_deltas),
+            all(delta.get("snapshot_id") == second_import["snapshot_id"] for delta in second_deltas),
             any(delta.get("entity_type") == "api_endpoint" for delta in latest_deltas),
             len(clusters) > 0,
             len(queue) > 0,

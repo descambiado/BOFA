@@ -1,0 +1,4 @@
+https://app.acme.test
+https://beta.acme.test
+api.acme.test
+cdn.acme.test
