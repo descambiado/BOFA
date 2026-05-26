@@ -21,6 +21,7 @@ export interface ScriptConfig {
   author: string;
   version: string;
   last_updated: string;
+  is_recent?: boolean;
   risk_level?: 'LOW' | 'MEDIUM' | 'HIGH';
   impact_level?: 'LOW' | 'MEDIUM' | 'HIGH';
   educational_value?: number;
