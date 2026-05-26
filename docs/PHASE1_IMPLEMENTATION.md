@@ -1,7 +1,7 @@
-# Phase 1: Web-Backend Integration - Implementation Complete
+# Historical Milestone: Phase 1 Web-Backend Integration
 
 ## Overview
-Successfully implemented real-time web-backend integration with WebSocket support, execution queue management, and live dashboard metrics for BOFA v2.8.0.
+This document captures the milestone where BOFA moved from mocked execution to real-time backend integration with WebSocket support, execution queue management, and live dashboard metrics.
 
 ## Completed Features
 
@@ -228,7 +228,7 @@ Returns:
 
 ---
 
-**Status:** Phase 1 Complete [OK]  
-**Next:** Phase 2 - Complete Missing Scripts  
-**Version:** BOFA v2.8.0
+**Status:** Historical milestone captured [OK]  
+**Next:** Superseded by the current runtime, evidence and bounty workflow  
+**Version:** Pre-v2.9 runtime foundation
 **Date:** 2025-01-20

@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.8.0 - Authentication and Authorization
-JWT-based authentication system
+BOFA authentication and authorization
+JWT-based authentication for the local runtime and API.
 """
 
-import jwt
 import hashlib
+import logging
+import os
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
+import jwt
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import logging
 
 logger = logging.getLogger(__name__)
 
 # JWT Configuration
-JWT_SECRET = "BOFA_SECRET_KEY_2025_NEURAL_SECURITY_EDGE"
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
+JWT_SECRET = os.getenv("JWT_SECRET", "bofa_dev_secret_change_me")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 
 security = HTTPBearer()
 
