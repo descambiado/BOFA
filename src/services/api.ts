@@ -993,13 +993,23 @@ export const apiService = {
     return await response.json();
   },
 
-  getBountyWorkspaceLatestDiffs: async (workspaceId: string): Promise<{ workspace_id: string; snapshot: WorkspaceSnapshot | null; deltas: SurfaceDelta[] }> => {
-    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/diffs/latest`, {
+  getBountyWorkspaceDiffs: async (
+    workspaceId: string,
+    snapshotId?: string | null,
+  ): Promise<{ workspace_id: string; snapshot_id?: string | null; snapshot: WorkspaceSnapshot | null; deltas: SurfaceDelta[] }> => {
+    const query = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : '';
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/diffs${query}`, {
       headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000)
     });
     if (!response.ok) throw new Error('No se pudieron obtener los deltas del workspace');
     return await response.json();
+  },
+
+  getBountyWorkspaceLatestDiffs: async (
+    workspaceId: string,
+  ): Promise<{ workspace_id: string; snapshot_id?: string | null; snapshot: WorkspaceSnapshot | null; deltas: SurfaceDelta[] }> => {
+    return apiService.getBountyWorkspaceDiffs(workspaceId);
   },
 
   getBountyWorkspaceFindings: async (workspaceId: string): Promise<NoveltyFinding[]> => {

@@ -12,6 +12,16 @@ La idea no es "escanear mas", sino trabajar mejor:
 - priorizar hallazgos con mas novedad y menos riesgo de duplicado
 - generar una review queue con siguiente paso manual
 
+## Demo rapida offline
+
+Si quieres ver este flujo sin traer datos tuyos todavia:
+
+```bash
+python3 tools/demo_bounty_workspace.py --fresh
+```
+
+El demo usa ejemplos locales en `docs/examples/bounty_demo_workspace/` y deja artifacts bajo `data/demo_bounty_workspace/`.
+
 ## Flujo recomendado
 
 1. Crea un workspace para el programa.
@@ -29,6 +39,8 @@ La idea no es "escanear mas", sino trabajar mejor:
 8. Exporta la review queue si quieres una sesion corta y accionable.
 9. Solo despues invierte tiempo manual profundo en la cola mas prometedora.
 
+Cuando quieras comparar una foto concreta del workspace, usa el mismo `snapshot_id` para los deltas y para la review queue. Asi `What Changed` y la cola tactica quedan alineados sobre la misma evidencia.
+
 ## Endpoints principales
 
 - `POST /bounty/workspaces`
@@ -38,6 +50,7 @@ La idea no es "escanear mas", sino trabajar mejor:
 - `POST /bounty/workspaces/{workspace_id}/analyze`
 - `GET /bounty/workspaces/{workspace_id}/graph`
 - `GET /bounty/workspaces/{workspace_id}/snapshots`
+- `GET /bounty/workspaces/{workspace_id}/diffs?snapshot_id=<snapshot_id>`
 - `GET /bounty/workspaces/{workspace_id}/diffs/latest`
 - `GET /bounty/workspaces/{workspace_id}/findings`
 - `GET /bounty/workspaces/{workspace_id}/review-queue`

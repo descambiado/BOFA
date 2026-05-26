@@ -2592,17 +2592,36 @@ async def list_bounty_workspace_snapshots(
     return bounty_service.list_snapshots(workspace_id)
 
 
+@app.get("/bounty/workspaces/{workspace_id}/diffs")
+async def get_bounty_workspace_diffs(
+    workspace_id: str,
+    snapshot_id: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    snapshot = (
+        bounty_service.get_latest_surface_snapshot(workspace_id)
+        if snapshot_id is None
+        else bounty_service.get_snapshot(workspace_id, snapshot_id)
+    )
+    if snapshot_id is not None and snapshot is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    resolved_snapshot_id = snapshot.get("id") if snapshot else None
+    return {
+        "workspace_id": workspace_id,
+        "snapshot_id": resolved_snapshot_id,
+        "snapshot": snapshot,
+        "deltas": bounty_service.get_snapshot_deltas(workspace_id, resolved_snapshot_id) if resolved_snapshot_id else [],
+    }
+
+
 @app.get("/bounty/workspaces/{workspace_id}/diffs/latest")
 async def get_bounty_workspace_latest_diffs(
     workspace_id: str,
     current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
 ):
     _require_workspace_access(workspace_id, current_user)
-    return {
-        "workspace_id": workspace_id,
-        "snapshot": bounty_service.get_latest_surface_snapshot(workspace_id),
-        "deltas": bounty_service.get_latest_deltas(workspace_id),
-    }
+    return await get_bounty_workspace_diffs(workspace_id=workspace_id, current_user=current_user)
 
 
 @app.get("/bounty/workspaces/{workspace_id}/findings")

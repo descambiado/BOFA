@@ -2,6 +2,24 @@
 
 Por descambiado. Cambios notables por version.
 
+## v2.9.2 (Unreleased) - Proof, Positioning and Snapshot Clarity
+
+### Flagship workflow tightened
+- **Snapshot-specific deltas**: la UI bounty ya puede alinear `What Changed` con el snapshot seleccionado en vez de mezclar la review queue con deltas siempre tomados del ultimo snapshot.
+- **Contrato reforzado**: bounty verifier cubre mejor la relacion entre snapshots, deltas y review queue para evitar regresiones silenciosas.
+
+### Faster proof of value
+- **Offline demo workspace**: nuevo `python tools/demo_bounty_workspace.py --fresh` para sentir BOFA en minutos con scope, URLs, disclosed reports, notas, findings y review queue exportada.
+- **Bundled sample data**: el repo incluye ejemplos locales para demostrar el flujo duplicate-aware sin depender de servicios externos.
+- **CI con demo real**: la demo tambien se genera en el workflow de CI para que la promesa publica tenga verificacion automatica.
+
+### Public signal improved
+- **License added**: el repo pasa a incluir `LICENSE` real para que GitHub y terceros detecten mejor el marco legal.
+- **README mas concreto**: la portada ya habla del BOFA actual, prioriza la demo y reduce el mensaje de "suite total" generica.
+- **Metadata and docs cleanup**: titulos, docs de contribucion, roadmap y release notes se alinean mejor con la direccion duplicate-aware web/API.
+
+---
+
 ## v2.9.1 (2026-04-29) - Duplicate-Aware Hunter Workflows
 
 ### Hunter workflow refinement

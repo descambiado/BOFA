@@ -1,5 +1,16 @@
 # Herramientas BOFA
 
+## Demo: sentir BOFA rapido
+
+Para generar un workspace bounty real sin depender de servicios externos:
+
+```bash
+python3 tools/demo_bounty_workspace.py --fresh
+```
+
+Esto crea un workspace offline con scope, URLs, disclosed reports, notas, findings,
+review queue y artifacts exportados bajo `data/demo_bounty_workspace/`.
+
 ## Verificacion: saber que todo funciona
 
 Para comprobar que el core, la CLI y las capas operativas funcionan correctamente:
@@ -26,6 +37,7 @@ python3 tools/verify_bofa.py
 python3 tools/verify_runtime_hardening.py
 python3 tools/verify_control_plane.py
 python3 tools/verify_bounty_system.py
+python3 tools/demo_bounty_workspace.py --fresh
 python3 tools/verify_evidence_bundle.py <bundle.zip> --json
 ```
 
