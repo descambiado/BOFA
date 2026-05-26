@@ -24,6 +24,7 @@ python3 tools/verify_bofa.py
 - **Comprobar MCP (opcional)**: `python3 tools/verify_bofa.py --mcp`
 - **Comprobar agente (opcional)**: `python3 tools/verify_bofa.py --agent`
 - **Comprobar hardening del runtime**: `python3 tools/verify_runtime_hardening.py`
+- **Comprobar el catalogo runtime y su coherencia con la UI**: `python3 tools/verify_runtime_catalog.py`
 - **Comprobar el control plane**: `python3 tools/verify_control_plane.py`
 - **Comprobar el sistema bounty anti-duplicados**: `python3 tools/verify_bounty_system.py`
 - **Verificar un bundle offline**: `python3 tools/verify_evidence_bundle.py reports/runs/<run_id>/exports/bofa_evidence_<run_id>_<timestamp>.zip --json`
@@ -35,6 +36,7 @@ Codigo de salida: `0` = todo OK, `1` = hay fallos.
 ```bash
 python3 tools/verify_bofa.py
 python3 tools/verify_runtime_hardening.py
+python3 tools/verify_runtime_catalog.py
 python3 tools/verify_control_plane.py
 python3 tools/verify_bounty_system.py
 python3 tools/demo_bounty_workspace.py --fresh
