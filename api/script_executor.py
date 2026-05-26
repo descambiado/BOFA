@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.8.0 - Script Execution Engine
-Secure script execution with sandboxing and monitoring
+BOFA script execution engine
+Secure script execution with sandboxing and monitoring.
 """
 
 import os

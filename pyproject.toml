@@ -1,13 +1,13 @@
-# BOFA Extended Systems v2.9.1 - Python Project Configuration
+# BOFA v2.9.1 - Python project configuration
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bofa-extended-systems"
+name = "bofa-runtime"
 version = "2.9.1"
-description = "Duplicate-aware bug bounty and cybersecurity operations framework"
+description = "Local-first security runtime for duplicate-aware web/API hunting, evidence and AI copilots"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
@@ -18,20 +18,18 @@ maintainers = [
 ]
 keywords = [
     "cybersecurity",
-    "penetration-testing",
-    "red-team",
-    "blue-team",
-    "osint",
-    "malware-analysis",
-    "security-tools",
     "bug-bounty",
-    "zero-day",
+    "web-security",
+    "api-security",
+    "reconnaissance",
+    "duplicate-detection",
+    "evidence",
+    "security-automation",
+    "security-tools",
     "mcp",
     "llm",
-    "cursor",
-    "vulnerability-scanner",
-    "ctf",
-    "forensics"
+    "fastapi",
+    "react"
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -97,7 +95,7 @@ agent = [
 
 [project.urls]
 Homepage = "https://github.com/descambiado/BOFA"
-Documentation = "https://docs.bofa.dev"
+Documentation = "https://github.com/descambiado/BOFA/tree/main/docs"
 Repository = "https://github.com/descambiado/BOFA"
 "Bug Reports" = "https://github.com/descambiado/BOFA/issues"
 Changelog = "https://github.com/descambiado/BOFA/blob/main/CHANGELOG.md"

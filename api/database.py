@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.8.0 - Database Models and Connection
+BOFA database models and connection
 SQLite database manager for BOFA runtime, history and observability.
 """
 

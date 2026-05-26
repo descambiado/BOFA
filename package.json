@@ -1,7 +1,8 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "bofa-web",
   "private": true,
   "version": "2.9.1",
+  "description": "BOFA web workspace for duplicate-aware web/API hunting, evidence and AI copilots",
   "type": "module",
   "scripts": {
     "dev": "vite",
