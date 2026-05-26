@@ -1,7 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ScriptConfig, ExecutionHistory } from '@/types/script';
-import { scriptConfigs, getScriptsByCategory, getAllScripts } from '@/utils/scriptLoader';
 import { APP_CONFIG } from '@/config/app';
 import { toast } from 'sonner';
 
@@ -16,6 +15,8 @@ const getAuthHeaders = () => ({
   'Content-Type': 'application/json',
   ...(currentToken && { 'Authorization': `Bearer ${currentToken}` })
 });
+
+const loadScriptLoader = () => import('@/utils/scriptLoader');
 
 // Types
 export interface Module {
@@ -423,61 +424,90 @@ export interface StudyLesson {
 }
 
 // Enhanced mock data with real script counts
-const mockModules: Module[] = [
+const mockModuleBlueprints: Array<Omit<Module, 'script_count'>> = [
   {
     id: "red", 
     name: "Red Team",
     description: "Arsenal ofensivo avanzado y técnicas de penetración + Supply Chain + Cloud Native",
-    icon: "terminal",
-    script_count: getScriptsByCategory("red").length
+    icon: "terminal"
   },
   {
     id: "blue",
     name: "Blue Team", 
     description: "Herramientas defensivas, AI threat hunting, Zero Trust validation y análisis forense",
-    icon: "shield",
-    script_count: getScriptsByCategory("blue").length
+    icon: "shield"
   },
   {
     id: "purple",
     name: "Purple Team",
     description: "Ejercicios coordinados + Quantum-Safe Crypto Analysis + Behavioral Biometrics",
-    icon: "users",
-    script_count: getScriptsByCategory("purple").length
+    icon: "users"
   },
   {
     id: "osint",
     name: "OSINT",
     description: "Inteligencia de fuentes abiertas + IoT Security Mapping + Threat Intelligence",
-    icon: "search",
-    script_count: getScriptsByCategory("osint").length
+    icon: "search"
   },
   {
     id: "malware",
     name: "Malware Analysis",
     description: "Análisis de malware, detección de amenazas y reverse engineering",
-    icon: "bug",
-    script_count: getScriptsByCategory("malware").length
+    icon: "bug"
   },
   {
     id: "social",
     name: "Social Engineering",
     description: "Herramientas de concienciación sobre ingeniería social",
-    icon: "users",
-    script_count: getScriptsByCategory("social").length
+    icon: "users"
   },
   {
     id: "study",
     name: "Study & Training",
     description: "Herramientas educativas y de entrenamiento CTF",
-    icon: "book-open",
-    script_count: getScriptsByCategory("study").length
+    icon: "book-open"
   }
 ];
 
+const buildMockModules = async (): Promise<Module[]> => {
+  try {
+    const { getScriptsByCategory } = await loadScriptLoader();
+    return mockModuleBlueprints.map((module) => ({
+      ...module,
+      script_count: getScriptsByCategory(module.id).length,
+    }));
+  } catch (error) {
+    return mockModuleBlueprints.map((module) => ({
+      ...module,
+      script_count: 0,
+    }));
+  }
+};
+
+const getFallbackScriptsByCategory = async (category: string): Promise<ScriptConfig[]> => {
+  try {
+    const { getScriptsByCategory } = await loadScriptLoader();
+    return getScriptsByCategory(category);
+  } catch (error) {
+    return [];
+  }
+};
+
+const getFallbackAllScripts = async (): Promise<ScriptConfig[]> => {
+  try {
+    const { getAllScripts } = await loadScriptLoader();
+    return getAllScripts();
+  } catch (error) {
+    return [];
+  }
+};
+
 // Generate realistic execution history
-const generateMockHistory = (): ExecutionResult[] => {
-  const scripts = getAllScripts();
+const generateMockHistory = async (): Promise<ExecutionResult[]> => {
+  const scripts = await getFallbackAllScripts();
+  if (!scripts.length) {
+    return [];
+  }
   const history: ExecutionResult[] = [];
   
   for (let i = 0; i < 25; i++) {
@@ -504,7 +534,14 @@ const generateMockHistory = (): ExecutionResult[] => {
   return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 };
 
-const mockHistory = generateMockHistory();
+let mockHistoryPromise: Promise<ExecutionResult[]> | null = null;
+
+const getMockHistory = () => {
+  if (!mockHistoryPromise) {
+    mockHistoryPromise = generateMockHistory();
+  }
+  return mockHistoryPromise;
+};
 
 const mockLabs: Lab[] = [
   {
@@ -754,7 +791,7 @@ export const apiService = {
       return data;
     } catch (error) {
       console.warn('⚠️ API: Server unavailable, using offline data');
-      return mockModules;
+      return await buildMockModules();
     }
   },
 
@@ -807,7 +844,7 @@ export const apiService = {
       return normalize(data);
     } catch (error) {
       console.warn(`⚠️ API: Using offline scripts for ${module}`);
-      return getScriptsByCategory(module);
+      return await getFallbackScriptsByCategory(module);
     }
   },
 
@@ -874,7 +911,7 @@ export const apiService = {
       return data;
     } catch (error) {
       console.warn('⚠️ API: Using offline history data');
-      return mockHistory;
+      return await getMockHistory();
     }
   },
 
@@ -888,6 +925,7 @@ export const apiService = {
       if (!response.ok) throw new Error('API not available');
       return await response.json();
     } catch (error) {
+      const mockHistory = await getMockHistory();
       return mockHistory.map((item) => ({
         id: item.id,
         run_type: 'script',
@@ -1417,14 +1455,18 @@ export const apiService = {
       return data;
     } catch (error) {
       console.warn('API: Using simulated dashboard stats');
+      const mockHistory = await getMockHistory();
+      const mockModules = await buildMockModules();
+      const fallbackScripts = await getFallbackAllScripts();
       const activeLabs = mockLabs.filter(lab => lab.status === 'running').length;
       const totalExecutions = mockHistory.length;
       const successful = mockHistory.filter(item => item.status === 'success').length;
       const failed = mockHistory.filter(item => item.status !== 'success').length;
+      const scriptsUpdatedRecently = fallbackScripts.filter((script) => script.last_updated === "2025-01-20").length;
       const successRate = totalExecutions > 0 ? Number(((successful / totalExecutions) * 100).toFixed(1)) : 0;
 
       return {
-        total_scripts: getAllScripts().length,
+        total_scripts: fallbackScripts.length,
         total_executions: totalExecutions,
         active_labs: activeLabs,
         completion_rate: successRate,
@@ -1433,9 +1475,9 @@ export const apiService = {
         modules: mockModules.length,
         system_status: "demo",
         overview: {
-          total_scripts: getAllScripts().length,
+          total_scripts: fallbackScripts.length,
           modules: mockModules.length,
-          scripts_updated_recently: getAllScripts().filter(script => script.last_updated === "2025-01-20").length,
+          scripts_updated_recently: scriptsUpdatedRecently,
           system_status: "demo",
           threat_level: "MEDIUM",
           last_scan: new Date().toISOString()
@@ -1494,7 +1536,7 @@ export const apiService = {
       return data;
     } catch (error) {
       // Fallback: build minimal catalog from local YAML loader (sin código)
-      const scripts = getAllScripts();
+      const scripts = await getFallbackAllScripts();
       return scripts.map(s => ({
         id: s.name,
         name: s.display_name || s.name,
