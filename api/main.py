@@ -70,16 +70,25 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "BOFA_CORS_ORIGINS",
+        "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 auth_manager = AuthManager(db)
-script_executor = ScriptExecutor(db, scripts_dir=str(SCRIPTS_DIR))
+script_executor = ScriptExecutor(db, scripts_dir=str(SCRIPTS_DIR), temp_dir=str(TEMP_DIR))
 lab_manager = LabManager(db)
 run_manager = RunManager(db)
 bounty_service = BountyWorkspaceService(db, run_manager, APP_ROOT)
@@ -112,15 +121,14 @@ runtime_controls: Dict[str, Dict[str, Any]] = {}
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=1, max_length=256)
 
 
 class RegisterRequest(BaseModel):
-    username: str
-    email: str
-    password: str
-    role: str = "user"
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=12, max_length=256)
 
 
 class ExecuteScriptRequest(BaseModel):
@@ -2181,10 +2189,15 @@ async def login(request: LoginRequest):
 
 @app.post("/auth/register")
 async def register(request: RegisterRequest):
-    user_id = auth_manager.register_user(request.username, request.email, request.password, request.role)
+    user_id = auth_manager.bootstrap_admin(request.username, request.email, request.password)
     if not user_id:
-        raise HTTPException(status_code=400, detail="Username or email already exists")
-    return {"message": "User registered successfully", "user_id": user_id}
+        raise HTTPException(status_code=403, detail="Bootstrap registration is already closed")
+    return {"message": "Initial administrator registered", "user_id": user_id}
+
+
+@app.get("/auth/bootstrap/status")
+async def bootstrap_status():
+    return {"required": db.count_active_users() == 0}
 
 
 @app.get("/auth/me")
@@ -3010,4 +3023,10 @@ async def server_error_handler(request, exc):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run(
+        "main:app",
+        host=os.getenv("BOFA_HOST", "127.0.0.1"),
+        port=int(os.getenv("BOFA_PORT", "8000")),
+        reload=os.getenv("BOFA_RELOAD", "false").lower() == "true",
+        log_level=os.getenv("BOFA_LOG_LEVEL", "info"),
+    )

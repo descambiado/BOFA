@@ -597,56 +597,8 @@ const mockStudyLessons: StudyLesson[] = [
   }
 ];
 
-// Database simulada para autenticación funcional
-const mockUsers = [
-  {
-    id: 1,
-    username: 'admin',
-    password: 'admin123', // En producción sería hasheada
-    role: 'admin',
-    fullName: 'Administrador BOFA',
-    email: 'admin@bofa.local',
-    permissions: ['all']
-  },
-  {
-    id: 2,
-    username: 'redteam',
-    password: 'red123',
-    role: 'red_team',
-    fullName: 'Red Team Operator',
-    email: 'red@bofa.local',
-    permissions: ['execute_red', 'view_history', 'manage_labs']
-  },
-  {
-    id: 3,
-    username: 'blueteam',
-    password: 'blue123',
-    role: 'blue_team',
-    fullName: 'Blue Team Analyst',
-    email: 'blue@bofa.local',
-    permissions: ['execute_blue', 'view_history', 'view_reports']
-  }
-];
-
-// JWT mock para funcionamiento real
-const generateMockJWT = (user: any) => {
-  const header = btoa(JSON.stringify({ typ: 'JWT', alg: 'HS256' }));
-  const payload = btoa(JSON.stringify({ 
-    sub: user.id,
-    username: user.username,
-    role: user.role,
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 horas
-  }));
-  const signature = btoa(`mock_signature_${user.id}`);
-  return `${header}.${payload}.${signature}`;
-};
-
-// Authentication service - Completamente funcional
 export const authService = {
   login: async (username: string, password: string) => {
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    // 1) Intento real contra API
     try {
       const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
@@ -655,45 +607,57 @@ export const authService = {
         signal: AbortSignal.timeout(5000)
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        currentToken = data.access_token;
-        currentUser = data.user;
-        localStorage.setItem('bofa_token', currentToken);
-        localStorage.setItem('bofa_user', JSON.stringify(currentUser));
-        toast.success(`¡Bienvenido/a ${currentUser.username}! (API real)`);
-        return { access_token: currentToken, token_type: 'bearer', user: currentUser };
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || 'Credenciales invalidas');
       }
-    } catch (e) {
-      // Continuamos a fallback
-    }
 
-    // 2) Fallback mock completamente funcional
-    try {
-      const user = mockUsers.find(u => u.username === username && u.password === password);
-      if (!user) throw new Error('Credenciales inválidas');
-
-      const access_token = generateMockJWT(user);
-      const userData = {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        fullName: user.fullName,
-        email: user.email,
-        permissions: user.permissions
-      };
-
-      currentToken = access_token;
-      currentUser = userData;
+      currentToken = data.access_token;
+      currentUser = data.user;
       localStorage.setItem('bofa_token', currentToken);
       localStorage.setItem('bofa_user', JSON.stringify(currentUser));
-      toast.success(`¡Bienvenido/a ${userData.fullName}! (modo demo)`);
-      return { access_token, token_type: 'bearer', user: userData };
+      toast.success(`Sesion iniciada como ${currentUser.username}`);
+      return { access_token: currentToken, token_type: 'bearer', user: currentUser };
     } catch (error) {
-      console.error('❌ LOGIN ERROR:', error);
-      toast.error(error instanceof Error ? error.message : 'Error de autenticación');
+      const normalized =
+        error instanceof TypeError || (error instanceof DOMException && error.name === 'TimeoutError')
+          ? new Error('BOFA runtime no disponible en /api')
+          : error;
+      toast.error(normalized instanceof Error ? normalized.message : 'Error de autenticacion');
+      throw normalized;
+    }
+  },
+
+  registerInitialAdmin: async (username: string, email: string, password: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+        signal: AbortSignal.timeout(5000),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || 'No se pudo crear el administrador inicial');
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof TypeError || (error instanceof DOMException && error.name === 'TimeoutError')) {
+        throw new Error('BOFA runtime no disponible en /api');
+      }
       throw error;
     }
+  },
+
+  getBootstrapStatus: async (): Promise<boolean> => {
+    const response = await fetch(`${API_BASE}/auth/bootstrap/status`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) {
+      throw new Error('No se pudo consultar el estado de bootstrap');
+    }
+    const data = await response.json();
+    return Boolean(data.required);
   },
 
   logout: () => {

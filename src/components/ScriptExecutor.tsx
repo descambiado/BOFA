@@ -89,7 +89,11 @@ export const ScriptExecutor = ({ module, script, onBack, onExecutionComplete }: 
 
   const handleStop = async () => {
     if (executionId) {
-      try { await apiService.stopExecution(executionId); } catch {}
+      try {
+        await apiService.stopExecution(executionId);
+      } catch {
+        // The run may already have reached a terminal state.
+      }
     }
     setIsRunning(false);
     setRunId(null);

@@ -22,6 +22,11 @@ Por descambiado. Cambios notables por version.
 - **Dashboard con senal bounty real**: la API agrega workspaces, snapshots, findings, review queue y report candidates para que la portada operativa refleje trabajo persistido.
 - **Producto sin capacidades ficticias**: landing, cabecera y configuracion publica describen el runtime local-first, la evidencia y el workflow duplicate-aware que BOFA ya puede demostrar.
 - **Typecheck restaurado**: los imports frontend usan un casing canonico y `tsc --noEmit` vuelve a formar parte efectiva del release gate.
+- **Supply chain frontend**: se retiran dependencias heredadas, se actualizan Vite/PostCSS/tooling y `npm audit` baja de 20 alertas (13 altas) a 2 moderadas, sin altas ni criticas.
+- **Instalacion Python minima**: `requirements.txt` deja de instalar una suite ficticia completa, los manifests reflejan imports reales y `pip-audit` pasa de 30 vulnerabilidades conocidas a cero.
+- **Autenticacion sin demo peligrosa**: se retiran usuarios/JWT mock, el primer admin se crea una sola vez, las contrasenas usan PBKDF2 y los hashes SHA-256 legacy migran al iniciar sesion.
+- **Runtime local por defecto**: CORS queda limitado a origenes de desarrollo configurables, la API escucha en loopback y los sandboxes dejan de depender de rutas Unix en Windows.
+- **CI mas honesto**: el workflow instala las dependencias reales de API/CLI y exige audits, lint, typecheck, build y las cinco smoke suites.
 
 ---
 

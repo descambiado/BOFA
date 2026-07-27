@@ -69,7 +69,7 @@ export const StudyLesson = ({ lesson, progress, onBack, onComplete }: StudyLesso
   useEffect(() => {
     const progress = ((currentStep + 1) / lessonSteps.length) * 100;
     setLessonProgress(progress);
-  }, [currentStep]);
+  }, [currentStep, lessonSteps.length]);
 
   const handleNext = () => {
     if (currentStep < lessonSteps.length - 1) {
