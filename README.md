@@ -2,29 +2,47 @@
 
 ![BOFA](https://github.com/descambiado/BOFA/blob/main/public/bofasuitebanner.png?raw=true)
 
+![CI](https://github.com/descambiado/BOFA/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Python](https://img.shields.io/badge/python-3.8%2B-green)
 ![Scripts](https://img.shields.io/badge/scripts-96%2B-orange)
 ![Flows](https://img.shields.io/badge/flows-25-blue)
 
-BOFA is a local-first cybersecurity framework with a growing flagship for **duplicate-aware web/API bug bounty hunting**.
+BOFA is a local-first security runtime for **duplicate-aware web/API hunting, evidence and AI copilots**.
 
 Its current promise is simple:
 
-**BOFA helps hunters see what changed, what is weird, and what is less likely to be duplicate.**
-
-That sits on top of a broader foundation:
-
-- unified runtime and control plane
-- signed evidence bundles and offline verification
-- CLI, API, web UI and labs
-- MCP and agent-friendly orchestration
+**BOFA helps you remember program context, detect what changed, and spend manual time where duplicate risk is lower.**
 
 ---
 
-## Why BOFA
+## Try BOFA In 2 Minutes
 
-Most hunting setups can execute recon.
+If you want to feel BOFA before wiring real targets, run the bundled offline demo workspace:
+
+```bash
+git clone https://github.com/descambiado/BOFA
+cd BOFA
+pip install -r requirements.txt
+python tools/demo_bounty_workspace.py --fresh
+```
+
+That generates a real workspace with:
+
+- scope imports
+- observed URLs and API routes
+- disclosed reports
+- analyst notes
+- snapshots and deltas
+- findings and review queue exports
+
+The demo leaves human-readable output under `data/demo_bounty_workspace/summary/` plus BOFA runtime artifacts under `data/demo_bounty_workspace/runtime/reports/workspaces/`.
+
+---
+
+## Why BOFA Exists
+
+Most security stacks can run recon.
 
 BOFA is trying to get better at something harder:
 
@@ -34,6 +52,7 @@ BOFA is trying to get better at something harder:
 - detecting deltas between snapshots
 - scoring novelty and duplicate risk
 - turning noisy findings into a short manual review queue
+- keeping evidence, artifacts and run history attached to the same workflow
 
 If you are tired of collecting obvious duplicates, that is the part of BOFA to care about first.
 
@@ -50,7 +69,7 @@ If you are tired of collecting obvious duplicates, that is the part of BOFA to c
    - `Duplicate Risk`
    - `Review Queue`
 5. Execute skills like `delta_recon`, `duplicate_risk`, `surface_regression` or `manual_handoff`.
-6. Export evidence and keep the runtime history tied to the workspace.
+6. Export evidence and keep runtime history tied to the workspace.
 
 Walkthrough:
 
@@ -58,9 +77,19 @@ Walkthrough:
 
 ---
 
+## AI Without Hand-Waving
+
+BOFA is designed to support AI as a copilot over real evidence, not as a substitute for evidence.
+
+- local or API-backed model providers can sit on top of the same workspace context
+- the same runtime can drive CLI, API, web UI and MCP-friendly workflows
+- skills are meant to accelerate triage and manual focus, not hide what happened
+
+---
+
 ## Quick Start
 
-### Local
+### Full local stack
 
 ```bash
 git clone https://github.com/descambiado/BOFA
@@ -70,7 +99,7 @@ npm install
 ./bofa.sh
 ```
 
-### Frontend
+### Frontend only
 
 ```bash
 npm run dev
@@ -80,8 +109,13 @@ npm run dev
 
 ```bash
 python tools/verify_runtime_hardening.py
+python tools/verify_runtime_catalog.py
 python tools/verify_control_plane.py
 python tools/verify_bounty_system.py
+python tools/verify_auth_security.py
+python tools/demo_bounty_workspace.py --fresh
+npm run lint
+npx tsc --noEmit -p tsconfig.app.json
 npm run build
 ```
 
@@ -160,6 +194,7 @@ Current direction:
 - more workspace memory
 - better evidence
 - better novelty and duplicate-aware prioritization
+- faster time-to-value for new users
 
 Status page:
 

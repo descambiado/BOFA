@@ -177,6 +177,43 @@ class BountyWorkspaceService:
         workspace["skills"] = self.list_skills()
         return self._serialize_workspace(workspace, include_children=True)
 
+    def summarize_workspaces(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        workspaces = self.list_workspaces(user_id=user_id)
+        summary = {
+            "workspaces": len(workspaces),
+            "active_workspaces": 0,
+            "imports": 0,
+            "snapshots": 0,
+            "findings": 0,
+            "review_queue_items": 0,
+            "report_candidates": 0,
+            "latest_workspace_id": workspaces[0].get("id") if workspaces else None,
+            "latest_workspace_name": workspaces[0].get("name") if workspaces else None,
+            "latest_program_handle": workspaces[0].get("program_handle") if workspaces else None,
+            "latest_updated_at": workspaces[0].get("updated_at") if workspaces else None,
+        }
+
+        for workspace in workspaces:
+            detail = self.get_workspace_detail(workspace["id"])
+            if not detail:
+                continue
+
+            imports = detail.get("imports", [])
+            snapshots = detail.get("snapshots", [])
+            findings = detail.get("findings", [])
+            review_queue = detail.get("review_queue", [])
+
+            summary["imports"] += len(imports)
+            summary["snapshots"] += len(snapshots)
+            summary["findings"] += len(findings)
+            summary["review_queue_items"] += len(review_queue)
+            summary["report_candidates"] += len([item for item in review_queue if item.get("report_candidate")])
+
+            if review_queue:
+                summary["active_workspaces"] += 1
+
+        return summary
+
     def list_skills(self) -> List[Dict[str, Any]]:
         skills: List[Dict[str, Any]] = []
         for skill_key in DEFAULT_SKILL_ORDER:
@@ -263,6 +300,20 @@ class BountyWorkspaceService:
     def get_latest_surface_snapshot(self, workspace_id: str) -> Optional[Dict[str, Any]]:
         return self.get_latest_snapshot(workspace_id, snapshot_type="surface")
 
+    def get_snapshot(
+        self,
+        workspace_id: str,
+        snapshot_id: str,
+        snapshot_type: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        for snapshot in self.list_snapshots(workspace_id):
+            if snapshot.get("id") != snapshot_id:
+                continue
+            if snapshot_type and snapshot.get("snapshot_type") != snapshot_type:
+                return None
+            return snapshot
+        return None
+
     def get_latest_deltas(self, workspace_id: str) -> List[Dict[str, Any]]:
         snapshot = self.get_latest_surface_snapshot(workspace_id)
         if not snapshot:
@@ -338,9 +389,10 @@ class BountyWorkspaceService:
         workspace = self.get_workspace(workspace_id)
         if not workspace:
             raise ValueError("Workspace not found")
-        snapshot = self.get_latest_surface_snapshot(workspace_id) if snapshot_id is None else next(
-            (item for item in self.list_snapshots(workspace_id) if item.get("id") == snapshot_id),
-            None,
+        snapshot = (
+            self.get_latest_surface_snapshot(workspace_id)
+            if snapshot_id is None
+            else self.get_snapshot(workspace_id, snapshot_id)
         )
         if not snapshot:
             raise ValueError("Snapshot not found")

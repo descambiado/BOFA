@@ -28,6 +28,8 @@ dist-ssr
 __pycache__/
 *.py[cod]
 *.pyo
+.venv*/
+.ci-python/
 
 # BOFA generated
 reports/

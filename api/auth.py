@@ -1,23 +1,50 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.8.0 - Authentication and Authorization
-JWT-based authentication system
+BOFA authentication and authorization
+JWT-based authentication for the local runtime and API.
 """
 
-import jwt
-import hashlib
+import logging
+import os
+from pathlib import Path
+import secrets
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
+import jwt
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import logging
+
+try:
+    from .passwords import hash_password, needs_rehash, verify_password
+except ImportError:
+    from passwords import hash_password, needs_rehash, verify_password
 
 logger = logging.getLogger(__name__)
 
-# JWT Configuration
-JWT_SECRET = "BOFA_SECRET_KEY_2025_NEURAL_SECURITY_EDGE"
+def _load_jwt_secret() -> str:
+    configured = os.getenv("JWT_SECRET")
+    if configured:
+        return configured
+
+    app_root = Path(os.getenv("BOFA_APP_ROOT", Path(__file__).resolve().parents[1]))
+    secret_path = Path(os.getenv("BOFA_JWT_SECRET_FILE", app_root / "data" / "jwt_secret"))
+    secret_path.parent.mkdir(parents=True, exist_ok=True)
+    if secret_path.exists():
+        return secret_path.read_text(encoding="utf-8").strip()
+
+    generated = secrets.token_urlsafe(48)
+    secret_path.write_text(generated, encoding="utf-8")
+    try:
+        secret_path.chmod(0o600)
+    except OSError:
+        pass
+    return generated
+
+
+JWT_SECRET = _load_jwt_secret()
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
+JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 
 security = HTTPBearer()
 
@@ -26,12 +53,12 @@ class AuthManager:
         self.db = database_manager
     
     def hash_password(self, password: str) -> str:
-        """Hash password using SHA256"""
-        return hashlib.sha256(password.encode()).hexdigest()
+        """Hash a password using a salted, adaptive KDF."""
+        return hash_password(password)
     
     def verify_password(self, password: str, hashed: str) -> bool:
         """Verify password against hash"""
-        return self.hash_password(password) == hashed
+        return verify_password(password, hashed)
     
     def create_access_token(self, user_data: Dict[str, Any]) -> str:
         """Create JWT access token"""
@@ -49,7 +76,7 @@ class AuthManager:
             return payload
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token has expired")
-        except jwt.JWTError:
+        except jwt.PyJWTError:
             raise HTTPException(status_code=401, detail="Could not validate credentials")
     
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
@@ -60,6 +87,9 @@ class AuthManager:
         
         if not self.verify_password(password, user['password_hash']):
             return None
+
+        if needs_rehash(user["password_hash"]):
+            self.db.update_password_hash(user["id"], self.hash_password(password))
         
         # Update last login
         self.db.update_last_login(user['id'])
@@ -73,6 +103,12 @@ class AuthManager:
         }
         
         return user_data
+
+    def bootstrap_admin(self, username: str, email: str, password: str) -> Optional[int]:
+        user_id = self.db.create_initial_admin(username, email, self.hash_password(password))
+        if user_id:
+            logger.info("Initial administrator registered: %s", username)
+        return user_id
     
     def register_user(self, username: str, email: str, password: str, role: str = "user") -> Optional[int]:
         """Register new user"""
@@ -80,7 +116,7 @@ class AuthManager:
         user_id = self.db.create_user(username, email, password_hash, role)
         
         if user_id:
-            logger.info(f"👤 User registered: {username} ({role})")
+            logger.info("User registered: %s (%s)", username, role)
         
         return user_id
     

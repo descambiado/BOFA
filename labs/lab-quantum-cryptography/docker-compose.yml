@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Quantum Cryptography Lab Environment
   quantum-crypto-lab:
@@ -156,7 +154,7 @@ services:
     environment:
       - POSTGRES_DB=quantum_lab
       - POSTGRES_USER=lab_user
-      - POSTGRES_PASSWORD=quantum_2025
+      - POSTGRES_PASSWORD=${QUANTUM_LAB_DB_PASSWORD:-}
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     volumes:
       - quantum-lab-db:/var/lib/postgresql/data

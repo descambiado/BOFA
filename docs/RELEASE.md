@@ -1,53 +1,78 @@
-# Release y versión
+# BOFA release guide
 
-## Versión actual: **2.8.0**
+## Current public release
 
-La versión está unificada en:
+- `v2.9.1` published on 2026-04-29
 
-- `pyproject.toml` -> `version = "2.8.0"`
-- `cli/bofa_cli.py` -> `VERSION = "2.8.0"`
-- `README.md` -> badge y titulo v2.8.0
-- `CHANGELOG.md` -> entrada `## v2.8.0`
+## Current release candidate direction
 
-## Ramas y GitHub
+The next useful patch release should package the work that improves:
 
-- **main**: rama principal estable; cada tag (v2.8.0, etc.) marca una release.
-- **Desarrollo**: opcionalmente usar ramas `feature/...` o `develop` y hacer merge a `main` cuando esté listo para release.
-- **Releases en GitHub**: tras `git push origin v2.8.0`, en GitHub ir a **Releases** -> **Draft a new release**, elegir tag `v2.8.0`, título "BOFA v2.8.0 - Operational Control Plane", y pegar la descripción del CHANGELOG (v2.8.0) para que quede bien detallado.
+- public positioning
+- offline demo and proof of value
+- license detection and repo trust
+- snapshot/delta consistency in the bounty workflow
 
-### Crear issues para la release (opcional)
+Candidate label:
 
-Ideas de issues para visibilidad y actividad: "Control plane: trazabilidad end-to-end", "Runtime: cancelación cooperativa", "UI: historial táctico de runs", "Release v2.8.0 checklist". Cerrar los que queden resueltos con el commit de la release.
+- `v2.9.2`
 
-## Topics recomendados (GitHub)
+## Release checklist
 
-En el repositorio: Settings -> General -> Topics. Añadir:
+### Product truth
 
-`cybersecurity`, `penetration-testing`, `bug-bounty`, `security-tools`, `mcp`, `llm`, `ollama`, `openai`, `claude`, `cursor`, `vulnerability-scanner`, `red-team`, `blue-team`, `forensics`, `malware-analysis`
+- README matches what BOFA can actually do today
+- docs do not oversell experimental areas
+- flagship workflow is the clearest story in the repo
 
-## Commit y push (recomendado)
+### Verification
 
 ```bash
-# Desde la raíz del repositorio
-git add -A
-git status   # revisar qué se sube
-
-git commit -m "Release v2.8.0: operational control plane
-
-- Runs unificados con timeline, steps, labs y artifacts persistentes
-- Cancelación cooperativa y retry con linaje
-- UI operacional para scripts, flows, labs e historial táctico"
-
-git tag -a v2.8.0 -m "v2.8.0 operational control plane"
-
-git push origin main
-git push origin v2.8.0
+python tools/verify_runtime_hardening.py
+python tools/verify_runtime_catalog.py
+python tools/verify_control_plane.py
+python tools/verify_bounty_system.py
+python tools/verify_auth_security.py
+python tools/demo_bounty_workspace.py --fresh
+npm run lint
+npx tsc --noEmit -p tsconfig.app.json
+npm run build
 ```
 
-## Próxima versión
+### Version alignment
 
-- **Patch** (2.8.1): solo correcciones o docs sin nuevas features.
-- **Minor** (2.9.0): nuevas funcionalidades compatibles (más flujos, mejor verificación, etc.).
-- **Major** (3.0.0): cambios incompatibles con el core o la CLI.
+Before tagging, make sure versions are coherent in the main user-facing places:
 
-Actualizar siempre `pyproject.toml`, `cli/bofa_cli.py`, `README.md` y una nueva entrada en `CHANGELOG.md` antes del tag.
+- `pyproject.toml`
+- `package.json`
+- `cli/bofa_cli.py`
+- `README.md`
+- `CHANGELOG.md`
+
+## GitHub metadata checklist
+
+These items matter more than they look:
+
+- repo description aligned with the flagship story
+- topics set
+- license detected by GitHub
+- homepage set if a stable public page exists
+- release notes that explain why this version matters
+
+## Suggested release note structure
+
+1. What changed for the flagship workflow
+2. What became more credible or easier to try
+3. What is still intentionally out of scope
+4. Verification performed for the release
+
+## Suggested commands
+
+```bash
+git add -A
+git status
+git commit -m "Release v2.9.2: tighten flagship workflow and public signal"
+git tag -a v2.9.2 -m "v2.9.2 tighten flagship workflow and public signal"
+git push origin main
+git push origin v2.9.2
+```

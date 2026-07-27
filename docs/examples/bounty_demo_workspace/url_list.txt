@@ -1,0 +1,7 @@
+https://app.acme.test/api/v2/internal/users?tenant_id=123&debug=true
+https://app.acme.test/api/v2/admin/export?format=json
+https://beta.acme.test/preview/export?workspace=acme
+https://app.acme.test/graphql
+https://app.acme.test/oauth/callback?return=https://app.acme.test/dashboard
+https://app.acme.test/static/app.bundle.js
+https://cdn.acme.test/assets/admin.js

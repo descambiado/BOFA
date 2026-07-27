@@ -2,6 +2,34 @@
 
 Por descambiado. Cambios notables por version.
 
+## v2.9.2 (2026-07-27) - Proof, Positioning and Snapshot Clarity
+
+### Flagship workflow tightened
+- **Snapshot-specific deltas**: la UI bounty ya puede alinear `What Changed` con el snapshot seleccionado en vez de mezclar la review queue con deltas siempre tomados del ultimo snapshot.
+- **Contrato reforzado**: bounty verifier cubre mejor la relacion entre snapshots, deltas y review queue para evitar regresiones silenciosas.
+
+### Faster proof of value
+- **Offline demo workspace**: nuevo `python tools/demo_bounty_workspace.py --fresh` para sentir BOFA en minutos con scope, URLs, disclosed reports, notas, findings y review queue exportada.
+- **Bundled sample data**: el repo incluye ejemplos locales para demostrar el flujo duplicate-aware sin depender de servicios externos.
+- **CI con demo real**: la demo tambien se genera en el workflow de CI para que la promesa publica tenga verificacion automatica.
+
+### Public signal improved
+- **License added**: el repo pasa a incluir `LICENSE` real para que GitHub y terceros detecten mejor el marco legal.
+- **README mas concreto**: la portada ya habla del BOFA actual, prioriza la demo y reduce el mensaje de "suite total" generica.
+- **Metadata and docs cleanup**: titulos, docs de contribucion, roadmap y release notes se alinean mejor con la direccion duplicate-aware web/API.
+
+### Release stabilization
+- **Dashboard con senal bounty real**: la API agrega workspaces, snapshots, findings, review queue y report candidates para que la portada operativa refleje trabajo persistido.
+- **Producto sin capacidades ficticias**: landing, cabecera y configuracion publica describen el runtime local-first, la evidencia y el workflow duplicate-aware que BOFA ya puede demostrar.
+- **Typecheck restaurado**: los imports frontend usan un casing canonico y `tsc --noEmit` vuelve a formar parte efectiva del release gate.
+- **Supply chain frontend**: se retiran dependencias heredadas, se actualizan Vite/PostCSS/tooling y `npm audit` baja de 20 alertas (13 altas) a 2 moderadas, sin altas ni criticas.
+- **Instalacion Python minima**: `requirements.txt` deja de instalar una suite ficticia completa, los manifests reflejan imports reales y `pip-audit` pasa de 30 vulnerabilidades conocidas a cero.
+- **Autenticacion sin demo peligrosa**: se retiran usuarios/JWT mock, el primer admin se crea una sola vez, las contrasenas usan PBKDF2 y los hashes SHA-256 legacy migran al iniciar sesion.
+- **Runtime local por defecto**: CORS queda limitado a origenes de desarrollo configurables, la API escucha en loopback y los sandboxes dejan de depender de rutas Unix en Windows.
+- **CI mas honesto**: el workflow instala las dependencias reales de API/CLI y exige audits, lint, typecheck, build y las cinco smoke suites.
+
+---
+
 ## v2.9.1 (2026-04-29) - Duplicate-Aware Hunter Workflows
 
 ### Hunter workflow refinement
