@@ -36,25 +36,27 @@ def _make_database() -> DatabaseManager:
 def _check_initial_admin_bootstrap() -> None:
     db = _make_database()
     auth = AuthManager(db)
-    user_id = auth.bootstrap_admin("owner", "owner@example.com", "correct-horse-battery")
+    password = f"verify-{uuid.uuid4().hex}"
+    user_id = auth.bootstrap_admin("owner", "owner@example.com", password)
     assert user_id
-    assert auth.bootstrap_admin("second", "second@example.com", "another-long-password") is None
+    assert auth.bootstrap_admin("second", "second@example.com", f"verify-{uuid.uuid4().hex}") is None
 
     user = db.get_user_by_username("owner")
     assert user and user["role"] == "admin"
     assert user["password_hash"].startswith(f"{PASSWORD_SCHEME}$")
-    assert auth.verify_password("correct-horse-battery", user["password_hash"])
-    assert not auth.verify_password("wrong-password", user["password_hash"])
+    assert auth.verify_password(password, user["password_hash"])
+    assert not auth.verify_password(f"wrong-{uuid.uuid4().hex}", user["password_hash"])
 
 
 def _check_legacy_hash_migration() -> None:
     db = _make_database()
-    legacy_hash = hashlib.sha256("legacy-password".encode()).hexdigest()
+    password = f"legacy-{uuid.uuid4().hex}"
+    legacy_hash = hashlib.sha256(password.encode()).hexdigest()
     user_id = db.create_user("legacy", "legacy@example.com", legacy_hash)
     assert user_id
 
     auth = AuthManager(db)
-    user = auth.authenticate_user("legacy", "legacy-password")
+    user = auth.authenticate_user("legacy", password)
     assert user
     migrated = db.get_user_by_username("legacy")
     assert migrated and migrated["password_hash"].startswith(f"{PASSWORD_SCHEME}$")
