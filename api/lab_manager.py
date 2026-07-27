@@ -24,9 +24,9 @@ class LabManager:
         
         try:
             self.docker_client = docker.from_env()
-            logger.info("🐳 Docker client connected")
+            logger.info("Docker client connected")
         except Exception as e:
-            logger.error(f"❌ Docker connection failed: {e}")
+            logger.error("Docker connection failed: %s", e)
     
     def is_docker_available(self) -> bool:
         """Check if Docker is available"""
@@ -287,7 +287,7 @@ class LabManager:
             # Update database
             self.db.update_lab_status(lab_id, user_id, "running")
             
-            logger.info(f"🧪 Lab started: {lab_id} on port {port} (container: {container.id[:12]})")
+            logger.info("Lab started: %s on port %s (container: %s)", lab_id, port, container.id[:12])
             
             return {
                 "status": "success",
@@ -301,7 +301,7 @@ class LabManager:
         except docker.errors.ImageNotFound:
             # Pull image and retry
             try:
-                logger.info(f"📥 Pulling image for lab {lab_id}")
+                logger.info("Pulling image for lab %s", lab_id)
                 config = lab_configs.get(lab_id, {"image": "ubuntu:20.04"})
                 self.docker_client.images.pull(config["image"])
                 return self.start_lab(lab_id, user_id)
@@ -312,7 +312,7 @@ class LabManager:
                 }
         
         except Exception as e:
-            logger.error(f"❌ Error starting lab {lab_id}: {e}")
+            logger.error("Error starting lab %s: %s", lab_id, e)
             return {
                 "status": "error",
                 "message": f"Error iniciando lab: {str(e)}"
@@ -346,7 +346,7 @@ class LabManager:
                 try:
                     container.stop(timeout=10)
                     container.remove()
-                    logger.info(f"🛑 Container stopped: {container.id[:12]}")
+                    logger.info("Container stopped: %s", container.id[:12])
                 except Exception as e:
                     logger.warning(f"Error stopping container {container.id[:12]}: {e}")
             
@@ -359,7 +359,7 @@ class LabManager:
             }
             
         except Exception as e:
-            logger.error(f"❌ Error stopping lab {lab_id}: {e}")
+            logger.error("Error stopping lab %s: %s", lab_id, e)
             return {
                 "status": "error",
                 "message": f"Error deteniendo lab: {str(e)}"
@@ -398,7 +398,7 @@ class LabManager:
             }
             
         except Exception as e:
-            logger.error(f"❌ Error getting lab status {lab_id}: {e}")
+            logger.error("Error getting lab status %s: %s", lab_id, e)
             return {"status": "error", "message": str(e)}
     
     def cleanup_stopped_labs(self):
@@ -417,12 +417,12 @@ class LabManager:
                 if container.status in ['exited', 'dead']:
                     try:
                         container.remove()
-                        logger.info(f"🧹 Removed stopped container: {container.id[:12]}")
+                        logger.info("Removed stopped container: %s", container.id[:12])
                     except Exception as e:
                         logger.warning(f"Error removing container {container.id[:12]}: {e}")
                         
         except Exception as e:
-            logger.error(f"❌ Error during cleanup: {e}")
+            logger.error("Error during cleanup: %s", e)
     
     def get_system_resources(self) -> Dict[str, Any]:
         """Get Docker system resources"""
@@ -441,5 +441,5 @@ class LabManager:
                 "docker_version": info.get('ServerVersion', 'unknown')
             }
         except Exception as e:
-            logger.error(f"❌ Error getting Docker info: {e}")
+            logger.error("Error getting Docker info: %s", e)
             return {"docker_available": False, "error": str(e)}

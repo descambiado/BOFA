@@ -29,9 +29,13 @@ Candidate label:
 
 ```bash
 python tools/verify_runtime_hardening.py
+python tools/verify_runtime_catalog.py
 python tools/verify_control_plane.py
 python tools/verify_bounty_system.py
+python tools/verify_auth_security.py
 python tools/demo_bounty_workspace.py --fresh
+npm run lint
+npx tsc --noEmit -p tsconfig.app.json
 npm run build
 ```
 
