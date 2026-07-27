@@ -244,7 +244,7 @@ main() {
     docker compose up --build -d
     
     echo ""
-    echo -e "${GREEN}🎉 BOFA Extended Systems v2.5.0 Installation Complete!${NC}"
+    echo -e "${GREEN}🎉 BOFA v2.9.2 installation complete!${NC}"
     echo "========================================================="
     echo ""
     echo -e "${BLUE}🌐 Access BOFA:${NC}"
@@ -253,7 +253,7 @@ main() {
     echo "  • API Docs: http://localhost:8000/docs"
     echo ""
     echo -e "${BLUE}📊 Monitoring (optional):${NC}"
-    echo "  • Grafana: http://localhost:3001 (admin/bofa123)"
+    echo "  • Grafana: http://localhost:3001 (admin / password from GRAFANA_ADMIN_PASSWORD)"
     echo "  • Prometheus: http://localhost:9090"
     echo ""
     echo -e "${BLUE}🔧 Useful commands:${NC}"
@@ -524,7 +524,7 @@ main() {
     docker compose up --build -d
     
     echo ""
-    echo -e "${GREEN}🎉 BOFA Extended Systems v2.5.0 Installation Complete!${NC}"
+    echo -e "${GREEN}🎉 BOFA v2.9.2 installation complete!${NC}"
     echo "========================================================="
     echo ""
     echo -e "${BLUE}🌐 Access BOFA:${NC}"
@@ -533,7 +533,7 @@ main() {
     echo "  • API Docs: http://localhost:8000/docs"
     echo ""
     echo -e "${BLUE}📊 Monitoring (optional):${NC}"
-    echo "  • Grafana: http://localhost:3001 (admin/bofa123)"
+    echo "  • Grafana: http://localhost:3001 (admin / password from GRAFANA_ADMIN_PASSWORD)"
     echo "  • Prometheus: http://localhost:9090"
     echo ""
     echo -e "${BLUE}🔧 Useful commands:${NC}"

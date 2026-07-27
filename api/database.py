@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.8.0 - Database Models and Connection
+BOFA database models and connection
 SQLite database manager for BOFA runtime, history and observability.
 """
 
@@ -454,7 +454,7 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-        self.create_default_admin()
+        self.retire_insecure_default_admin()
         logger.info("Database initialized successfully")
 
     def _ensure_column(self, cursor, table_name: str, column_name: str, column_type: str):
@@ -477,27 +477,24 @@ class DatabaseManager:
                         pass
         return items
 
-    def create_default_admin(self):
+    def retire_insecure_default_admin(self):
+        """Disable the historical public bootstrap account by its known hash."""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = ?", ("admin",))
-        if cursor.fetchone():
-            conn.close()
-            return
-
-        import hashlib
-
-        password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+        legacy_password_hash = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"
         cursor.execute(
             """
-            INSERT INTO users (username, email, password_hash, role)
-            VALUES (?, ?, ?, ?)
+            UPDATE users
+            SET is_active = 0
+            WHERE username = ? AND password_hash = ? AND is_active = 1
             """,
-            ("admin", "admin@bofa.local", password_hash, "admin"),
+            ("admin", legacy_password_hash),
         )
+        retired = cursor.rowcount
         conn.commit()
         conn.close()
-        logger.info("Default admin user created (admin/admin123)")
+        if retired:
+            logger.warning("Disabled insecure legacy admin bootstrap account")
 
     def create_user(self, username: str, email: str, password_hash: str, role: str = "user"):
         conn = self.get_connection()
@@ -518,6 +515,31 @@ class DatabaseManager:
         finally:
             conn.close()
 
+    def create_initial_admin(self, username: str, email: str, password_hash: str) -> Optional[int]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
+            cursor.execute("SELECT COUNT(*) FROM users WHERE is_active = 1")
+            if int(cursor.fetchone()[0]) > 0:
+                conn.rollback()
+                return None
+            cursor.execute(
+                """
+                INSERT INTO users (username, email, password_hash, role)
+                VALUES (?, ?, ?, 'admin')
+                """,
+                (username, email, password_hash),
+            )
+            user_id = cursor.lastrowid
+            conn.commit()
+            return user_id
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            return None
+        finally:
+            conn.close()
+
     def get_user_by_username(self, username: str):
         conn = self.get_connection()
         cursor = conn.cursor()
@@ -525,6 +547,21 @@ class DatabaseManager:
         user = cursor.fetchone()
         conn.close()
         return dict(user) if user else None
+
+    def count_active_users(self) -> int:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM users WHERE is_active = 1")
+        count = int(cursor.fetchone()[0])
+        conn.close()
+        return count
+
+    def update_password_hash(self, user_id: int, password_hash: str) -> None:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+        conn.commit()
+        conn.close()
 
     def update_last_login(self, user_id: int):
         conn = self.get_connection()

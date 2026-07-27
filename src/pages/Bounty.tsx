@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/UI/card";
-import { Badge } from "@/components/UI/badge";
-import { Button } from "@/components/UI/button";
-import { Input } from "@/components/UI/input";
-import { Label } from "@/components/UI/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/UI/select";
-import { Separator } from "@/components/UI/separator";
-import { Textarea } from "@/components/UI/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import {
   apiService,
   useBountySkills,
@@ -25,8 +25,8 @@ const Bounty = () => {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
-  const [latestDiffs, setLatestDiffs] = useState<SurfaceDelta[]>([]);
-  const [latestSnapshot, setLatestSnapshot] = useState<WorkspaceSnapshot | null>(null);
+  const [snapshotDiffs, setSnapshotDiffs] = useState<SurfaceDelta[]>([]);
+  const [diffSnapshot, setDiffSnapshot] = useState<WorkspaceSnapshot | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [workspaceForm, setWorkspaceForm] = useState({ name: "", platform: "hackerone", program_handle: "", notes: "" });
   const [importForm, setImportForm] = useState({ import_type: "scope", source_label: "", content_format: "txt", source_url: "", content: "" });
@@ -50,15 +50,15 @@ const Bounty = () => {
       if (!selectedWorkspaceId) return;
       try {
         const [diffPayload, queuePayload] = await Promise.all([
-          apiService.getBountyWorkspaceLatestDiffs(selectedWorkspaceId),
+          apiService.getBountyWorkspaceDiffs(selectedWorkspaceId, selectedSnapshotId),
           apiService.getBountyWorkspaceReviewQueue(selectedWorkspaceId, selectedSnapshotId),
         ]);
-        setLatestSnapshot(diffPayload.snapshot || null);
-        setLatestDiffs(diffPayload.deltas || []);
+        setDiffSnapshot(diffPayload.snapshot || null);
+        setSnapshotDiffs(diffPayload.deltas || []);
         setReviewQueue(queuePayload.items || []);
       } catch {
-        setLatestSnapshot(null);
-        setLatestDiffs([]);
+        setDiffSnapshot(null);
+        setSnapshotDiffs([]);
         setReviewQueue([]);
       }
     };
@@ -196,7 +196,7 @@ const Bounty = () => {
               <section className="grid gap-6 lg:grid-cols-4">
                 <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><Waypoints className="h-5 w-5" />Graph</div><p className="mt-3 text-3xl font-semibold text-white">{graphSummary.nodes}</p><p className="text-sm text-slate-400">{graphSummary.edges} relaciones</p></CardContent></Card>
                 <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><Upload className="h-5 w-5" />Imports</div><p className="mt-3 text-3xl font-semibold text-white">{graphSummary.imports}</p><p className="text-sm text-slate-400">{workspace.snapshots?.length || 0} snapshots</p></CardContent></Card>
-                <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><GitCompareArrows className="h-5 w-5" />What Changed</div><p className="mt-3 text-3xl font-semibold text-white">{latestDiffs.length}</p><p className="text-sm text-slate-400">{latestSnapshot?.label || "snapshot actual"}</p></CardContent></Card>
+                <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><GitCompareArrows className="h-5 w-5" />What Changed</div><p className="mt-3 text-3xl font-semibold text-white">{snapshotDiffs.length}</p><p className="text-sm text-slate-400">{diffSnapshot?.label || selectedSnapshot?.label || "snapshot actual"}</p></CardContent></Card>
                 <Card className="border-slate-800 bg-slate-900/80"><CardContent className="p-5"><div className="flex items-center gap-3 text-cyan-300"><Sparkles className="h-5 w-5" />Review Queue</div><p className="mt-3 text-3xl font-semibold text-white">{reviewQueue.length}</p><p className="text-sm text-slate-400">{graphSummary.findings} findings vivos</p></CardContent></Card>
               </section>
 
@@ -238,7 +238,8 @@ const Bounty = () => {
                     <CardContent className="space-y-4">
                       <div className="flex flex-wrap gap-2">{(workspace.snapshots || []).slice(0, 8).map((item) => <Badge key={item.id} className={item.id === selectedSnapshot?.id ? "border border-cyan-400/30 bg-cyan-500/15 text-cyan-300" : "bg-slate-800 text-slate-200"}>{item.snapshot_type} · {item.label || item.source || item.id}</Badge>)}</div>
                       <Separator className="bg-slate-800" />
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{(latestDiffs || []).slice(0, 12).map((delta) => <div key={delta.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><Badge className="bg-slate-800 text-slate-200">{delta.change_type}</Badge><p className="mt-3 break-all text-sm text-white">{delta.entity_label || delta.entity_key}</p><p className="mt-2 text-xs text-slate-500">{delta.entity_type}</p></div>)}</div>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{(snapshotDiffs || []).slice(0, 12).map((delta) => <div key={delta.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><Badge className="bg-slate-800 text-slate-200">{delta.change_type}</Badge><p className="mt-3 break-all text-sm text-white">{delta.entity_label || delta.entity_key}</p><p className="mt-2 text-xs text-slate-500">{delta.entity_type}</p></div>)}</div>
+                      {!snapshotDiffs.length && <div className="rounded-xl border border-dashed border-slate-700 p-6 text-sm text-slate-400">No hay deltas para el snapshot seleccionado todavia.</div>}
                     </CardContent>
                   </Card>
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-BOFA Extended Systems v2.8.0 - Script Execution Engine
-Secure script execution with sandboxing and monitoring
+BOFA script execution engine
+Secure script execution with sandboxing and monitoring.
 """
 
 import os
@@ -17,15 +17,20 @@ import threading
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
-import resource
 import psutil
+
+try:
+    import resource
+except ImportError:
+    resource = None
 
 logger = logging.getLogger(__name__)
 
 class ScriptExecutor:
-    def __init__(self, database_manager, scripts_dir: str = "/app/scripts"):
+    def __init__(self, database_manager, scripts_dir: str = "/app/scripts", temp_dir: Optional[str] = None):
         self.db = database_manager
         self.scripts_dir = Path(scripts_dir)
+        self.temp_dir = Path(temp_dir) if temp_dir else self.scripts_dir.parent / "temp"
         self.active_executions = {}
         
     def get_script_config(self, module: str, script_name: str) -> Optional[Dict[str, Any]]:
@@ -119,7 +124,7 @@ class ScriptExecutor:
 
     def create_sandbox_environment(self, execution_id: str) -> Path:
         """Create isolated execution environment"""
-        sandbox_dir = Path(f"/app/temp/sandbox_{execution_id}")
+        sandbox_dir = self.temp_dir / f"sandbox_{execution_id}"
         sandbox_dir.mkdir(parents=True, exist_ok=True)
         
         # Create restricted environment structure
@@ -131,6 +136,9 @@ class ScriptExecutor:
     
     def set_resource_limits(self):
         """Set resource limits for script execution"""
+        if resource is None:
+            return
+
         # Memory limit: 512MB
         resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
         
@@ -175,7 +183,7 @@ class ScriptExecutor:
                 'BOFA_EXECUTION_ID': execution_id,
                 'BOFA_SANDBOX_DIR': str(sandbox),
                 'BOFA_USER_ID': str(user_id),
-                'PYTHONPATH': '/app'
+                'PYTHONPATH': str(self.scripts_dir.parent)
             })
             
             # Add API keys from database
@@ -194,11 +202,15 @@ class ScriptExecutor:
                 json.dump(parameters, f)
             args.extend(['--params', str(param_file)])
             
-            logger.info(f"🔧 Executing {module}/{script_name} (ID: {execution_id})")
+            logger.info("Executing %s/%s (ID: %s)", module, script_name, execution_id)
             
             # Execute with timeout
             timeout = config.get('execution', {}).get('timeout', 300)
             
+            process_options: Dict[str, Any] = {}
+            if resource is not None and os.name != "nt":
+                process_options["preexec_fn"] = self.set_resource_limits
+
             process = subprocess.Popen(
                 args,
                 stdout=subprocess.PIPE,
@@ -206,7 +218,7 @@ class ScriptExecutor:
                 cwd=str(sandbox),
                 env=env,
                 text=True,
-                preexec_fn=self.set_resource_limits
+                **process_options,
             )
             
             # Store process for potential termination
@@ -226,25 +238,25 @@ class ScriptExecutor:
                     
                     self.db.update_execution(execution_id, "success", 
                                           output=output, execution_time=execution_time)
-                    logger.info(f"✅ Script completed successfully: {execution_id}")
+                    logger.info("Script completed successfully: %s", execution_id)
                 else:
                     # Error
                     error_output = stderr if stderr else stdout
                     self.db.update_execution(execution_id, "error", 
                                           error_message=error_output, execution_time=execution_time)
-                    logger.error(f"❌ Script failed: {execution_id} - {error_output}")
+                    logger.error("Script failed: %s - %s", execution_id, error_output)
                 
             except subprocess.TimeoutExpired:
                 process.kill()
                 self.db.update_execution(execution_id, "error", 
                                       error_message=f"Script timeout after {timeout} seconds")
-                logger.warning(f"⏰ Script timeout: {execution_id}")
+                logger.warning("Script timeout: %s", execution_id)
             
         except Exception as e:
             execution_time = time.time() - start_time
             self.db.update_execution(execution_id, "error", 
                                   error_message=str(e), execution_time=execution_time)
-            logger.error(f"💥 Script execution error {execution_id}: {e}")
+            logger.error("Script execution error %s: %s", execution_id, e)
         
         finally:
             # Cleanup
@@ -285,7 +297,7 @@ class ScriptExecutor:
                 self.db.update_execution(execution_id, "cancelled", 
                                       error_message="Execution stopped by user")
                 
-                logger.info(f"🛑 Execution stopped: {execution_id}")
+                logger.info("Execution stopped: %s", execution_id)
                 return True
             except Exception as e:
                 logger.error(f"Error stopping execution {execution_id}: {e}")
@@ -303,12 +315,12 @@ class ScriptExecutor:
     
     def cleanup_sandbox(self, execution_id: str):
         """Clean up sandbox directory"""
-        sandbox_dir = Path(f"/app/temp/sandbox_{execution_id}")
+        sandbox_dir = self.temp_dir / f"sandbox_{execution_id}"
         if sandbox_dir.exists():
             try:
                 import shutil
                 shutil.rmtree(sandbox_dir)
-                logger.debug(f"🧹 Cleaned up sandbox: {execution_id}")
+                logger.debug("Cleaned up sandbox: %s", execution_id)
             except Exception as e:
                 logger.error(f"Error cleaning sandbox {execution_id}: {e}")
     

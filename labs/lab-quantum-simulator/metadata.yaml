@@ -179,7 +179,7 @@ ports:
   - port: 8890
     description: "Jupyter Quantum Lab"
     access: "http://localhost:8890"
-    credentials: "token: quantum_bofa_2025"
+    credentials: "token from QUANTUM_SIMULATOR_TOKEN"
   
   - port: 5001
     description: "Quantum Computing API"
@@ -196,17 +196,17 @@ ports:
   - port: 8891
     description: "Post-Quantum Crypto Lab"
     access: "http://localhost:8891"
-    credentials: "token: post_quantum_2025"
+    credentials: "token from POST_QUANTUM_LAB_TOKEN"
   
   - port: 8892
     description: "Quantum Machine Learning Lab"
     access: "http://localhost:8892"
-    credentials: "token: quantum_ml_2025"
+    credentials: "token from QUANTUM_ML_TOKEN"
 
 setup_instructions:
   - "Start the laboratory: docker-compose up -d"
   - "Access Jupyter Lab at http://localhost:8890"
-  - "Use token 'quantum_bofa_2025' for authentication"
+  - "Set the three Jupyter lab tokens in the repository .env file before starting"
   - "Load quantum algorithm notebooks"
   - "Access quantum dashboard at http://localhost:8050"
   - "Explore post-quantum crypto at http://localhost:8891"
