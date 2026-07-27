@@ -26,6 +26,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
-  "exclude": ["src/components/UI"]
+  "include": ["src"]
 }
