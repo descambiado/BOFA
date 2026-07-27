@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/UI/button';
-import { Badge } from '@/components/UI/badge';
-import { Input } from '@/components/UI/input';
-import { ScrollArea } from '@/components/UI/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/UI/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Loader2, Copy, Download, Code, Search, AlertTriangle } from 'lucide-react';
 import { useScriptLibrary, ScriptCatalogItem } from '@/hooks/useScriptLibrary';

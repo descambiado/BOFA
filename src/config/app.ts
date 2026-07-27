@@ -1,62 +1,54 @@
 /**
- * BOFA v2.9.1 - Duplicate-Aware Hunter Workflows
- * Configuración centralizada de la aplicación
+ * BOFA v2.9.1
+ * Central application configuration for the local-first runtime and UI.
  */
 
 export const APP_CONFIG = {
-  // Información de la aplicación
   name: "BOFA",
-  fullName: "Best Of All Cybersecurity Framework",
+  fullName: "Local-first security runtime",
   version: "2.9.1",
-  codename: "Duplicate-Aware Hunter Workflows",
+  codename: "Duplicate-aware web/API hunting",
   releaseDate: "2026-04-29",
-  
-  // Información del desarrollador
+
   developer: {
     name: "@descambiado",
-    fullName: "David Hernández Jiménez",
+    fullName: "David Hernandez Jimenez",
     email: "david@descambiado.com",
     github: "https://github.com/descambiado",
-    website: "https://descambiado.com"
+    website: "https://descambiado.com",
   },
-  
-  // URLs y endpoints - Funcional sin backend externo
+
   api: {
-    baseUrl: "/api", // Usando rutas relativas para demo
+    baseUrl: "/api",
     timeout: 5000,
     retryAttempts: 1,
-    mockMode: 'auto' // Auto: usa API real si está disponible, demo si no
+    mockMode: "auto" as "auto" | boolean,
   },
-  
-  // Características de la versión
+
   features: {
-    neuralThreatPrediction: true,
-    quantumResistantCrypto: true,
-    dnaCryptography: true,
-    behavioralBiometrics: true,
-    autonomousPentesting: true,
-    realTimeThreatCorrelation: true,
-    edgeAiSecurity: true,
-    neuralSiemIntegration: true,
+    localFirstRuntime: true,
+    duplicateAwareBounty: true,
+    evidenceExports: true,
+    aiCopilots: true,
     dockerLabsManagement: true,
-    realTimeScriptExecution: true
+    realTimeScriptExecution: true,
+    runHistory: true,
+    controlPlane: true,
   },
-  
-  // Límites y configuraciones
+
   limits: {
     maxConcurrentScripts: 5,
     maxLabsRunning: 3,
     scriptTimeoutSeconds: 300,
-    apiTimeoutMs: 30000
+    apiTimeoutMs: 30000,
   },
-  
-  // Configuración de UI
+
   ui: {
     theme: "dark",
     animationDuration: 300,
     toastDuration: 4000,
-    refreshInterval: 30000
-  }
+    refreshInterval: 30000,
+  },
 } as const;
 
 export type AppConfig = typeof APP_CONFIG;

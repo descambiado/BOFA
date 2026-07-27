@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Button } from "@/components/UI/button";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/UI/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { Code, Download, FileSpreadsheet, FileText, Globe } from "lucide-react";
 import { toast } from "sonner";
 

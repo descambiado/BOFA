@@ -121,6 +121,7 @@ def _check_snapshots_deltas_clusters_and_queue():
     latest_deltas = service.get_latest_deltas(workspace_id)
     clusters = service.list_finding_clusters(workspace_id, snapshot_id=second_import["snapshot_id"])
     queue = service.get_review_queue(workspace_id, snapshot_id=second_import["snapshot_id"])
+    summary = service.summarize_workspaces(user_id=1)
     export_run = db.get_run_detail(review_export["run_id"])
     analysis_run = db.get_run_detail(analysis["run_id"])
 
@@ -144,6 +145,14 @@ def _check_snapshots_deltas_clusters_and_queue():
             any(item.get("report_candidate") for item in queue),
             manual_handoff.get("skill_key") == "manual_handoff",
             bool(manual_handoff.get("manual_queue")),
+            summary.get("workspaces") == 1,
+            summary.get("active_workspaces") == 1,
+            summary.get("snapshots", 0) >= 2,
+            summary.get("findings", 0) >= len(detail.get("findings", [])),
+            summary.get("review_queue_items", 0) >= len(queue),
+            summary.get("report_candidates", 0) >= 1,
+            summary.get("latest_workspace_id") == workspace_id,
+            summary.get("latest_workspace_name") == workspace.get("name"),
             any(artifact.get("artifact_type") == "review_queue_json" for artifact in (export_run or {}).get("artifacts", [])),
             any(artifact.get("artifact_type") == "workspace_analysis_result" for artifact in (analysis_run or {}).get("artifacts", [])),
             isinstance(detail.get("clusters"), list),
