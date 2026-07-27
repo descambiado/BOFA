@@ -1446,6 +1446,19 @@ export const apiService = {
           active_executions: 0,
           disk_free_gb: 0
         },
+        bounty: {
+          workspaces: 0,
+          active_workspaces: 0,
+          imports: 0,
+          snapshots: 0,
+          findings: 0,
+          review_queue_items: 0,
+          report_candidates: 0,
+          latest_workspace_id: null,
+          latest_workspace_name: null,
+          latest_program_handle: null,
+          latest_updated_at: null
+        },
         queue: {
           queued: 0,
           running: 0,

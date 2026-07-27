@@ -1410,7 +1410,8 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
     scripts_updated_recently = sum(
         1 for items in SCRIPT_CONFIGS.values() for script in items if script.get("last_updated") in {"2025-01-20", "2026-01-20"}
     )
-    runs = db.list_runs(None if current_user["role"] == "admin" else current_user["user_id"], limit=200)
+    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    runs = db.list_runs(user_id, limit=200)
     total_runs = len(runs)
     active_runs = len([run for run in runs if run.get("status") in {"queued", "running", "waiting", "cancelling"}])
     failed_runs = len([run for run in runs if run.get("status") in {"failed", "error", "partial"}])
@@ -1419,6 +1420,8 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
     docker_stats = lab_manager.get_system_resources()
     system_stats = script_executor.get_system_stats()
     recent_activity = [_serialize_run(db.get_run_detail(run["id"])) for run in runs[:10] if db.get_run_detail(run["id"])]
+    bounty_summary = bounty_service.summarize_workspaces(user_id=user_id)
+    threat_level = "HIGH" if bounty_summary.get("report_candidates") else ("ELEVATED" if failed_runs else "MEDIUM")
 
     return {
         "overview": {
@@ -1426,7 +1429,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
             "modules": len(SCRIPT_CONFIGS),
             "scripts_updated_recently": scripts_updated_recently,
             "system_status": "operational",
-            "threat_level": "ELEVATED" if failed_runs else "MEDIUM",
+            "threat_level": threat_level,
             "last_scan": datetime.utcnow().isoformat(),
         },
         "executions": {
@@ -1447,6 +1450,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
             "active_executions": system_stats.get("active_executions", 0),
             "disk_free_gb": system_stats.get("disk_free_gb", 0),
         },
+        "bounty": bounty_summary,
         "queue": _queue_snapshot(),
         "recent_activity": recent_activity,
         "user": {
@@ -1458,7 +1462,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
         "total_executions": total_runs,
         "active_labs": len([run for run in runs if run.get("run_type") == "lab_session" and run.get("status") == "running"]),
         "completion_rate": success_rate,
-        "threat_level": "ELEVATED" if failed_runs else "MEDIUM",
+        "threat_level": threat_level,
         "last_scan": datetime.utcnow().isoformat(),
         "modules": len(SCRIPT_CONFIGS),
         "system_status": "operational",

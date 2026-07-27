@@ -18,6 +18,11 @@ Por descambiado. Cambios notables por version.
 - **README mas concreto**: la portada ya habla del BOFA actual, prioriza la demo y reduce el mensaje de "suite total" generica.
 - **Metadata and docs cleanup**: titulos, docs de contribucion, roadmap y release notes se alinean mejor con la direccion duplicate-aware web/API.
 
+### Release stabilization
+- **Dashboard con senal bounty real**: la API agrega workspaces, snapshots, findings, review queue y report candidates para que la portada operativa refleje trabajo persistido.
+- **Producto sin capacidades ficticias**: landing, cabecera y configuracion publica describen el runtime local-first, la evidencia y el workflow duplicate-aware que BOFA ya puede demostrar.
+- **Typecheck restaurado**: los imports frontend usan un casing canonico y `tsc --noEmit` vuelve a formar parte efectiva del release gate.
+
 ---
 
 ## v2.9.1 (2026-04-29) - Duplicate-Aware Hunter Workflows
