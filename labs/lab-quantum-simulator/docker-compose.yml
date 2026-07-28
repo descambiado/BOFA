@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   quantum-simulator:
     build:
@@ -12,7 +10,7 @@ services:
       - "8050:8050"  # Dash Dashboard
     environment:
       - LAB_TYPE=quantum_computing
-      - JUPYTER_TOKEN=quantum_bofa_2025
+      - JUPYTER_TOKEN=${QUANTUM_SIMULATOR_TOKEN:-}
       - QISKIT_BACKEND=qasm_simulator
       - CIRQ_ENABLE=true
       - PENNYLANE_ENABLE=true
@@ -33,14 +31,14 @@ services:
         echo '🔬 Installing post-quantum cryptography libraries...' &&
         pip install --quiet pqcrypto ntru-python kyber-py dilithium-py &&
         echo '📊 Starting Jupyter Quantum Lab...' &&
-        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=quantum_bofa_2025 &
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=$${JUPYTER_TOKEN} &
         echo '🌐 Starting Quantum API Server...' &&
         python /workspace/quantum_api.py &
         echo '📈 Starting Quantum Dashboard...' &&
         python /workspace/quantum_dashboard.py &
         echo '✅ Quantum Simulator ready!' &&
         echo 'Access points:' &&
-        echo '  Jupyter Lab: http://localhost:8890 (token: quantum_bofa_2025)' &&
+        echo '  Jupyter Lab: http://localhost:8890 (token configured via QUANTUM_SIMULATOR_TOKEN)' &&
         echo '  Quantum API: http://localhost:5001' &&
         echo '  Dashboard: http://localhost:8050' &&
         tail -f /dev/null
@@ -80,7 +78,7 @@ services:
     ports:
       - "8891:8888"
     environment:
-      - JUPYTER_TOKEN=post_quantum_2025
+      - JUPYTER_TOKEN=${POST_QUANTUM_LAB_TOKEN:-}
       - PQC_ALGORITHMS=kyber,dilithium,falcon,sphincs
     volumes:
       - ./post_quantum_notebooks:/tf/notebooks
@@ -91,7 +89,7 @@ services:
         echo '🔒 Starting Post-Quantum Cryptography Lab...' &&
         pip install --quiet jupyter numpy matplotlib cryptography &&
         pip install --quiet pqcrypto kyber-py dilithium-py &&
-        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=post_quantum_2025 &
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=$${JUPYTER_TOKEN} &
         echo '✅ Post-Quantum Lab ready at http://localhost:8891' &&
         tail -f /dev/null
       "
@@ -105,7 +103,7 @@ services:
     ports:
       - "8892:8888"
     environment:
-      - JUPYTER_TOKEN=quantum_ml_2025
+      - JUPYTER_TOKEN=${QUANTUM_ML_TOKEN:-}
       - TF_QUANTUM_ENABLE=true
     volumes:
       - ./quantum_ml:/tf/quantum_ml
@@ -116,7 +114,7 @@ services:
         echo '🧠 Starting Quantum Machine Learning Lab...' &&
         pip install --quiet tensorflow-quantum cirq qiskit pennylane &&
         pip install --quiet matplotlib seaborn plotly &&
-        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=quantum_ml_2025 &
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=$${JUPYTER_TOKEN} &
         echo '✅ Quantum ML Lab ready at http://localhost:8892' &&
         tail -f /dev/null
       "

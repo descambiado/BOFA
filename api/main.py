@@ -65,21 +65,30 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="BOFA Duplicate-Aware Hunter Workflows",
     description="Cybersecurity platform API with unified runs, evidence, snapshots and duplicate-aware hunter workflows.",
-    version="2.9.1",
+    version="2.9.2",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "BOFA_CORS_ORIGINS",
+        "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 auth_manager = AuthManager(db)
-script_executor = ScriptExecutor(db, scripts_dir=str(SCRIPTS_DIR))
+script_executor = ScriptExecutor(db, scripts_dir=str(SCRIPTS_DIR), temp_dir=str(TEMP_DIR))
 lab_manager = LabManager(db)
 run_manager = RunManager(db)
 bounty_service = BountyWorkspaceService(db, run_manager, APP_ROOT)
@@ -112,15 +121,14 @@ runtime_controls: Dict[str, Dict[str, Any]] = {}
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=1, max_length=256)
 
 
 class RegisterRequest(BaseModel):
-    username: str
-    email: str
-    password: str
-    role: str = "user"
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=12, max_length=256)
 
 
 class ExecuteScriptRequest(BaseModel):
@@ -183,6 +191,151 @@ def load_script_configs() -> Dict[str, list]:
 
 
 SCRIPT_CONFIGS = load_script_configs()
+RECENT_SCRIPT_DATES = {"2025-01-20", "2026-01-20"}
+
+MODULE_METADATA: Dict[str, Dict[str, str]] = {
+    "ai": {
+        "name": "AI",
+        "description": "AI-assisted workflows and model-aware security helpers.",
+        "icon": "brain",
+    },
+    "blue": {
+        "name": "Blue Team",
+        "description": "Detection, validation and defensive operations.",
+        "icon": "shield",
+    },
+    "cloud": {
+        "name": "Cloud",
+        "description": "Cloud and container security workflows.",
+        "icon": "cloud",
+    },
+    "crypto": {
+        "name": "Crypto",
+        "description": "Cryptography and protocol validation.",
+        "icon": "key-round",
+    },
+    "dockerlabs": {
+        "name": "Docker Labs",
+        "description": "Local lab orchestration and Docker-backed exercises.",
+        "icon": "flask-conical",
+    },
+    "examples": {
+        "name": "Examples",
+        "description": "Reference scripts and smoke-check examples.",
+        "icon": "file-code-2",
+    },
+    "exploit": {
+        "name": "Exploit",
+        "description": "Controlled exploit research and validation utilities.",
+        "icon": "bomb",
+    },
+    "forensics": {
+        "name": "Forensics",
+        "description": "Artifact, packet and timeline analysis.",
+        "icon": "fingerprint",
+    },
+    "malware": {
+        "name": "Malware",
+        "description": "Malware triage and reverse-analysis helpers.",
+        "icon": "bug",
+    },
+    "osint": {
+        "name": "OSINT",
+        "description": "Open-source intelligence and external discovery.",
+        "icon": "search",
+    },
+    "purple": {
+        "name": "Purple Team",
+        "description": "Red/blue coordination and validation workflows.",
+        "icon": "users",
+    },
+    "recon": {
+        "name": "Recon",
+        "description": "Enumeration and discovery across targets and surfaces.",
+        "icon": "radar",
+    },
+    "red": {
+        "name": "Red Team",
+        "description": "Offensive security operations and controlled attack paths.",
+        "icon": "crosshair",
+    },
+    "reporting": {
+        "name": "Reporting",
+        "description": "Reporting, evidence shaping and operator handoff.",
+        "icon": "file-text",
+    },
+    "social": {
+        "name": "Social",
+        "description": "Awareness and social-engineering training surfaces.",
+        "icon": "message-square-warning",
+    },
+    "study": {
+        "name": "Study",
+        "description": "Training, study and learning-oriented helpers.",
+        "icon": "graduation-cap",
+    },
+    "supply_chain": {
+        "name": "Supply Chain",
+        "description": "Dependency, package and SBOM review.",
+        "icon": "package-search",
+    },
+    "vulnerability": {
+        "name": "Vulnerability",
+        "description": "Validation and scanner-oriented vulnerability checks.",
+        "icon": "shield-alert",
+    },
+    "web": {
+        "name": "Web",
+        "description": "Web application assessment utilities.",
+        "icon": "globe",
+    },
+    "zero_trust": {
+        "name": "Zero Trust",
+        "description": "Identity, trust-boundary and policy validation.",
+        "icon": "lock",
+    },
+}
+
+
+def _module_metadata(module_id: str) -> Dict[str, str]:
+    metadata = MODULE_METADATA.get(module_id, {})
+    return {
+        "name": metadata.get("name", module_id.replace("_", " ").title()),
+        "description": metadata.get("description", f"Runtime scripts for {module_id.replace('_', ' ')}."),
+        "icon": metadata.get("icon", "terminal"),
+    }
+
+
+def _resolve_script_code_path(yaml_path: Path) -> Path:
+    py_path = yaml_path.with_suffix(".py")
+    if py_path.exists():
+        return py_path
+    slug = yaml_path.stem
+    for alt in yaml_path.parent.glob("*.py"):
+        if slug.lower() in alt.stem.lower():
+            return alt
+    return py_path
+
+
+def _serialize_script_config(module_id: str, script_config: Dict[str, Any]) -> Dict[str, Any]:
+    yaml_path = Path(script_config.get("file_path", ""))
+    py_path = _resolve_script_code_path(yaml_path)
+    script_id = yaml_path.stem or str(script_config.get("name") or "script").lower().replace(" ", "_")
+    metadata = _module_metadata(module_id)
+    serialized = dict(script_config)
+    serialized.update(
+        {
+            "id": script_id,
+            "module_id": module_id,
+            "module_name": metadata["name"],
+            "display_name": script_config.get("display_name") or script_config.get("name") or script_id,
+            "has_code": py_path.exists(),
+            "file_path_yaml": str(yaml_path),
+            "file_path_py": str(py_path) if py_path.exists() else None,
+            "is_recent": script_config.get("last_updated") in RECENT_SCRIPT_DATES,
+        }
+    )
+    return serialized
 
 
 def _database_health() -> Dict[str, Any]:
@@ -1265,7 +1418,8 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
     scripts_updated_recently = sum(
         1 for items in SCRIPT_CONFIGS.values() for script in items if script.get("last_updated") in {"2025-01-20", "2026-01-20"}
     )
-    runs = db.list_runs(None if current_user["role"] == "admin" else current_user["user_id"], limit=200)
+    user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    runs = db.list_runs(user_id, limit=200)
     total_runs = len(runs)
     active_runs = len([run for run in runs if run.get("status") in {"queued", "running", "waiting", "cancelling"}])
     failed_runs = len([run for run in runs if run.get("status") in {"failed", "error", "partial"}])
@@ -1274,6 +1428,8 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
     docker_stats = lab_manager.get_system_resources()
     system_stats = script_executor.get_system_stats()
     recent_activity = [_serialize_run(db.get_run_detail(run["id"])) for run in runs[:10] if db.get_run_detail(run["id"])]
+    bounty_summary = bounty_service.summarize_workspaces(user_id=user_id)
+    threat_level = "HIGH" if bounty_summary.get("report_candidates") else ("ELEVATED" if failed_runs else "MEDIUM")
 
     return {
         "overview": {
@@ -1281,7 +1437,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
             "modules": len(SCRIPT_CONFIGS),
             "scripts_updated_recently": scripts_updated_recently,
             "system_status": "operational",
-            "threat_level": "ELEVATED" if failed_runs else "MEDIUM",
+            "threat_level": threat_level,
             "last_scan": datetime.utcnow().isoformat(),
         },
         "executions": {
@@ -1302,6 +1458,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
             "active_executions": system_stats.get("active_executions", 0),
             "disk_free_gb": system_stats.get("disk_free_gb", 0),
         },
+        "bounty": bounty_summary,
         "queue": _queue_snapshot(),
         "recent_activity": recent_activity,
         "user": {
@@ -1313,7 +1470,7 @@ def _build_dashboard_stats(current_user: Dict[str, Any]) -> Dict[str, Any]:
         "total_executions": total_runs,
         "active_labs": len([run for run in runs if run.get("run_type") == "lab_session" and run.get("status") == "running"]),
         "completion_rate": success_rate,
-        "threat_level": "ELEVATED" if failed_runs else "MEDIUM",
+        "threat_level": threat_level,
         "last_scan": datetime.utcnow().isoformat(),
         "modules": len(SCRIPT_CONFIGS),
         "system_status": "operational",
@@ -2032,10 +2189,15 @@ async def login(request: LoginRequest):
 
 @app.post("/auth/register")
 async def register(request: RegisterRequest):
-    user_id = auth_manager.register_user(request.username, request.email, request.password, request.role)
+    user_id = auth_manager.bootstrap_admin(request.username, request.email, request.password)
     if not user_id:
-        raise HTTPException(status_code=400, detail="Username or email already exists")
-    return {"message": "User registered successfully", "user_id": user_id}
+        raise HTTPException(status_code=403, detail="Bootstrap registration is already closed")
+    return {"message": "Initial administrator registered", "user_id": user_id}
+
+
+@app.get("/auth/bootstrap/status")
+async def bootstrap_status():
+    return {"required": db.count_active_users() == 0}
 
 
 @app.get("/auth/me")
@@ -2047,7 +2209,7 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(auth_mana
 async def root():
     return {
         "name": "BOFA Duplicate-Aware Hunter Workflows",
-        "version": "2.9.1",
+        "version": "2.9.2",
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "capabilities": {
@@ -2135,8 +2297,19 @@ async def get_evidence_public_key(
 @app.get("/modules")
 async def get_modules():
     modules = []
-    for module_id, scripts in SCRIPT_CONFIGS.items():
-        modules.append({"id": module_id, "name": module_id.title(), "description": f"Herramientas de {module_id}", "icon": "terminal", "script_count": len(scripts)})
+    for module_id in sorted(SCRIPT_CONFIGS):
+        scripts = SCRIPT_CONFIGS[module_id]
+        metadata = _module_metadata(module_id)
+        modules.append(
+            {
+                "id": module_id,
+                "name": metadata["name"],
+                "description": metadata["description"],
+                "icon": metadata["icon"],
+                "script_count": len(scripts),
+                "recent_script_count": sum(1 for script in scripts if script.get("last_updated") in RECENT_SCRIPT_DATES),
+            }
+        )
     return modules
 
 
@@ -2144,7 +2317,7 @@ async def get_modules():
 async def get_scripts_by_module(module_id: str):
     if module_id not in SCRIPT_CONFIGS:
         raise HTTPException(status_code=404, detail=f"Module {module_id} not found")
-    return SCRIPT_CONFIGS[module_id]
+    return [_serialize_script_config(module_id, script_config) for script_config in SCRIPT_CONFIGS[module_id]]
 
 
 @app.get("/scripts/catalog")
@@ -2152,27 +2325,22 @@ async def get_scripts_catalog():
     catalog = []
     for module_id, scripts in SCRIPT_CONFIGS.items():
         for script_config in scripts:
-            yaml_path = Path(script_config.get("file_path", ""))
-            slug = yaml_path.stem
-            py_path = yaml_path.with_suffix(".py")
-            if not py_path.exists():
-                for alt in yaml_path.parent.glob("*.py"):
-                    if slug.lower() in alt.stem.lower():
-                        py_path = alt
-                        break
+            serialized = _serialize_script_config(module_id, script_config)
             catalog.append(
                 {
-                    "id": slug,
-                    "name": script_config.get("display_name") or script_config.get("name") or slug,
-                    "description": script_config.get("description", ""),
+                    "id": serialized["id"],
+                    "name": serialized["display_name"],
+                    "description": serialized.get("description", ""),
                     "category": module_id,
-                    "author": script_config.get("author", "unknown"),
-                    "version": script_config.get("version", "1.0"),
-                    "last_updated": script_config.get("last_updated"),
-                    "usage": script_config.get("usage") or (script_config.get("usage_examples", [])[:1] or [None])[0],
-                    "file_path_yaml": str(yaml_path),
-                    "file_path_py": str(py_path) if py_path.exists() else None,
-                    "has_code": py_path.exists(),
+                    "module_name": serialized["module_name"],
+                    "author": serialized.get("author", "unknown"),
+                    "version": serialized.get("version", "1.0"),
+                    "last_updated": serialized.get("last_updated"),
+                    "usage": serialized.get("usage") or (serialized.get("usage_examples", [])[:1] or [None])[0],
+                    "file_path_yaml": serialized["file_path_yaml"],
+                    "file_path_py": serialized["file_path_py"],
+                    "has_code": serialized["has_code"],
+                    "is_recent": serialized["is_recent"],
                 }
             )
     return sorted(catalog, key=lambda item: (item["category"], item["name"]))
@@ -2592,17 +2760,36 @@ async def list_bounty_workspace_snapshots(
     return bounty_service.list_snapshots(workspace_id)
 
 
+@app.get("/bounty/workspaces/{workspace_id}/diffs")
+async def get_bounty_workspace_diffs(
+    workspace_id: str,
+    snapshot_id: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    _require_workspace_access(workspace_id, current_user)
+    snapshot = (
+        bounty_service.get_latest_surface_snapshot(workspace_id)
+        if snapshot_id is None
+        else bounty_service.get_snapshot(workspace_id, snapshot_id)
+    )
+    if snapshot_id is not None and snapshot is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    resolved_snapshot_id = snapshot.get("id") if snapshot else None
+    return {
+        "workspace_id": workspace_id,
+        "snapshot_id": resolved_snapshot_id,
+        "snapshot": snapshot,
+        "deltas": bounty_service.get_snapshot_deltas(workspace_id, resolved_snapshot_id) if resolved_snapshot_id else [],
+    }
+
+
 @app.get("/bounty/workspaces/{workspace_id}/diffs/latest")
 async def get_bounty_workspace_latest_diffs(
     workspace_id: str,
     current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
 ):
     _require_workspace_access(workspace_id, current_user)
-    return {
-        "workspace_id": workspace_id,
-        "snapshot": bounty_service.get_latest_surface_snapshot(workspace_id),
-        "deltas": bounty_service.get_latest_deltas(workspace_id),
-    }
+    return await get_bounty_workspace_diffs(workspace_id=workspace_id, current_user=current_user)
 
 
 @app.get("/bounty/workspaces/{workspace_id}/findings")
@@ -2836,4 +3023,10 @@ async def server_error_handler(request, exc):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run(
+        "main:app",
+        host=os.getenv("BOFA_HOST", "127.0.0.1"),
+        port=int(os.getenv("BOFA_PORT", "8000")),
+        reload=os.getenv("BOFA_RELOAD", "false").lower() == "true",
+        log_level=os.getenv("BOFA_LOG_LEVEL", "info"),
+    )

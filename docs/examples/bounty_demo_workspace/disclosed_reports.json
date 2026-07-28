@@ -1,0 +1,17 @@
+[
+  {
+    "title": "Broken access control on admin export API",
+    "summary": "Una exportacion administrativa era accesible sin una comprobacion de autorizacion consistente.",
+    "severity": "high",
+    "bug_class": "broken-access-control",
+    "root_cause": "authorization_check_missing",
+    "asset_hint": "https://app.acme.test/api/v2/admin/export"
+  },
+  {
+    "title": "Stored XSS on workspace search",
+    "summary": "Un parametro de busqueda terminaba reflejado en una vista interna del dashboard.",
+    "severity": "medium",
+    "bug_class": "xss",
+    "asset_hint": "https://app.acme.test/dashboard/search?q=team"
+  }
+]

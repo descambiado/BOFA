@@ -1,13 +1,13 @@
-# BOFA Extended Systems v2.9.1 - Python Project Configuration
+# BOFA v2.9.2 - Python project configuration
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bofa-extended-systems"
-version = "2.9.1"
-description = "Duplicate-aware bug bounty and cybersecurity operations framework"
+name = "bofa-runtime"
+version = "2.9.2"
+description = "Local-first security runtime for duplicate-aware web/API hunting, evidence and AI copilots"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
@@ -18,20 +18,18 @@ maintainers = [
 ]
 keywords = [
     "cybersecurity",
-    "penetration-testing",
-    "red-team",
-    "blue-team",
-    "osint",
-    "malware-analysis",
-    "security-tools",
     "bug-bounty",
-    "zero-day",
+    "web-security",
+    "api-security",
+    "reconnaissance",
+    "duplicate-detection",
+    "evidence",
+    "security-automation",
+    "security-tools",
     "mcp",
     "llm",
-    "cursor",
-    "vulnerability-scanner",
-    "ctf",
-    "forensics"
+    "fastapi",
+    "react"
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -39,33 +37,25 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security",
     "Topic :: System :: Networking :: Security"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.104.1",
-    "uvicorn[standard]>=0.24.0",
-    "pydantic>=2.5.0",
-    "python-multipart>=0.0.6",
-    "cryptography>=41.0.7",
-    "requests>=2.31.0",
-    "python-nmap>=0.7.1",
-    "scapy>=2.5.0",
-    "beautifulsoup4>=4.12.2",
+    "fastapi>=0.140.2",
+    "uvicorn[standard]>=0.51.0",
+    "pydantic>=2.13.4",
+    "python-multipart>=0.0.31",
+    "PyJWT>=2.13.0",
+    "cryptography>=49.0.0",
+    "docker>=7.0.0",
+    "psutil>=5.9.8",
     "pyyaml>=6.0.1",
-    "rich>=13.7.0",
-    "click>=8.1.7",
-    "sqlalchemy>=2.0.23",
-    "psycopg2-binary>=2.9.9",
-    "redis>=5.0.1",
-    "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
-    "python-dotenv>=1.0.0"
+    "colorama>=0.4.6"
 ]
 
 [project.optional-dependencies]
@@ -97,7 +87,7 @@ agent = [
 
 [project.urls]
 Homepage = "https://github.com/descambiado/BOFA"
-Documentation = "https://docs.bofa.dev"
+Documentation = "https://github.com/descambiado/BOFA/tree/main/docs"
 Repository = "https://github.com/descambiado/BOFA"
 "Bug Reports" = "https://github.com/descambiado/BOFA/issues"
 Changelog = "https://github.com/descambiado/BOFA/blob/main/CHANGELOG.md"

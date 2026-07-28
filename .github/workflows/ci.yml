@@ -22,16 +22,29 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pip-audit
+          pip install -r api/requirements.txt -r cli/requirements.txt
+
+      - name: Audit Python dependencies
+        run: python -m pip_audit -r requirements.txt --progress-spinner off
 
       - name: Verify runtime hardening
         run: python tools/verify_runtime_hardening.py
+
+      - name: Verify runtime catalog
+        run: python tools/verify_runtime_catalog.py
 
       - name: Verify control plane
         run: python tools/verify_control_plane.py
 
       - name: Verify bounty system
         run: python tools/verify_bounty_system.py
+
+      - name: Verify authentication security
+        run: python tools/verify_auth_security.py
+
+      - name: Generate demo bounty workspace
+        run: python tools/demo_bounty_workspace.py --fresh
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,6 +54,12 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
+      - name: Lint frontend
+        run: npm run lint
 
       - name: Typecheck frontend
         run: npx tsc --noEmit -p tsconfig.app.json

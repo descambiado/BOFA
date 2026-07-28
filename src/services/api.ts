@@ -1,7 +1,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ScriptConfig, ExecutionHistory } from '@/types/script';
-import { scriptConfigs, getScriptsByCategory, getAllScripts } from '@/utils/scriptLoader';
 import { APP_CONFIG } from '@/config/app';
 import { toast } from 'sonner';
 
@@ -24,6 +23,7 @@ export interface Module {
   description: string;
   icon: string;
   script_count: number;
+  recent_script_count?: number;
   scripts?: ScriptConfig[];
 }
 
@@ -422,89 +422,74 @@ export interface StudyLesson {
   progress: number;
 }
 
-// Enhanced mock data with real script counts
-const mockModules: Module[] = [
+// Offline fallbacks used when the BOFA runtime is unavailable
+const OFFLINE_MODULE_COUNT = 0;
+
+const DEMO_EXECUTION_SEEDS: Array<{
+  module: string;
+  script: string;
+  parameters: Record<string, string>;
+  output: string;
+}> = [
   {
-    id: "red", 
-    name: "Red Team",
-    description: "Arsenal ofensivo avanzado y técnicas de penetración + Supply Chain + Cloud Native",
-    icon: "terminal",
-    script_count: getScriptsByCategory("red").length
+    module: "bounty",
+    script: "delta_recon",
+    parameters: { workspace: "acme-demo", snapshot: "latest" },
+    output: "Delta recon completed against latest snapshot.",
   },
   {
-    id: "blue",
-    name: "Blue Team", 
-    description: "Herramientas defensivas, AI threat hunting, Zero Trust validation y análisis forense",
-    icon: "shield",
-    script_count: getScriptsByCategory("blue").length
+    module: "web",
+    script: "surface_regression",
+    parameters: { target: "https://demo.acme.test" },
+    output: "Surface regression flagged new admin export route.",
   },
   {
-    id: "purple",
-    name: "Purple Team",
-    description: "Ejercicios coordinados + Quantum-Safe Crypto Analysis + Behavioral Biometrics",
-    icon: "users",
-    script_count: getScriptsByCategory("purple").length
+    module: "recon",
+    script: "subdomain_passive",
+    parameters: { scope: "acme.test" },
+    output: "Passive recon collected new external host candidates.",
   },
   {
-    id: "osint",
-    name: "OSINT",
-    description: "Inteligencia de fuentes abiertas + IoT Security Mapping + Threat Intelligence",
-    icon: "search",
-    script_count: getScriptsByCategory("osint").length
+    module: "reporting",
+    script: "manual_handoff",
+    parameters: { finding: "authz-admin-export" },
+    output: "Generated analyst handoff notes and evidence pointers.",
   },
   {
-    id: "malware",
-    name: "Malware Analysis",
-    description: "Análisis de malware, detección de amenazas y reverse engineering",
-    icon: "bug",
-    script_count: getScriptsByCategory("malware").length
+    module: "blue",
+    script: "auth_log_parser",
+    parameters: { source: "demo-auth.log" },
+    output: "Parsed authentication anomalies from sample logs.",
   },
-  {
-    id: "social",
-    name: "Social Engineering",
-    description: "Herramientas de concienciación sobre ingeniería social",
-    icon: "users",
-    script_count: getScriptsByCategory("social").length
-  },
-  {
-    id: "study",
-    name: "Study & Training",
-    description: "Herramientas educativas y de entrenamiento CTF",
-    icon: "book-open",
-    script_count: getScriptsByCategory("study").length
-  }
 ];
 
-// Generate realistic execution history
-const generateMockHistory = (): ExecutionResult[] => {
-  const scripts = getAllScripts();
-  const history: ExecutionResult[] = [];
-  
-  for (let i = 0; i < 25; i++) {
-    const script = scripts[Math.floor(Math.random() * scripts.length)];
+const buildMockHistory = (): ExecutionResult[] => {
+  return DEMO_EXECUTION_SEEDS.map((seed, index) => {
     const now = new Date();
-    const timestamp = new Date(now.getTime() - (i * 3600000 + Math.random() * 3600000));
-    
-    history.push({
-      id: `exec-${String(i).padStart(3, '0')}`,
-      module: script.category,
-      script: script.name,
-      parameters: script.parameters ? Object.keys(script.parameters).reduce((acc, key) => {
-        const param = script.parameters![key];
-        acc[key] = param.default?.toString() || 'test_value';
-        return acc;
-      }, {} as Record<string, string>) : {},
+    const timestamp = new Date(now.getTime() - index * 45 * 60 * 1000);
+    const status: ExecutionResult["status"] = index === 3 ? "warning" : "success";
+
+    return {
+      id: `exec-${String(index + 1).padStart(3, "0")}`,
+      module: seed.module,
+      script: seed.script,
+      parameters: seed.parameters,
       timestamp: timestamp.toISOString(),
-      status: Math.random() > 0.8 ? (Math.random() > 0.5 ? 'warning' : 'error') : 'success',
-      execution_time: `${(Math.random() * 15 + 1).toFixed(1)}s`,
-      output: `Script ${script.name} ejecutado correctamente`
-    });
-  }
-  
-  return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      status,
+      execution_time: `${(index + 2) * 1.3}s`,
+      output: seed.output,
+    };
+  });
 };
 
-const mockHistory = generateMockHistory();
+let mockHistoryPromise: Promise<ExecutionResult[]> | null = null;
+
+const getMockHistory = () => {
+  if (!mockHistoryPromise) {
+    mockHistoryPromise = Promise.resolve(buildMockHistory());
+  }
+  return mockHistoryPromise;
+};
 
 const mockLabs: Lab[] = [
   {
@@ -612,56 +597,8 @@ const mockStudyLessons: StudyLesson[] = [
   }
 ];
 
-// Database simulada para autenticación funcional
-const mockUsers = [
-  {
-    id: 1,
-    username: 'admin',
-    password: 'admin123', // En producción sería hasheada
-    role: 'admin',
-    fullName: 'Administrador BOFA',
-    email: 'admin@bofa.local',
-    permissions: ['all']
-  },
-  {
-    id: 2,
-    username: 'redteam',
-    password: 'red123',
-    role: 'red_team',
-    fullName: 'Red Team Operator',
-    email: 'red@bofa.local',
-    permissions: ['execute_red', 'view_history', 'manage_labs']
-  },
-  {
-    id: 3,
-    username: 'blueteam',
-    password: 'blue123',
-    role: 'blue_team',
-    fullName: 'Blue Team Analyst',
-    email: 'blue@bofa.local',
-    permissions: ['execute_blue', 'view_history', 'view_reports']
-  }
-];
-
-// JWT mock para funcionamiento real
-const generateMockJWT = (user: any) => {
-  const header = btoa(JSON.stringify({ typ: 'JWT', alg: 'HS256' }));
-  const payload = btoa(JSON.stringify({ 
-    sub: user.id,
-    username: user.username,
-    role: user.role,
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 horas
-  }));
-  const signature = btoa(`mock_signature_${user.id}`);
-  return `${header}.${payload}.${signature}`;
-};
-
-// Authentication service - Completamente funcional
 export const authService = {
   login: async (username: string, password: string) => {
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    // 1) Intento real contra API
     try {
       const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
@@ -670,45 +607,57 @@ export const authService = {
         signal: AbortSignal.timeout(5000)
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        currentToken = data.access_token;
-        currentUser = data.user;
-        localStorage.setItem('bofa_token', currentToken);
-        localStorage.setItem('bofa_user', JSON.stringify(currentUser));
-        toast.success(`¡Bienvenido/a ${currentUser.username}! (API real)`);
-        return { access_token: currentToken, token_type: 'bearer', user: currentUser };
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || 'Credenciales invalidas');
       }
-    } catch (e) {
-      // Continuamos a fallback
-    }
 
-    // 2) Fallback mock completamente funcional
-    try {
-      const user = mockUsers.find(u => u.username === username && u.password === password);
-      if (!user) throw new Error('Credenciales inválidas');
-
-      const access_token = generateMockJWT(user);
-      const userData = {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        fullName: user.fullName,
-        email: user.email,
-        permissions: user.permissions
-      };
-
-      currentToken = access_token;
-      currentUser = userData;
+      currentToken = data.access_token;
+      currentUser = data.user;
       localStorage.setItem('bofa_token', currentToken);
       localStorage.setItem('bofa_user', JSON.stringify(currentUser));
-      toast.success(`¡Bienvenido/a ${userData.fullName}! (modo demo)`);
-      return { access_token, token_type: 'bearer', user: userData };
+      toast.success(`Sesion iniciada como ${currentUser.username}`);
+      return { access_token: currentToken, token_type: 'bearer', user: currentUser };
     } catch (error) {
-      console.error('❌ LOGIN ERROR:', error);
-      toast.error(error instanceof Error ? error.message : 'Error de autenticación');
+      const normalized =
+        error instanceof TypeError || (error instanceof DOMException && error.name === 'TimeoutError')
+          ? new Error('BOFA runtime no disponible en /api')
+          : error;
+      toast.error(normalized instanceof Error ? normalized.message : 'Error de autenticacion');
+      throw normalized;
+    }
+  },
+
+  registerInitialAdmin: async (username: string, email: string, password: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+        signal: AbortSignal.timeout(5000),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || 'No se pudo crear el administrador inicial');
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof TypeError || (error instanceof DOMException && error.name === 'TimeoutError')) {
+        throw new Error('BOFA runtime no disponible en /api');
+      }
       throw error;
     }
+  },
+
+  getBootstrapStatus: async (): Promise<boolean> => {
+    const response = await fetch(`${API_BASE}/auth/bootstrap/status`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) {
+      throw new Error('No se pudo consultar el estado de bootstrap');
+    }
+    const data = await response.json();
+    return Boolean(data.required);
   },
 
   logout: () => {
@@ -754,7 +703,7 @@ export const apiService = {
       return data;
     } catch (error) {
       console.warn('⚠️ API: Server unavailable, using offline data');
-      return mockModules;
+      throw new Error('BOFA runtime unavailable while loading modules');
     }
   },
 
@@ -780,13 +729,14 @@ export const apiService = {
         const filePath = s.file_path as string | undefined;
         const slugFromPath = filePath ? filePath.split('/').pop()?.replace(/\.[^.]+$/, '') : undefined;
         return {
-          name: slugFromPath || (s.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? 'script'),
+          name: s.id || slugFromPath || (s.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_') ?? 'script'),
           display_name: s.display_name || s.name,
           description: s.description || '',
           category: module,
           author: s.author || 'Unknown',
           version: s.version || '1.0',
           last_updated: s.last_updated || new Date().toISOString().slice(0,10),
+          is_recent: !!s.is_recent,
           risk_level: s.risk_level,
           impact_level: s.impact_level,
           educational_value: s.educational_value,
@@ -807,7 +757,7 @@ export const apiService = {
       return normalize(data);
     } catch (error) {
       console.warn(`⚠️ API: Using offline scripts for ${module}`);
-      return getScriptsByCategory(module);
+      throw new Error(`BOFA runtime unavailable while loading scripts for ${module}`);
     }
   },
 
@@ -874,7 +824,7 @@ export const apiService = {
       return data;
     } catch (error) {
       console.warn('⚠️ API: Using offline history data');
-      return mockHistory;
+      return await getMockHistory();
     }
   },
 
@@ -888,6 +838,7 @@ export const apiService = {
       if (!response.ok) throw new Error('API not available');
       return await response.json();
     } catch (error) {
+      const mockHistory = await getMockHistory();
       return mockHistory.map((item) => ({
         id: item.id,
         run_type: 'script',
@@ -993,13 +944,23 @@ export const apiService = {
     return await response.json();
   },
 
-  getBountyWorkspaceLatestDiffs: async (workspaceId: string): Promise<{ workspace_id: string; snapshot: WorkspaceSnapshot | null; deltas: SurfaceDelta[] }> => {
-    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/diffs/latest`, {
+  getBountyWorkspaceDiffs: async (
+    workspaceId: string,
+    snapshotId?: string | null,
+  ): Promise<{ workspace_id: string; snapshot_id?: string | null; snapshot: WorkspaceSnapshot | null; deltas: SurfaceDelta[] }> => {
+    const query = snapshotId ? `?snapshot_id=${encodeURIComponent(snapshotId)}` : '';
+    const response = await fetch(`${API_BASE}/bounty/workspaces/${workspaceId}/diffs${query}`, {
       headers: getAuthHeaders(),
       signal: AbortSignal.timeout(10000)
     });
     if (!response.ok) throw new Error('No se pudieron obtener los deltas del workspace');
     return await response.json();
+  },
+
+  getBountyWorkspaceLatestDiffs: async (
+    workspaceId: string,
+  ): Promise<{ workspace_id: string; snapshot_id?: string | null; snapshot: WorkspaceSnapshot | null; deltas: SurfaceDelta[] }> => {
+    return apiService.getBountyWorkspaceDiffs(workspaceId);
   },
 
   getBountyWorkspaceFindings: async (workspaceId: string): Promise<NoveltyFinding[]> => {
@@ -1407,6 +1368,7 @@ export const apiService = {
       return data;
     } catch (error) {
       console.warn('API: Using simulated dashboard stats');
+      const mockHistory = await getMockHistory();
       const activeLabs = mockLabs.filter(lab => lab.status === 'running').length;
       const totalExecutions = mockHistory.length;
       const successful = mockHistory.filter(item => item.status === 'success').length;
@@ -1414,18 +1376,18 @@ export const apiService = {
       const successRate = totalExecutions > 0 ? Number(((successful / totalExecutions) * 100).toFixed(1)) : 0;
 
       return {
-        total_scripts: getAllScripts().length,
+        total_scripts: 0,
         total_executions: totalExecutions,
         active_labs: activeLabs,
         completion_rate: successRate,
         threat_level: "MEDIUM",
         last_scan: new Date().toISOString(),
-        modules: mockModules.length,
+        modules: OFFLINE_MODULE_COUNT,
         system_status: "demo",
         overview: {
-          total_scripts: getAllScripts().length,
-          modules: mockModules.length,
-          scripts_updated_recently: getAllScripts().filter(script => script.last_updated === "2025-01-20").length,
+          total_scripts: 0,
+          modules: OFFLINE_MODULE_COUNT,
+          scripts_updated_recently: 0,
           system_status: "demo",
           threat_level: "MEDIUM",
           last_scan: new Date().toISOString()
@@ -1447,6 +1409,19 @@ export const apiService = {
           memory_percent: 0,
           active_executions: 0,
           disk_free_gb: 0
+        },
+        bounty: {
+          workspaces: 0,
+          active_workspaces: 0,
+          imports: 0,
+          snapshots: 0,
+          findings: 0,
+          review_queue_items: 0,
+          report_candidates: 0,
+          latest_workspace_id: null,
+          latest_workspace_name: null,
+          latest_program_handle: null,
+          latest_updated_at: null
         },
         queue: {
           queued: 0,
@@ -1484,18 +1459,7 @@ export const apiService = {
       return data;
     } catch (error) {
       // Fallback: build minimal catalog from local YAML loader (sin código)
-      const scripts = getAllScripts();
-      return scripts.map(s => ({
-        id: s.name,
-        name: s.display_name || s.name,
-        description: s.description,
-        category: s.category,
-        author: s.author,
-        version: s.version,
-        last_updated: s.last_updated,
-        usage: s.usage_examples?.[0],
-        has_code: false
-      }));
+      throw new Error('BOFA runtime unavailable while loading the script catalog');
     }
   },
 

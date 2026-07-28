@@ -1,43 +1,32 @@
-
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/UI/button";
-import { Badge } from "@/components/UI/badge";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/UI/navigation-menu";
-import { 
-  Shield, 
+  Activity,
+  BookOpen,
+  Clock,
+  Code,
   Crosshair,
-  Terminal, 
-  Eye, 
-  Clock, 
-  BookOpen, 
-  Menu, 
-  X,
+  Eye,
   Home,
-  Zap,
-  Workflow,
+  LogOut,
+  Menu,
+  Server,
+  Shield,
+  Terminal,
+  User,
   Wifi,
   WifiOff,
-  Server,
-  User,
-  LogOut,
-  Code,
-  Activity
+  Workflow,
+  X,
 } from "lucide-react";
 import { APP_CONFIG } from "@/config/app";
 import { authService } from "@/services/api";
-import { toast } from "sonner";
 
 export const AppHeader = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
   const location = useLocation();
   const currentUser = authService.getCurrentUser();
 
@@ -46,41 +35,31 @@ export const AppHeader = () => {
     window.location.reload();
   };
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'bg-purple-500';
-      case 'red_team': return 'bg-red-500';
-      case 'blue_team': return 'bg-blue-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
   useEffect(() => {
-    const mockMode: any = APP_CONFIG.api.mockMode;
-    // Si mockMode === true forzamos online; con 'auto' o false, verificamos /health
+    const mockMode = APP_CONFIG.api.mockMode;
     if (mockMode === true) {
-      setApiStatus('online');
+      setApiStatus("online");
       return;
     }
-    
+
     const checkApiStatus = async () => {
       try {
         const response = await fetch(`${APP_CONFIG.api.baseUrl}/health`, {
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(3000),
         });
-        setApiStatus(response.ok ? 'online' : 'offline');
-      } catch (error) {
-        setApiStatus('offline');
+        setApiStatus(response.ok ? "online" : "offline");
+      } catch {
+        setApiStatus("offline");
       }
     };
 
-    checkApiStatus();
+    void checkApiStatus();
     const interval = setInterval(checkApiStatus, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: Home },
+    { name: "Overview", href: "/dashboard", icon: Home },
     { name: "Salud", href: "/health", icon: Activity },
     { name: "Scripts", href: "/scripts", icon: Terminal },
     { name: "Flows", href: "/flows", icon: Workflow },
@@ -96,139 +75,120 @@ export const AppHeader = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90">
       <div className="container mx-auto flex h-16 items-center px-6">
-        {/* Logo */}
         <Link to="/" className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <Shield className="w-8 h-8 text-primary" />
-            <div className="flex flex-col">
-              <span className="font-bold text-foreground text-lg">{APP_CONFIG.name}</span>
-              <span className="text-xs text-primary font-semibold">v{APP_CONFIG.version}</span>
-            </div>
+          <Shield className="h-8 w-8 text-primary" />
+          <div className="flex flex-col">
+            <span className="text-lg font-bold text-foreground">{APP_CONFIG.name}</span>
+            <span className="text-xs font-semibold text-primary">v{APP_CONFIG.version}</span>
           </div>
         </Link>
 
-        {/* Versión Badge */}
         <div className="ml-4">
-          <Badge className="bg-primary text-primary-foreground text-xs">
-            <Zap className="w-3 h-3 mr-1" />
-            {APP_CONFIG.codename.toUpperCase()}
+          <Badge className="border border-cyan-400/20 bg-cyan-500/10 text-cyan-200 text-xs">
+            {APP_CONFIG.codename}
           </Badge>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-1 ml-8">
+        <nav className="ml-8 hidden items-center space-x-1 md:flex">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(item.href)
                     ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="h-4 w-4" />
                 <span>{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* User Info & Actions */}
-        <div className="hidden md:flex items-center space-x-4">
-          {/* User Info */}
-          {currentUser && (
+        <div className="hidden items-center space-x-4 md:flex">
+          {currentUser ? (
             <div className="flex items-center space-x-2">
-              <User className="w-4 h-4 text-muted-foreground" />
+              <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">{currentUser.fullName}</span>
-              <Badge className="text-xs bg-secondary text-secondary-foreground">
-                {currentUser.role.toUpperCase()}
-              </Badge>
+              <Badge className="bg-secondary text-secondary-foreground text-xs">{currentUser.role.toUpperCase()}</Badge>
             </div>
-          )}
-          
-          {/* API Status */}
+          ) : null}
+
           <div className="flex items-center space-x-2 text-sm">
-            {apiStatus === 'online' ? (
+            {apiStatus === "online" ? (
               <>
-                <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
-                <Wifi className="w-4 h-4 text-success" />
-                <span className="text-success font-medium">Sistema Online</span>
+                <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                <Wifi className="h-4 w-4 text-success" />
+                <span className="font-medium text-success">Runtime online</span>
               </>
-            ) : apiStatus === 'offline' ? (
+            ) : apiStatus === "offline" ? (
               <>
-                <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-                <WifiOff className="w-4 h-4 text-destructive" />
-                <span className="text-destructive font-medium">Sistema Offline</span>
+                <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                <WifiOff className="h-4 w-4 text-destructive" />
+                <span className="font-medium text-destructive">Runtime offline</span>
               </>
             ) : (
               <>
-                <div className="w-2 h-2 bg-warning rounded-full animate-pulse"></div>
-                <Server className="w-4 h-4 text-warning" />
-                <span className="text-warning font-medium">Conectando...</span>
+                <div className="h-2 w-2 rounded-full bg-warning animate-pulse" />
+                <Server className="h-4 w-4 text-warning" />
+                <span className="font-medium text-warning">Conectando</span>
               </>
             )}
           </div>
-          
-          {/* Logout Button */}
-          {currentUser && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-muted-foreground hover:text-destructive hover:bg-muted"
+
+          {currentUser ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:bg-muted hover:text-destructive"
               onClick={handleLogout}
-              title="Cerrar sesión"
+              title="Cerrar sesion"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" />
             </Button>
-          )}
+          ) : null}
         </div>
 
-        {/* Mobile menu button */}
         <Button
           variant="ghost"
           size="sm"
-          className="md:hidden ml-4"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="ml-4 md:hidden"
+          onClick={() => setIsMobileMenuOpen((current) => !current)}
         >
-          {isMobileMenuOpen ? (
-            <X className="w-5 h-5" />
-          ) : (
-            <Menu className="w-5 h-5" />
-          )}
+          {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
       </div>
 
-      {/* Mobile Navigation */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-background">
-          <nav className="px-6 py-4 space-y-2">
+      {isMobileMenuOpen ? (
+        <div className="border-t border-border bg-background md:hidden">
+          <nav className="space-y-2 px-6 py-4">
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     isActive(item.href)
                       ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="h-4 w-4" />
                   <span>{item.name}</span>
                 </Link>
               );
             })}
           </nav>
         </div>
-      )}
+      ) : null}
     </header>
   );
 };

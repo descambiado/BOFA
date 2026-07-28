@@ -1,137 +1,95 @@
-# Estado actual, respuestas y roadmap
+# BOFA next steps and roadmap
 
-Este documento responde a las preguntas sobre el estado del proyecto BOFA, qué queda por hacer, y cómo seguir desarrollando y diferenciándonos.
+This roadmap is intentionally narrow.
 
-**Resumen rápido “cómo vamos”**: ver [STATUS.md](STATUS.md).
+BOFA does not need more random surface area. It needs stronger proof that the
+flagship workflow is real, useful, and memorable.
 
----
+## Current direction
 
-## ¿Te acuerdas qué queríamos hacer después del core?
+The strongest version of BOFA today is:
 
-Sí. Después de dejar el **core production-ready** (estable, limpio, documentado, sin tocar para añadir módulos), los siguientes pasos acordados eran:
+> A local-first security runtime for duplicate-aware web/API hunting, evidence,
+> and AI copilots grounded in real context.
 
-1. **Auditar y migrar los scripts existentes** para que cumplan el contrato del core (parámetros como `--key value`, tipos en YAML compatibles con el validador, códigos de salida, etc.).
-2. **Innovar y diferenciarnos** con ideas como:
-   - Módulos BOFA “certificados” (estándar de calidad).
-   - Framework de testing para módulos.
-   - Documentación interactiva por módulo.
-   - Gestión de dependencias por módulo.
-   - Salida/reportes estandarizados (JSON, Markdown).
+That means the project should prioritize:
 
----
+1. Better signal for bug bounty and web/API hunting
+2. Better evidence and reproducibility
+3. Better onboarding and first-use clarity
+4. Better AI copilots over real artifacts, not vague automation claims
 
-## ¿Funcionan las herramientas/scripts?
+## What we should keep strengthening
 
-| Componente | Estado |
-|------------|--------|
-| **Core** (engine, config, logger, errors, utils) | [OK] Funciona y validado |
-| **CLI** (`./bofa.sh`, `cli/bofa_cli.py`) | [OK] Funciona; usa solo el core |
-| **Módulos de ejemplo** (`examples/`: example_info, example_params, example_fail) | [OK] Funcionan con el core |
-| **Validador de parámetros** | [OK] Corregido: acepta tipos en YAML (`string`, `int`, `bool`) además de tipos Python |
-| **Scripts “reales”** (exploit, red, blue, osint, etc.) | [OK] Migrados a `--key` los que tenían posicionales; core acepta `parameters` en YAML como lista o dict; verificación `tools/verify_bofa.py --full` pasa (0 fallos). |
+### Flagship workflow
 
-**Nota**: El core pasa parámetros como `--key value`. Los scripts deben usar **argumentos opcionales** (`--target`, `--verbose`, etc.). Los ejemplos en `scripts/examples/` son la referencia.
+- workspace per program
+- imports for scope, reports, URLs, JS endpoints, and notes
+- snapshots and deltas
+- findings, clusters, and review queue
+- tactical skills
+- evidence export and run history
 
----
+### Product rules
 
-## ¿Es funcional todo?
+- Prefer depth over catalog growth
+- Prefer reproducible artifacts over hidden magic
+- Prefer honest positioning over inflated claims
+- Prefer a memorable workflow over a long feature list
 
-- **Sí** para: core, CLI, ejemplos, flujos (BOFA Flow), verificación (`python3 tools/verify_bofa.py` y `--full`). Los scripts migrados funcionan desde CLI/core; los que necesitan parámetros se ejecutan con params seguros en `--full` o desde la CLI introduciendo valores.
+## 30-day roadmap
 
----
+### 1. Publish the better public story
 
-## ¿Cuánto nos queda por desarrollar?
+- merge the current README, license, demo, and metadata work
+- align repo description, topics, and homepage in GitHub
+- remove stale "Best Of All Cybersecurity Suite" language from public surfaces
 
-Estimación por fases:
+### 2. Tighten the flagship workflow
 
-| Fase | Descripción | Esfuerzo aproximado |
-|------|-------------|----------------------|
-| **1. Compatibilidad de scripts** | Revisar cada script: argparse con `--key`, YAML con `parameters` y `type: string/int/bool`, códigos de salida. | Alto (60+ scripts) |
-| **2. Tests automatizados** | Tests del core + script de smoke para “listar módulos y ejecutar ejemplo sin params”. | Medio |
-| **3. Innovación 1** | Por ejemplo: estándar de “módulo certificado” o framework de tests para módulos. | Medio |
-| **4. Innovación 2** | Por ejemplo: documentación interactiva por módulo o salida estandarizada (JSON/MD). | Medio |
-| **5. API y frontend** | Verificar que la API y el frontend usen el mismo core y mismos contratos (si aplica). | Medio |
+- improve snapshot selection and delta clarity in the UI
+- sharpen review queue prioritization
+- keep bounty verification and demo coverage strong
 
-El **trabajo más grande** para tener “todo funcional” es la **fase 1** (auditoría y migración de scripts). El resto son mejoras e innovación sobre una base ya sólida.
+### 3. Show BOFA in use
 
----
+- add real screenshots or short clips of the demo workflow
+- publish one concise write-up using the offline demo or a sanitized real workflow
+- make the first 2 minutes of BOFA feel intentional and useful
 
-## ¿Hay algo que nos diferencie de otras herramientas o proyectos?
+## 60- to 90-day roadmap
 
-Sí:
+### 1. Better manual-time economics
 
-- **Core como framework**, no solo colección de scripts: arquitectura clara, responsabilidades definidas, documentación de contrato core–módulos.
-- **Añadir módulos sin tocar el core**: descubrimiento automático por directorios en `scripts/<módulo>/`.
-- **Contrato explícito** (docs, YAML, parámetros `--key`) para quien escribe o integra herramientas.
-- **Enfoque educativo y operativo**: formación y uso real con la misma base.
-- **Muchas herramientas en un solo marco**: decenas de scripts organizados por categoría (red, blue, purple, osint, etc.).
-- **Local-first, extensible**: pensado para uso local y reutilizable por otras capas (CLI, API, frontend).
-- **Servidor MCP (opcional)**: integración con Cursor y otros clientes MCP para usar BOFA como backend de herramientas desde asistentes de IA; ver [Integración MCP con Cursor](MCP_CURSOR_INTEGRATION.md) y [mcp/README.md](../mcp/README.md).
+- stronger clustering by hypothesis
+- better duplicate-risk explanations
+- clearer "why now" and "next manual step" guidance
 
----
+### 2. Better intelligence ingestion
 
-## ¿Podemos diferenciarnos más? ¿Ser más innovadores?
+- improve public report import quality
+- improve JS/API surface extraction
+- make imported evidence easier to review and compare over time
 
-Sí. Algunas direcciones concretas (sin SaaS, auth, pagos, cloud, IA/LLM, bug bounty, OSINT externo):
+### 3. Better AI grounding
 
-1. **Módulos BOFA certificados**  
-   Definir un checklist (tests, metadata, parámetros documentados, salida estable) y un proceso para “certificar” módulos. Da confianza y calidad sin cerrar el ecosistema.
+- keep local/API model support behind the same contracts
+- feed copilots richer workspace context and artifacts
+- avoid "auto-hacker" positioning unless evidence supports it
 
-2. **Framework de testing para módulos**  
-   Herramientas y convenciones para que los autores de módulos escriban pruebas (p. ej. “ejecutar con estos params y comprobar exit code y salida”). El core ya permite ejecutar scripts desde código; falta estandarizar cómo se escriben y ejecutan esos tests.
+## What we should actively avoid
 
-3. **Documentación interactiva por módulo**  
-   Estándar para que cada módulo pueda incluir un pequeño doc o tutorial (Markdown/HTML) que la CLI o el frontend muestren al elegir el módulo (p. ej. “E” en el menú ya abre ejemplos; se puede generalizar).
+- claiming BOFA replaces every specialist security tool
+- adding large new subsystems that weaken the flagship story
+- relying on generic AI copy to explain the project
+- shipping features that cannot be demonstrated end to end
 
-4. **Salida y reportes estandarizados**  
-   Convención para que los scripts puedan emitir JSON o Markdown estructurado; el core (o una utilidad) podría agregar o formatear informes. Opcional y retrocompatible.
+## How to judge progress
 
-5. **Dependencias por módulo**  
-   Que cada módulo declare sus dependencias (p. ej. en `metadata.yaml` o `requirements.txt` dentro del módulo) y el core o un script de setup compruebe/instale sin conflictos. Aumenta la robustez en entornos reales.
+BOFA is moving in the right direction when:
 
-Prioridad sugerida para innovar: primero **certificación + framework de tests**, luego documentación interactiva y salida estandarizada.
-
----
-
-## Próximo paso recomendado
-
-Para acercarnos a “ya no se pueda desarrollar más” en el código libre (sin añadir SaaS/auth/pagos/cloud/IA):
-
-1. **Inmediato**: Mantener el core y la CLI como están; usar los ejemplos como referencia.
-2. **Corto plazo**:  
-   - Auditar scripts por categoría (p. ej. empezar por `exploit`, luego `red`, `blue`, etc.).  
-   - Por cada script: cambiar a `--key` en argparse, alinear YAML (`parameters`, `type: string|int|bool`) y códigos de salida.  
-   - Opcional: script o doc que liste “scripts compatibles con el core” para ir tachando.
-3. **Después**: Introducir una primera innovación (p. ej. “módulo certificado” o “framework de tests para módulos”) y documentarla en este roadmap.
-
-Con esto se consigue que **todo** sea funcional desde el core/CLI y, a la vez, se abre la puerta a diferenciación e innovación de forma ordenada.
-
----
-
-## Resumen de cambios recientes (esta sesión)
-
-- **ScriptValidator** (`core/utils/script_validator.py`): se aceptan tipos en YAML (`string`, `int`, `bool`, `integer`, `boolean`) además de tipos Python; se mapean internamente a `str`, `int`, `bool` para la validación. Así los YAML con `type: "string"` no rompen la validación.
-- **Documento**: creado `docs/NEXT_STEPS_AND_ROADMAP.md` (este archivo) con respuestas y plan.
-
-### Implementación del plan (Fase 1 + Fase 2)
-
-**Fase 1 – Migración de scripts**  
-- **exploit**: `cve_2024_springauth_bypass`, `http2_rapid_reset_dos` — argumentos posicionales cambiados a `--target`; `mitre_attack_runner` — argparse con `--technique` y `--list`; YAML alineados.  
-- **red**: `quantum_network_infiltrator` — `--target`; `c2_simulator` — `--mode`; YAML con `parameters` en formato dict y tipos string/int/bool.  
-- **osint**: `telegram_user_scraper` — `--group`; `github_repo_leak_detector` — `--queries` (string, split en script); `public_email_validator` — `--emails` (string, split); YAML alineados.  
-- **recon**: `web_discover.yaml` — añadido bloque `parameters` (url, output) para CLI.
-
-**Fase 2 – BOFA Flow**  
-- **Flujos**: `config/flows/recon.yaml` y `config/flows/demo.yaml` — definición de flujos con pasos y placeholder `{target}`.  
-- **Flow runner**: `flows/flow_runner.py` — `list_flows()`, `run_flow(flow_id, target)`; usa solo `get_engine()`; genera informe Markdown en `reports/`.  
-- **CLI**: opción `F` (Flujos) en el menú principal — listar flujos, pedir flujo + target, ejecutar y mostrar ruta del informe.  
-- **Documentación**: `flows/README.md` con uso y formato de flujos.
-
-**Verificación (saber que todo funciona)**  
-- Script: `tools/verify_bofa.py`. Modo rápido: `python3 tools/verify_bofa.py`. Modo completo: `--full`. Ver [tools/README.md](../tools/README.md).
-
-**Servidor MCP (integración con Cursor y clientes MCP)**  
-- Servidor MCP en `mcp/bofa_mcp.py` que expone herramientas BOFA (listar módulos/scripts, ejecutar script, listar/ejecutar flujos) sin añadir IA al framework.  
-- Dependencia opcional: `pip install .[mcp]`. Documentación: [MCP_CURSOR_INTEGRATION.md](MCP_CURSOR_INTEGRATION.md), [mcp/README.md](../mcp/README.md).
-
-Si quieres, el siguiente paso concreto puede ser: (A) definir la plantilla de “migración de un script” y aplicarla a 2–3 scripts como ejemplo, o (B) esbozar el estándar de “módulo certificado” y el framework de tests para módulos.
+- a new user understands the value in under a minute
+- the demo produces believable output without external services
+- the review queue feels more useful than a flat noisy finding list
+- evidence stays attached to the same operational flow
+- the repo looks like it belongs to a serious operator, not a generated concept

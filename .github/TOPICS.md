@@ -1,27 +1,27 @@
-BOFA - GitHub Topics (recordatorio)
-===================================
+BOFA - GitHub metadata reminder
+===============================
 
-Añadir estos topics en GitHub → Settings → General → Topics (máx. 20):
+Suggested repository description:
+
+- `Local-first security runtime for duplicate-aware web/API hunting, evidence and AI copilots`
+
+Suggested GitHub topics:
 
 - `cybersecurity`
-- `pentesting`
-- `red-team`
-- `blue-team`
 - `bug-bounty`
+- `web-security`
+- `api-security`
+- `pentesting`
+- `security-automation`
+- `security-framework`
 - `security-tools`
-- `forensics`
-- `malware-analysis`
-- `osint`
+- `attack-surface`
+- `reconnaissance`
+- `duplicate-detection`
+- `llm`
+- `ai-agent`
+- `mcp`
 - `python`
 - `cli`
-- `mcp`
-- `ai`
-- `llm`
-- `zero-day`
-- `vulnerability-scanner`
-- `ctf`
-- `hackthebox`
-- `kali`
-- `metasploit-alternative`
-- `security-framework`
-
+- `fastapi`
+- `react`
