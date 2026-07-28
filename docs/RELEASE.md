@@ -6,16 +6,13 @@
 
 ## Current release candidate direction
 
-The next useful patch release should package the work that improves:
+`v2.9.2` remains the stable prerequisite. The next feature candidate is:
 
-- public positioning
-- offline demo and proof of value
-- license detection and repo trust
-- snapshot/delta consistency in the bounty workflow
-
-Candidate label:
-
-- `v2.9.2`
+- `v3.0.0-alpha.1`
+- execution fabric and signed worker protocol
+- plan-first, local-first AI
+- BOFA/SotyHub integration boundary
+- no stable v3 tag until a remote provisioner is demonstrated
 
 ## Release checklist
 
@@ -33,6 +30,10 @@ python tools/verify_runtime_catalog.py
 python tools/verify_control_plane.py
 python tools/verify_bounty_system.py
 python tools/verify_auth_security.py
+python tools/verify_execution_fabric.py
+python tools/verify_worker_protocol.py
+python tools/verify_ai_control.py
+python tools/verify_execution_api.py
 python tools/demo_bounty_workspace.py --fresh
 npm run lint
 npx tsc --noEmit -p tsconfig.app.json
@@ -69,10 +70,11 @@ These items matter more than they look:
 ## Suggested commands
 
 ```bash
-git add -A
+git add <reviewed-files>
 git status
-git commit -m "Release v2.9.2: tighten flagship workflow and public signal"
-git tag -a v2.9.2 -m "v2.9.2 tighten flagship workflow and public signal"
-git push origin main
-git push origin v2.9.2
+git commit -m "Add v3 execution fabric alpha"
+git push -u origin codex/execution-fabric-v3
 ```
+
+Do not create a v3 tag from the alpha PR. Merge and release remain separate
+decisions.

@@ -17,6 +17,7 @@ const Health = lazy(() => import("./pages/Health"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Library = lazy(() => import("./pages/Library"));
 const Bounty = lazy(() => import("./pages/Bounty"));
+const Fabric = lazy(() => import("./pages/Fabric"));
 
 const queryClient = new QueryClient();
 
@@ -40,7 +41,7 @@ function App() {
       <TooltipProvider>
         <div className="min-h-screen bg-gradient-dark text-foreground">
           <Toaster />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AppHeader />
             <main className="relative overflow-hidden">
               <div className="pointer-events-none fixed inset-0 bg-gradient-dark opacity-90" />
@@ -62,6 +63,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <Health />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/fabric"
+                    element={
+                      <ProtectedRoute>
+                        <Fabric />
                       </ProtectedRoute>
                     }
                   />

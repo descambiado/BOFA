@@ -156,6 +156,26 @@ class DatabaseManager:
 
         cursor.execute(
             """
+            CREATE TABLE IF NOT EXISTS execution_grants (
+                id TEXT PRIMARY KEY,
+                subject_user_id INTEGER NOT NULL,
+                issued_by_user_id INTEGER NOT NULL,
+                project_id TEXT NOT NULL,
+                environment_id TEXT NOT NULL,
+                status TEXT DEFAULT 'active',
+                issued_at TIMESTAMP NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                revoked_at TIMESTAMP,
+                FOREIGN KEY (subject_user_id) REFERENCES users (id),
+                FOREIGN KEY (issued_by_user_id) REFERENCES users (id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS run_steps (
                 id TEXT PRIMARY KEY,
                 run_id TEXT NOT NULL,
@@ -432,6 +452,7 @@ class DatabaseManager:
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_user_created ON operation_runs (user_id, created_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_operation_runs_status_created ON operation_runs (status, created_at DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_execution_grants_subject_status ON execution_grants (subject_user_id, status, expires_at DESC)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_steps_run_id ON run_steps (run_id, step_index)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_labs_run_id ON run_labs (run_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_run_events_run_id ON run_events (run_id, created_at)")
@@ -544,6 +565,14 @@ class DatabaseManager:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE username = ? AND is_active = 1", (username,))
+        user = cursor.fetchone()
+        conn.close()
+        return dict(user) if user else None
+
+    def get_user_by_id(self, user_id: int):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = ? AND is_active = 1", (user_id,))
         user = cursor.fetchone()
         conn.close()
         return dict(user) if user else None
@@ -800,6 +829,93 @@ class DatabaseManager:
         progress = self._rows_to_dicts(cursor.fetchall())
         conn.close()
         return progress
+
+    def create_execution_grant(
+        self,
+        grant_id: str,
+        subject_user_id: int,
+        issued_by_user_id: int,
+        project_id: str,
+        environment_id: str,
+        issued_at: str,
+        expires_at: str,
+        payload: Dict[str, Any],
+    ) -> None:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO execution_grants
+            (id, subject_user_id, issued_by_user_id, project_id, environment_id, status, issued_at, expires_at, payload)
+            VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)
+            """,
+            (
+                grant_id,
+                subject_user_id,
+                issued_by_user_id,
+                project_id,
+                environment_id,
+                issued_at,
+                expires_at,
+                self._to_json(payload),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+    def get_execution_grant(self, grant_id: str) -> Optional[Dict[str, Any]]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM execution_grants WHERE id = ?", (grant_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return self._rows_to_dicts([row])[0] if row else None
+
+    def list_execution_grants(
+        self,
+        subject_user_id: Optional[int] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        clauses = []
+        params: List[Any] = []
+        if subject_user_id is not None:
+            clauses.append("subject_user_id = ?")
+            params.append(subject_user_id)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        cursor.execute(
+            f"""
+            SELECT * FROM execution_grants
+            {where}
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (*params, limit),
+        )
+        rows = self._rows_to_dicts(cursor.fetchall())
+        conn.close()
+        return rows
+
+    def revoke_execution_grant(self, grant_id: str) -> bool:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE execution_grants
+            SET status = 'revoked', revoked_at = ?
+            WHERE id = ? AND status = 'active'
+            """,
+            (_utc_now(), grant_id),
+        )
+        changed = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+        return changed
 
     def create_run(
         self,

@@ -43,6 +43,18 @@ jobs:
       - name: Verify authentication security
         run: python tools/verify_auth_security.py
 
+      - name: Verify execution fabric
+        run: python tools/verify_execution_fabric.py
+
+      - name: Verify worker protocol
+        run: python tools/verify_worker_protocol.py
+
+      - name: Verify AI control plane
+        run: python tools/verify_ai_control.py
+
+      - name: Verify execution API
+        run: python tools/verify_execution_api.py
+
       - name: Generate demo bounty workspace
         run: python tools/demo_bounty_workspace.py --fresh
 
