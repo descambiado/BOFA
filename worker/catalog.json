@@ -1,0 +1,13 @@
+{
+  "schema": "bofa.worker-catalog/v1",
+  "capabilities": [
+    "evidence_read"
+  ],
+  "network_modes": [
+    "none"
+  ],
+  "scripts": [
+    "forensics/hash_calculator"
+  ],
+  "flows": []
+}

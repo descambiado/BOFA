@@ -30,6 +30,7 @@ python3 tools/verify_bofa.py
 - **Comprobar bootstrap, passwords, JWT y portabilidad local**: `python3 tools/verify_auth_security.py`
 - **Comprobar grants, scope, policy, perfiles y cuotas**: `python3 tools/verify_execution_fabric.py`
 - **Comprobar firmas, workers, target binding y replay**: `python3 tools/verify_worker_protocol.py`
+- **Comprobar imagen, catalogo y supply chain OCI**: `python3 tools/verify_worker_oci.py`
 - **Comprobar IA plan-first y local-first**: `python3 tools/verify_ai_control.py`
 - **Comprobar persistencia y rutas API del fabric**: `python3 tools/verify_execution_api.py`
 - **Verificar un bundle offline**: `python3 tools/verify_evidence_bundle.py reports/runs/<run_id>/exports/bofa_evidence_<run_id>_<timestamp>.zip --json`
@@ -47,6 +48,7 @@ python3 tools/verify_bounty_system.py
 python3 tools/verify_auth_security.py
 python3 tools/verify_execution_fabric.py
 python3 tools/verify_worker_protocol.py
+python3 tools/verify_worker_oci.py
 python3 tools/verify_ai_control.py
 python3 tools/verify_execution_api.py
 python3 tools/demo_bounty_workspace.py --fresh
@@ -54,6 +56,17 @@ python3 tools/verify_evidence_bundle.py <bundle.zip> --json
 ```
 
 Si estas verificaciones pasan, BOFA queda validado a nivel basico antes de mergear o taggear una release.
+
+## Prueba OCI local
+
+Con Docker iniciado:
+
+```bash
+python3 tools/demo_worker_oci.py --build
+```
+
+La prueba construye el worker minimo, genera un JobSpec firmado, ejecuta un
+adaptador offline dentro de un contenedor bloqueado y valida su recibo.
 
 ## Copiloto plan-first
 
