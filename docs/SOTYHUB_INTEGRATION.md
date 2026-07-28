@@ -95,7 +95,7 @@ interactive desktop, specialist binaries or human judgment.
 
 The first useful cloud milestone is intentionally narrow:
 
-1. One OCI worker image published by digest.
+1. One minimal offline OCI worker published, signed and consumed by digest.
 2. One defensive BOFA workflow.
 3. One cloud provider adapter.
 4. One signed job per ephemeral worker.
@@ -104,6 +104,11 @@ The first useful cloud milestone is intentionally narrow:
 
 Only after this path is reliable should SotyHub add an interactive Kali VM,
 multi-provider scheduling or team pools.
+
+The first BOFA worker image implements the image and one-job protocol portion
+of this milestone. It does not yet implement cloud provisioning, evidence
+upload credentials, cost metering or teardown attestation. Those remain the
+next SotyHub integration slice.
 
 ## Compatibility rule
 

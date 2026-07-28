@@ -11,7 +11,7 @@ BOFA ya no es solo una coleccion de scripts. Hoy tiene cuatro capas distintas:
 | Area | Estado | Lo importante |
 |------|--------|---------------|
 | **Core / Runtime / Evidence** | Operativo | Runs unificados, timeline, artifacts, export firmado, verificacion offline y smoke suites. |
-| **Execution Fabric v3** | Alpha verificable | Grants, scope, policy, JobSpecs firmados y protocolo de worker local/OCI/VM. |
+| **Execution Fabric v3** | Alpha ejecutable | Grants, scope, policy, JobSpecs firmados y primer worker OCI reproducible. |
 | **Labs y UI educativa** | Util / educativa | Sirven para aprender, practicar y explorar, pero no son el argumento principal del proyecto. |
 | **Duplicate-aware bounty** | Flagship activo | Workspaces, imports, snapshots, deltas, novelty findings, review queue y skills para priorizar tiempo manual y reducir duplicates. |
 
@@ -49,6 +49,8 @@ La propuesta de valor que hoy queremos reforzar es esta:
 - Grants persistidos por sujeto, proyecto, entorno, scope, capacidades y TTL.
 - JobSpecs canonicos firmados con Ed25519.
 - Workers con clave fijada, imagen por digest, replay protection y recibos con hashes.
+- Imagen OCI minima no-root, sin red y con catalogo inmutable de adaptadores.
+- CI de imagen con ejecucion real, SBOM, provenance, escaneo y firma Cosign.
 - Ollama y OpenAI-compatible locales; proveedores remotos explicitos.
 - La IA planifica por defecto y cada accion ejecutable vuelve a pasar por policy.
 
@@ -70,9 +72,10 @@ BOFA no envia reportes automaticamente. El modo correcto sigue siendo copilot: s
 
 ### 4. Provisionador cloud
 
-El contrato OCI/VM existe, pero esta alpha no crea infraestructura en una cuenta
-cloud. Los perfiles remotos siguen desactivados hasta configurar imagen,
-digest y dispatcher reales.
+El primer contenedor OCI ya materializa el contrato y ejecuta un fixture offline,
+pero esta alpha no crea infraestructura en una cuenta cloud. Los perfiles
+remotos siguen desactivados hasta publicar el digest y configurar un dispatcher
+con teardown real.
 
 ---
 
@@ -101,7 +104,7 @@ Las lineas de trabajo mas valiosas ahora mismo son:
 - review queue mejor
 - skills honestas y utiles
 - mejor importacion de intelligence publica
-- primera imagen OCI reproducible y publicada por digest
+- publicar y consumir la primera imagen OCI por digest desde GHCR
 - dispatcher de un solo proveedor con teardown demostrado
 - un workflow defensivo completo visible desde SotyHub
 
