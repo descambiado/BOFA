@@ -1,87 +1,96 @@
-# 🤝 Contributing to BOFA v2.8.0
+# Contributing to BOFA
 
-Thank you for your interest in contributing to BOFA Extended Systems! This guide will help you get started with contributing to our professional cybersecurity platform.
+Thank you for helping improve BOFA.
 
-## 🎯 Ways to Contribute
+BOFA is not trying to be "every security tool in one repo". The current flagship
+direction is a local-first runtime for duplicate-aware web/API hunting, evidence,
+and AI copilots that work on top of real context.
 
-### 🐛 Bug Reports and Feature Requests
-- **GitHub Issues**: [Report bugs or request features](https://github.com/descambiado/BOFA/issues)
-- **Good first issues**: [Issues con etiqueta good-first-issue](https://github.com/descambiado/BOFA/issues?q=is%3Aissue+is%3Aopen+label%3Agood-first-issue) — ideal para empezar.
-- **Security Issues**: Email david@descambiado.com for security vulnerabilities
+If you contribute, the best contributions are the ones that make BOFA more real,
+more reproducible, and more useful in that flow.
 
-### ✨ Code Contributions
-- **New Security Tools**: Add scripts to appropriate modules
-- **Web Interface**: Improve React/TypeScript frontend
-- **CLI Improvements**: Enhance Python CLI interface
-- **Documentation**: Improve guides and references
+## Best contribution areas
 
-### 🧪 Lab Environments
-- **New Labs**: Create Docker-based security environments
-- **Lab Improvements**: Enhance existing lab scenarios
+- Bounty workspaces, imports, snapshots, deltas, and review queue
+- Runtime, evidence, artifacts, and verification
+- Frontend clarity around the flagship workflow
+- Honest documentation, examples, and demo material
+- Bug fixes and tests that reduce ambiguity or friction
 
-## 🚀 Getting Started
+## Before you start
 
-### 1. Fork and Clone
+Read these first:
+
+- [README](README.md)
+- [docs/STATUS.md](docs/STATUS.md)
+- [docs/BUG_BOUNTY_WORKSPACES.md](docs/BUG_BOUNTY_WORKSPACES.md)
+- [tools/README.md](tools/README.md)
+
+## Local setup
+
 ```bash
 git clone https://github.com/yourusername/BOFA
 cd BOFA
-git checkout -b feature/your-feature-name
-```
-
-### 2. Development Setup
-```bash
-# Frontend development
-npm install
-npm run dev
-
-# CLI development
 pip install -r requirements.txt
-python3 cli/bofa_cli.py
+npm install
 ```
 
-### 3. Add Your Contribution
-- Follow existing code patterns
-- Add proper documentation
-- Include usage examples
-- Test thoroughly
+Quick feel for the flagship workflow:
 
-### 4. Submit Pull Request
-- Clear description of changes
-- Reference related issues
-- Include testing instructions
+```bash
+python tools/demo_bounty_workspace.py --fresh
+```
 
-## 📋 Standards
+## Verification before a PR
 
-### Python Code (CLI Tools)
-- **Style**: Follow PEP 8
-- **Documentation**: Comprehensive docstrings
-- **Testing**: Include test cases when possible
-- **Dependencies**: Minimize external requirements
+Run the checks that match your changes. For most BOFA changes, this is the
+minimum useful baseline:
 
-### TypeScript/React (Web Interface)
-- **Style**: ESLint + Prettier configuration
-- **Components**: Reusable, well-documented components
-- **Accessibility**: WCAG compliance
-- **Performance**: Optimize bundle size
+```bash
+python tools/verify_runtime_hardening.py
+python tools/verify_control_plane.py
+python tools/verify_bounty_system.py
+python tools/demo_bounty_workspace.py --fresh
+npm run build
+```
 
-### Security Tools
-- **Ethical Use**: Educational and authorized testing only
-- **Documentation**: Clear usage instructions and warnings
-- **Parameters**: Flexible configuration options
-- **Output**: Structured, parseable results
+If you touch frontend-only code, still run `npm run build`.
 
-## 🛡️ Security Guidelines
+If you touch bounty behavior, run `python tools/verify_bounty_system.py` and the
+demo workspace.
 
-### Responsible Development
-- **No Malicious Code**: Tools must be for educational/defensive use
-- **Clear Warnings**: Include ethical usage guidelines
-- **Safe Defaults**: Prevent accidental misuse
-- **Documentation**: Explain security implications
+## Pull request expectations
 
-## 📞 Community
+- Keep the change scoped and explain the user-facing impact
+- Prefer improving a real workflow over adding surface area
+- Include verification steps and actual results
+- Update docs when behavior or positioning changes
+- Do not oversell experimental features
 
-- **Discord**: [BOFA Security Community](https://discord.gg/bofa-security)
-- **Email**: david@descambiado.com
-- **GitHub Discussions**: Use for questions and ideas
+## Coding expectations
 
-Thank you for contributing to cybersecurity education! 🛡️
+- Preserve the local-first model
+- Prefer explicit artifacts and evidence over hidden magic
+- Keep AI features as copilots over real context, not as unsupported claims
+- Avoid adding flashy features that weaken the flagship story
+- Favor reproducibility, traceability, and useful defaults
+
+## Good first improvements
+
+- Tighten a weak or confusing doc
+- Improve demo output or examples
+- Fix snapshot, delta, review queue, or evidence edge cases
+- Reduce frontend friction in the bounty workflow
+- Add or improve verification coverage
+
+## Security and responsible use
+
+Use BOFA only on systems you own or are authorized to assess.
+
+Report vulnerabilities or sensitive security issues to:
+
+- `david@descambiado.com`
+
+For public bugs and feature requests, use:
+
+- [GitHub Issues](https://github.com/descambiado/BOFA/issues)

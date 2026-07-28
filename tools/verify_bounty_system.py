@@ -18,7 +18,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-_VERIFY_ROOT = _ROOT / "data" / ".verify_bounty_system"
+_VERIFY_ROOT = Path(os.getenv("BOFA_VERIFY_BOUNTY_ROOT", _ROOT / "data" / ".verify_bounty_system"))
 _VERIFY_ROOT.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("BOFA_DB_PATH", str(_VERIFY_ROOT / "bootstrap.db"))
 
@@ -114,9 +114,14 @@ def _check_snapshots_deltas_clusters_and_queue():
 
     detail = service.get_workspace_detail(workspace_id)
     snapshots = service.list_snapshots(workspace_id)
+    first_snapshot = service.get_snapshot(workspace_id, first_import["snapshot_id"])
+    second_snapshot = service.get_snapshot(workspace_id, second_import["snapshot_id"])
+    first_deltas = service.get_snapshot_deltas(workspace_id, first_import["snapshot_id"])
+    second_deltas = service.get_snapshot_deltas(workspace_id, second_import["snapshot_id"])
     latest_deltas = service.get_latest_deltas(workspace_id)
     clusters = service.list_finding_clusters(workspace_id, snapshot_id=second_import["snapshot_id"])
     queue = service.get_review_queue(workspace_id, snapshot_id=second_import["snapshot_id"])
+    summary = service.summarize_workspaces(user_id=1)
     export_run = db.get_run_detail(review_export["run_id"])
     analysis_run = db.get_run_detail(analysis["run_id"])
 
@@ -125,7 +130,14 @@ def _check_snapshots_deltas_clusters_and_queue():
             len(snapshots) >= 2,
             any(snapshot.get("id") == first_import["snapshot_id"] for snapshot in snapshots),
             any(snapshot.get("id") == second_import["snapshot_id"] for snapshot in snapshots),
+            first_snapshot is not None,
+            second_snapshot is not None,
+            len(first_deltas) > 0,
+            len(second_deltas) > len(first_deltas),
             len(latest_deltas) > 0,
+            latest_deltas == second_deltas,
+            all(delta.get("snapshot_id") == first_import["snapshot_id"] for delta in first_deltas),
+            all(delta.get("snapshot_id") == second_import["snapshot_id"] for delta in second_deltas),
             any(delta.get("entity_type") == "api_endpoint" for delta in latest_deltas),
             len(clusters) > 0,
             len(queue) > 0,
@@ -133,6 +145,14 @@ def _check_snapshots_deltas_clusters_and_queue():
             any(item.get("report_candidate") for item in queue),
             manual_handoff.get("skill_key") == "manual_handoff",
             bool(manual_handoff.get("manual_queue")),
+            summary.get("workspaces") == 1,
+            summary.get("active_workspaces") == 1,
+            summary.get("snapshots", 0) >= 2,
+            summary.get("findings", 0) >= len(detail.get("findings", [])),
+            summary.get("review_queue_items", 0) >= len(queue),
+            summary.get("report_candidates", 0) >= 1,
+            summary.get("latest_workspace_id") == workspace_id,
+            summary.get("latest_workspace_name") == workspace.get("name"),
             any(artifact.get("artifact_type") == "review_queue_json" for artifact in (export_run or {}).get("artifacts", [])),
             any(artifact.get("artifact_type") == "workspace_analysis_result" for artifact in (analysis_run or {}).get("artifacts", [])),
             isinstance(detail.get("clusters"), list),

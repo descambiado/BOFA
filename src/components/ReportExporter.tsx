@@ -1,14 +1,18 @@
-
 import { useState } from "react";
-import { Button } from "@/components/UI/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/UI/dropdown-menu";
-import { Download, FileText, FileSpreadsheet, Code, Globe } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Code, Download, FileSpreadsheet, FileText, Globe } from "lucide-react";
 import { toast } from "sonner";
 
 interface ExecutionData {
   script: string;
   module: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   output: string;
   timestamp: string;
   executionTime: string;
@@ -19,133 +23,172 @@ interface ReportExporterProps {
   executionData: ExecutionData;
 }
 
+const REPORT_GENERATOR = "BOFA Runtime";
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const encodeCsvField = (value: string) => `"${value.replace(/"/g, '""')}"`;
+
 export const ReportExporter = ({ executionData }: ReportExporterProps) => {
   const [isExporting, setIsExporting] = useState(false);
 
-  const generateReport = (format: 'json' | 'csv' | 'txt' | 'html') => {
+  const generateReport = (format: "json" | "csv" | "txt" | "html") => {
     setIsExporting(true);
-    
+
     try {
-      let content = '';
-      let filename = `bofa-report-${executionData.script}-${new Date().toISOString().slice(0,10)}`;
-      let mimeType = '';
+      const generatedAt = new Date().toISOString();
+      const reportDate = generatedAt.slice(0, 10);
+      const parametersText = JSON.stringify(executionData.parameters, null, 2);
+      const outputText = executionData.output ?? "";
+
+      let content = "";
+      let filename = `bofa-report-${executionData.script}-${reportDate}`;
+      let mimeType = "";
 
       switch (format) {
-        case 'json':
-          content = JSON.stringify({
-            metadata: {
-              script: executionData.script,
-              module: executionData.module,
-              timestamp: executionData.timestamp,
-              executionTime: executionData.executionTime,
-              status: executionData.status,
-              generator: "BOFA Professional Suite v2.5.0"
+        case "json":
+          content = JSON.stringify(
+            {
+              metadata: {
+                script: executionData.script,
+                module: executionData.module,
+                timestamp: executionData.timestamp,
+                executionTime: executionData.executionTime,
+                status: executionData.status,
+                generatedAt,
+                generator: REPORT_GENERATOR,
+              },
+              parameters: executionData.parameters,
+              results: {
+                output: outputText,
+                status: executionData.status,
+              },
             },
-            parameters: executionData.parameters,
-            results: {
-              output: executionData.output,
-              status: executionData.status
-            }
-          }, null, 2);
-          filename += '.json';
-          mimeType = 'application/json';
+            null,
+            2,
+          );
+          filename += ".json";
+          mimeType = "application/json";
           break;
 
-        case 'csv':
-          content = `Script,Module,Timestamp,ExecutionTime,Status,Parameters,Output\n`;
-          content += `"${executionData.script}","${executionData.module}","${executionData.timestamp}","${executionData.executionTime}","${executionData.status}","${JSON.stringify(executionData.parameters).replace(/"/g, '""')}","${executionData.output.replace(/"/g, '""')}"`;
-          filename += '.csv';
-          mimeType = 'text/csv';
+        case "csv":
+          content = "Script,Module,Timestamp,ExecutionTime,Status,Parameters,Output\n";
+          content += [
+            executionData.script,
+            executionData.module,
+            executionData.timestamp,
+            executionData.executionTime,
+            executionData.status,
+            JSON.stringify(executionData.parameters),
+            outputText,
+          ]
+            .map(encodeCsvField)
+            .join(",");
+          filename += ".csv";
+          mimeType = "text/csv;charset=utf-8";
           break;
 
-        case 'txt':
-          content = `BOFA Professional Suite v2.5.0 - Reporte de Ejecución
-============================================================
+        case "txt":
+          content = `BOFA Runtime - Execution Report
+======================================
 
 Script: ${executionData.script}
-Módulo: ${executionData.module}
+Module: ${executionData.module}
 Timestamp: ${executionData.timestamp}
-Tiempo de Ejecución: ${executionData.executionTime}
-Estado: ${executionData.status}
+Execution Time: ${executionData.executionTime}
+Status: ${executionData.status}
 
-Parámetros:
-${JSON.stringify(executionData.parameters, null, 2)}
+Parameters:
+${parametersText}
 
-Salida del Script:
-${executionData.output}
+Output:
+${outputText}
 
-============================================================
-Generado por BOFA Professional Suite v2.5.0
+======================================
+Generated by ${REPORT_GENERATOR} at ${generatedAt}
 `;
-          filename += '.txt';
-          mimeType = 'text/plain';
+          filename += ".txt";
+          mimeType = "text/plain;charset=utf-8";
           break;
 
-        case 'html':
+        case "html":
           content = `<!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte BOFA - ${executionData.script}</title>
+    <title>BOFA Report - ${escapeHtml(executionData.script)}</title>
     <style>
-        body { font-family: 'Courier New', monospace; margin: 20px; background: #1a1a1a; color: #00ff00; }
-        .header { border-bottom: 2px solid #00ff00; padding-bottom: 10px; margin-bottom: 20px; }
+        body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; margin: 32px; background: #0f172a; color: #e2e8f0; }
+        .header { border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 24px; }
         .section { margin: 20px 0; }
-        .output { background: #000; padding: 15px; border: 1px solid #00ff00; white-space: pre-wrap; }
-        .meta { color: #00ffff; }
+        .card { background: #111827; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
+        .meta { color: #7dd3fc; }
+        .value { color: #f8fafc; }
+        pre { white-space: pre-wrap; word-break: break-word; margin: 0; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🚀 BOFA Professional Suite v2.5.0</h1>
-        <h2>Reporte de Ejecución: ${executionData.script}</h2>
-    </div>
-    
-    <div class="section">
-        <h3 class="meta">Información General</h3>
-        <p><strong>Script:</strong> ${executionData.script}</p>
-        <p><strong>Módulo:</strong> ${executionData.module}</p>
-        <p><strong>Timestamp:</strong> ${executionData.timestamp}</p>
-        <p><strong>Tiempo de Ejecución:</strong> ${executionData.executionTime}</p>
-        <p><strong>Estado:</strong> ${executionData.status}</p>
+        <h1>${REPORT_GENERATOR}</h1>
+        <h2>Execution Report: ${escapeHtml(executionData.script)}</h2>
     </div>
 
     <div class="section">
-        <h3 class="meta">Parámetros</h3>
-        <div class="output">${JSON.stringify(executionData.parameters, null, 2)}</div>
+        <h3 class="meta">General Information</h3>
+        <div class="card">
+            <p><strong>Script:</strong> <span class="value">${escapeHtml(executionData.script)}</span></p>
+            <p><strong>Module:</strong> <span class="value">${escapeHtml(executionData.module)}</span></p>
+            <p><strong>Timestamp:</strong> <span class="value">${escapeHtml(executionData.timestamp)}</span></p>
+            <p><strong>Execution Time:</strong> <span class="value">${escapeHtml(executionData.executionTime)}</span></p>
+            <p><strong>Status:</strong> <span class="value">${escapeHtml(executionData.status)}</span></p>
+        </div>
     </div>
 
     <div class="section">
-        <h3 class="meta">Salida del Script</h3>
-        <div class="output">${executionData.output}</div>
+        <h3 class="meta">Parameters</h3>
+        <div class="card">
+            <pre>${escapeHtml(parametersText)}</pre>
+        </div>
     </div>
 
     <div class="section">
-        <p><em>Generado por BOFA Professional Suite v2.5.0 - ${new Date().toLocaleString()}</em></p>
+        <h3 class="meta">Output</h3>
+        <div class="card">
+            <pre>${escapeHtml(outputText)}</pre>
+        </div>
+    </div>
+
+    <div class="section">
+        <p><em>Generated by ${REPORT_GENERATOR} on ${reportDate}</em></p>
     </div>
 </body>
 </html>`;
-          filename += '.html';
-          mimeType = 'text/html';
+          filename += ".html";
+          mimeType = "text/html;charset=utf-8";
           break;
       }
 
-      // Crear y descargar el archivo
       const blob = new Blob([content], { type: mimeType });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
 
-      toast.success(`Reporte ${format.toUpperCase()} descargado exitosamente`);
+      toast.success(`Reporte ${format.toUpperCase()} descargado correctamente`);
     } catch (error) {
       toast.error(`Error al generar reporte ${format.toUpperCase()}`);
-      console.error('Export error:', error);
+      console.error("Export error:", error);
     } finally {
       setIsExporting(false);
     }
@@ -154,40 +197,40 @@ Generado por BOFA Professional Suite v2.5.0
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           disabled={isExporting}
           className="border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black"
         >
           <Download className="w-4 h-4 mr-2" />
-          {isExporting ? 'Exportando...' : 'Exportar Reporte'}
+          {isExporting ? "Exportando..." : "Exportar Reporte"}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
-        <DropdownMenuItem 
-          onClick={() => generateReport('json')}
+        <DropdownMenuItem
+          onClick={() => generateReport("json")}
           className="text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer"
         >
           <Code className="w-4 h-4 mr-2" />
           JSON (Estructurado)
         </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => generateReport('csv')}
+        <DropdownMenuItem
+          onClick={() => generateReport("csv")}
           className="text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer"
         >
           <FileSpreadsheet className="w-4 h-4 mr-2" />
           CSV (Excel)
         </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => generateReport('txt')}
+        <DropdownMenuItem
+          onClick={() => generateReport("txt")}
           className="text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer"
         >
           <FileText className="w-4 h-4 mr-2" />
           TXT (Plano)
         </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => generateReport('html')}
+        <DropdownMenuItem
+          onClick={() => generateReport("html")}
           className="text-gray-300 hover:bg-gray-700 hover:text-white cursor-pointer"
         >
           <Globe className="w-4 h-4 mr-2" />

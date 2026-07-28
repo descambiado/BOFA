@@ -1,9 +1,9 @@
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/UI/card";
-import { Button } from "@/components/UI/button";
-import { Progress } from "@/components/UI/progress";
-import { Badge } from "@/components/UI/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Play, CheckCircle, Trophy, Clock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,7 +69,7 @@ export const StudyLesson = ({ lesson, progress, onBack, onComplete }: StudyLesso
   useEffect(() => {
     const progress = ((currentStep + 1) / lessonSteps.length) * 100;
     setLessonProgress(progress);
-  }, [currentStep]);
+  }, [currentStep, lessonSteps.length]);
 
   const handleNext = () => {
     if (currentStep < lessonSteps.length - 1) {

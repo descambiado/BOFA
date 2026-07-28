@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/UI/card";
-import { Badge } from "@/components/UI/badge";
-import { Button } from "@/components/UI/button";
-import { Input } from "@/components/UI/input";
-import { ActionButton } from "@/components/UI/ActionButton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ActionButton } from "@/components/ui/ActionButton";
 import { ScriptExecutionConsole } from "@/components/ScriptExecutionConsole";
 import { apiService, useFlows, useRunDetail, type FlowSummary } from "@/services/api";
 import { ArrowRight, Clock3, GitBranch, Play, RefreshCw, Search, Workflow } from "lucide-react";

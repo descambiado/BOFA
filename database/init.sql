@@ -121,16 +121,6 @@ CREATE INDEX IF NOT EXISTS idx_system_metrics_recorded_at ON system_metrics(reco
 CREATE INDEX IF NOT EXISTS idx_learning_progress_user_id ON learning_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_learning_progress_status ON learning_progress(status);
 
--- Insert default admin user (password: admin123)
-INSERT INTO users (username, email, password_hash, full_name, is_admin) 
-VALUES (
-    'admin',
-    'admin@bofa.local',
-    '$2b$12$LQv3c1yQBE8FRP0pnQtJUeehufZyV.7jNAKJ/gLT3D5Y5O8mZHsW.',
-    'BOFA Administrator',
-    TRUE
-) ON CONFLICT (username) DO NOTHING;
-
 -- Insert sample system metrics
 INSERT INTO system_metrics (metric_name, metric_value, metric_data) VALUES
     ('scripts_executed_total', 0, '{"module_breakdown": {}}'),
