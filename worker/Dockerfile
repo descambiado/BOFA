@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
-FROM python:3.11-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+FROM python:3.11-slim-trixie@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93
 
 ARG BOFA_VERSION=3.0.0-alpha.1
 ARG VCS_REF=unknown
@@ -20,6 +20,8 @@ RUN python -m pip install \
       --no-cache-dir \
       --require-hashes \
       --requirement /tmp/worker-requirements.txt \
+    && python -m pip uninstall --yes setuptools wheel packaging \
+    && python -m pip uninstall --yes pip \
     && rm /tmp/worker-requirements.txt \
     && groupadd --gid 65532 bofa \
     && useradd --uid 65532 --gid 65532 --no-create-home --shell /usr/sbin/nologin bofa \

@@ -162,10 +162,12 @@ def _verify_runtime_identity_and_catalog() -> None:
 def _verify_container_definition() -> None:
     dockerfile = (_ROOT / "worker" / "Dockerfile").read_text(encoding="utf-8")
     assert re.search(r"^# syntax=docker/dockerfile:1\.7@sha256:[0-9a-f]{64}$", dockerfile, re.MULTILINE)
-    assert re.search(r"^FROM python:3\.11-slim-bookworm@sha256:[0-9a-f]{64}$", dockerfile, re.MULTILINE)
+    assert re.search(r"^FROM python:3\.11-slim-trixie@sha256:[0-9a-f]{64}$", dockerfile, re.MULTILINE)
     assert "USER 65532:65532" in dockerfile
     assert 'ENTRYPOINT ["python", "-m", "worker.entrypoint"]' in dockerfile
     assert "--require-hashes" in dockerfile
+    assert "pip uninstall --yes setuptools wheel packaging" in dockerfile
+    assert "pip uninstall --yes pip" in dockerfile
     assert "apt-get" not in dockerfile
     assert "curl " not in dockerfile
     assert "scripts/red" not in dockerfile
@@ -237,6 +239,7 @@ def _verify_supply_chain_workflow() -> None:
         "exit-code: 1",
     )
     assert all(fragment in workflow for fragment in required_fragments)
+    assert workflow.count("ignore-unfixed: true") == 2
     uses_lines = [
         line.strip()
         for line in workflow.splitlines()

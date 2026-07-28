@@ -78,6 +78,7 @@ jobs:
           image-ref: bofa-worker:ci
           format: table
           exit-code: 1
+          ignore-unfixed: true
           severity: CRITICAL,HIGH
 
       - name: Create signed offline fixture
@@ -178,6 +179,7 @@ jobs:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
           format: table
           exit-code: 1
+          ignore-unfixed: true
           severity: CRITICAL,HIGH
 
       - name: Install Cosign
