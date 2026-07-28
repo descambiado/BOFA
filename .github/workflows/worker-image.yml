@@ -1,0 +1,216 @@
+name: BOFA Worker OCI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/worker-image.yml"
+      - "core/**"
+      - "scripts/forensics/hash_calculator.py"
+      - "scripts/forensics/hash_calculator.yaml"
+      - "tools/create_worker_fixture.py"
+      - "tools/demo_worker_oci.py"
+      - "tools/verify_worker_oci.py"
+      - "worker/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/worker-image.yml"
+      - "core/**"
+      - "scripts/forensics/hash_calculator.py"
+      - "scripts/forensics/hash_calculator.yaml"
+      - "tools/create_worker_fixture.py"
+      - "tools/demo_worker_oci.py"
+      - "tools/verify_worker_oci.py"
+      - "worker/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: descambiado/bofa-worker
+  FIXTURE_IMAGE_DIGEST: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+jobs:
+  container-test:
+    name: Build, scan and execute
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install worker verification dependencies
+        run: python -m pip install --disable-pip-version-check --requirement worker/requirements.txt
+
+      - name: Resolve deterministic build metadata
+        id: buildmeta
+        shell: bash
+        run: echo "created=$(git show -s --format=%cI "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build local test image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: worker/Dockerfile
+          load: true
+          push: false
+          tags: bofa-worker:ci
+          build-args: |
+            BOFA_VERSION=3.0.0-alpha.1
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.buildmeta.outputs.created }}
+          cache-from: type=gha,scope=bofa-worker-test
+          cache-to: type=gha,mode=max,scope=bofa-worker-test
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bofa-worker:ci
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Create signed offline fixture
+        run: >-
+          python tools/create_worker_fixture.py .worker-ci
+          --image-reference ghcr.io/descambiado/bofa-worker
+          --image-digest ${{ env.FIXTURE_IMAGE_DIGEST }}
+
+      - name: Prepare one-use worker mounts
+        shell: bash
+        run: |
+          mkdir -p .worker-ci/claims .worker-ci/receipt
+          sudo chown -R 65532:65532 .worker-ci/claims .worker-ci/receipt
+
+      - name: Execute signed job in locked-down container
+        shell: bash
+        run: |
+          docker run --rm \
+            --read-only \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges=true \
+            --pids-limit 64 \
+            --memory 256m \
+            --cpus 1 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16m \
+            --tmpfs /opt/bofa/logs:rw,noexec,nosuid,nodev,size=8m \
+            --tmpfs /opt/bofa/output:rw,noexec,nosuid,nodev,size=8m \
+            --tmpfs /opt/bofa/reports:rw,noexec,nosuid,nodev,size=8m \
+            --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/job.json",dst=/run/bofa/job.json,readonly \
+            --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/control-plane-public.pem",dst=/run/secrets/bofa-control-plane.pem,readonly \
+            --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/claims",dst=/var/lib/bofa-worker/claims \
+            --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/receipt",dst=/run/bofa-out \
+            --env BOFA_WORKER_MODE=execute \
+            --env BOFA_WORKER_ID=ci-worker \
+            --env BOFA_IMAGE_REFERENCE=ghcr.io/descambiado/bofa-worker \
+            --env BOFA_IMAGE_DIGEST="${FIXTURE_IMAGE_DIGEST}" \
+            bofa-worker:ci
+
+      - name: Hand receipt back to the runner
+        shell: bash
+        run: sudo chown -R "$(id -u):$(id -g)" .worker-ci/receipt
+
+      - name: Verify execution receipt
+        run: >-
+          python tools/verify_worker_oci.py
+          --receipt .worker-ci/receipt/receipt.json
+          --job .worker-ci/job.json
+
+  publish:
+    name: Publish, attest and sign
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: container-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolve deterministic build metadata
+        id: buildmeta
+        shell: bash
+        run: echo "created=$(git show -s --format=%cI "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Login to GHCR
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4.5.2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build candidate image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: worker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:candidate-${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+          build-args: |
+            BOFA_VERSION=3.0.0-alpha.1
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.buildmeta.outputs.created }}
+          cache-from: type=gha,scope=bofa-worker-release
+          cache-to: type=gha,mode=max,scope=bofa-worker-release
+
+      - name: Scan published digest
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign immutable image digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+
+      - name: Verify keyless signature
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: >-
+          cosign verify
+          --certificate-identity
+          "https://github.com/descambiado/BOFA/.github/workflows/worker-image.yml@refs/heads/main"
+          --certificate-oidc-issuer
+          "https://token.actions.githubusercontent.com"
+          "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+
+      - name: Promote verified consumer tags
+        shell: bash
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          docker buildx imagetools create \
+            --tag "${REGISTRY}/${IMAGE_NAME}:sha-${GITHUB_SHA::7}" \
+            --tag "${REGISTRY}/${IMAGE_NAME}:edge" \
+            "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"

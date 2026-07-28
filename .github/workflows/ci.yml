@@ -49,6 +49,9 @@ jobs:
       - name: Verify worker protocol
         run: python tools/verify_worker_protocol.py
 
+      - name: Verify worker OCI contract
+        run: python tools/verify_worker_oci.py
+
       - name: Verify AI control plane
         run: python tools/verify_ai_control.py
 

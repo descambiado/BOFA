@@ -33,9 +33,11 @@ from worker import WorkerRuntime
 
 NOW = datetime.now(timezone.utc)
 VERIFY_ROOT = _ROOT / "data" / ".verify_worker_protocol" / uuid.uuid4().hex
+IMAGE_REFERENCE = "ghcr.io/descambiado/bofa-worker"
+IMAGE_DIGEST = f"sha256:{'a' * 64}"
 
 
-def _grant():
+def _grant(max_output_bytes: int = 1_000_000):
     return AuthorizationGrant.from_dict(
         {
             "id": "grant_worker_test",
@@ -48,7 +50,7 @@ def _grant():
             "capabilities": ["network_active", "container"],
             "limits": {
                 "max_duration_seconds": 300,
-                "max_output_bytes": 1_000_000,
+                "max_output_bytes": max_output_bytes,
                 "max_steps": 5,
                 "cpu_cores": 1,
                 "memory_mb": 512,
@@ -59,21 +61,21 @@ def _grant():
     )
 
 
-def _profile():
+def _profile(max_output_bytes: int = 1_000_000):
     return ExecutionProfile(
         id="remote-test",
         backend=ExecutionBackend.REMOTE,
         capabilities=(ExecutionCapability.NETWORK_ACTIVE, ExecutionCapability.CONTAINER),
         limits=ExecutionLimits(
             max_duration_seconds=300,
-            max_output_bytes=1_000_000,
+            max_output_bytes=max_output_bytes,
             max_steps=5,
             cpu_cores=1,
             memory_mb=512,
         ),
         network_mode="restricted",
-        image="ghcr.io/descambiado/bofa-worker",
-        image_digest=f"sha256:{'a' * 64}",
+        image=IMAGE_REFERENCE,
+        image_digest=IMAGE_DIGEST,
         ephemeral=True,
         enabled=True,
     )
@@ -102,10 +104,10 @@ def _request(parameter_target: str = "https://authorized.example"):
     )
 
 
-def _signed_envelope(request=None):
+def _signed_envelope(request=None, max_output_bytes: int = 1_000_000):
     request = request or _request()
-    grant = _grant()
-    profile = _profile()
+    grant = _grant(max_output_bytes=max_output_bytes)
+    profile = _profile(max_output_bytes=max_output_bytes)
     decision = ExecutionPolicyEngine().evaluate(request, grant, profile, now=NOW)
     assert decision.allowed, decision.reasons
     manifest = ExecutionManifest.build(request, grant, profile, decision.policy_version, now=NOW)
@@ -121,6 +123,11 @@ def _runtime(public_key, executor=None):
         worker_id="worker_test",
         trusted_public_key_pem=public_key,
         capabilities=["network_active", "container"],
+        image_reference=IMAGE_REFERENCE,
+        image_digest=IMAGE_DIGEST,
+        runtime_network_mode="restricted",
+        allowed_scripts=["web/param_finder"],
+        allowed_flows=[],
         script_executor=executor,
     )
 
@@ -178,12 +185,48 @@ def _check_expired_jobs_fail() -> None:
     assert not inspection["checks"]["not_expired"]
 
 
+def _check_worker_rejects_wrong_image_identity() -> None:
+    envelope, public_key = _signed_envelope()
+    runtime = WorkerRuntime(
+        worker_id="worker_test",
+        trusted_public_key_pem=public_key,
+        capabilities=["network_active", "container"],
+        image_reference=IMAGE_REFERENCE,
+        image_digest=f"sha256:{'b' * 64}",
+        runtime_network_mode="restricted",
+        allowed_scripts=["web/param_finder"],
+        allowed_flows=[],
+    )
+    inspection = runtime.inspect(envelope, now=NOW)
+    assert not inspection["accepted"]
+    assert not inspection["checks"]["image_identity"]
+
+
+def _check_worker_rejects_adapter_outside_catalog() -> None:
+    envelope, public_key = _signed_envelope()
+    runtime = WorkerRuntime(
+        worker_id="worker_test",
+        trusted_public_key_pem=public_key,
+        capabilities=["network_active", "container"],
+        image_reference=IMAGE_REFERENCE,
+        image_digest=IMAGE_DIGEST,
+        runtime_network_mode="restricted",
+        allowed_scripts=["forensics/hash_calculator"],
+        allowed_flows=[],
+    )
+    inspection = runtime.inspect(envelope, now=NOW)
+    assert not inspection["accepted"]
+    assert not inspection["checks"]["adapter_allowed"]
+
+
 def _check_execution_receipt_hashes_output() -> None:
     envelope, public_key = _signed_envelope()
 
-    def fake_executor(module, script, parameters):
+    def fake_executor(module, script, parameters, timeout_seconds, max_output_bytes):
         assert (module, script) == ("web", "param_finder")
         assert parameters["url"] == "https://authorized.example"
+        assert timeout_seconds > 0
+        assert max_output_bytes == 1_000_000
         return {"status": "success", "exit_code": 0, "stdout": "evidence", "stderr": ""}
 
     runtime = _runtime(public_key, executor=fake_executor)
@@ -200,7 +243,7 @@ def _check_execution_receipt_hashes_output() -> None:
 def _check_output_quota_is_enforced() -> None:
     envelope, public_key = _signed_envelope()
 
-    def oversized_executor(module, script, parameters):
+    def oversized_executor(module, script, parameters, timeout_seconds, max_output_bytes):
         return {
             "status": "success",
             "exit_code": 0,
@@ -214,6 +257,24 @@ def _check_output_quota_is_enforced() -> None:
     assert receipt["output_limit_bytes"] == 1_000_000
 
 
+def _check_small_output_quota_is_not_expanded() -> None:
+    envelope, public_key = _signed_envelope(max_output_bytes=32)
+
+    def oversized_executor(module, script, parameters, timeout_seconds, max_output_bytes):
+        assert max_output_bytes == 32
+        return {
+            "status": "success",
+            "exit_code": 0,
+            "stdout": "x" * 33,
+            "stderr": "",
+        }
+
+    receipt = _runtime(public_key, executor=oversized_executor).execute(envelope)
+    assert receipt["status"] == "failed"
+    assert receipt["error"] == "output_limit_exceeded"
+    assert receipt["output_limit_bytes"] == 32
+
+
 def main() -> int:
     checks = [
         ("signed remote jobs are accepted by a pinned worker", _check_signed_job_is_accepted),
@@ -221,8 +282,11 @@ def main() -> int:
         ("workers revalidate script target binding", _check_worker_revalidates_target_binding),
         ("workers reject unsafe adapter identifiers", _check_worker_rejects_unsafe_adapter_identifiers),
         ("expired jobs cannot execute", _check_expired_jobs_fail),
+        ("workers bind jobs to the launched image identity", _check_worker_rejects_wrong_image_identity),
+        ("workers deny adapters outside the baked catalog", _check_worker_rejects_adapter_outside_catalog),
         ("worker receipts hash output and reject replay", _check_execution_receipt_hashes_output),
         ("worker receipts enforce the effective output quota", _check_output_quota_is_enforced),
+        ("worker output quotas are never expanded", _check_small_output_quota_is_not_expanded),
     ]
     print("BOFA Worker Protocol Verification")
     print("=" * 40)

@@ -2,6 +2,16 @@
 
 Por descambiado. Cambios notables por version.
 
+## Unreleased - First OCI worker proof
+
+### Deployable worker
+- **Imagen minima y no-root**: primer worker one-job con filesystem de solo lectura, red desactivada y catalogo inmutable.
+- **Binding real del manifest**: el worker exige coincidencia exacta entre referencia/digest firmados y la identidad que declara el dispatcher.
+- **Prueba local**: `python tools/demo_worker_oci.py --build` genera un JobSpec, ejecuta un adaptador offline y valida el recibo.
+- **Supply chain cerrada**: build multi-arquitectura, SBOM, provenance, escaneo high/critical y firma keyless de GHCR; las actions quedan fijadas por SHA.
+
+---
+
 ## v3.0.0-alpha.1 (2026-07-28) - Authorization Travels With Every Run
 
 ### Execution fabric
