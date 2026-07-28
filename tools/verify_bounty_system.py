@@ -28,10 +28,11 @@ from core.bounty_service import BountyWorkspaceService
 
 
 def _make_runtime():
-    runtime_id = uuid.uuid4().hex
-    app_root = _VERIFY_ROOT / f"runtime_{runtime_id}"
+    # Keep generated artifact paths below the legacy Windows MAX_PATH ceiling.
+    runtime_id = uuid.uuid4().hex[:8]
+    app_root = _VERIFY_ROOT / f"r_{runtime_id}"
     app_root.mkdir(parents=True, exist_ok=True)
-    db_path = _VERIFY_ROOT / f"runtime_{runtime_id}.db"
+    db_path = _VERIFY_ROOT / f"r_{runtime_id}.db"
     db = DatabaseManager(str(db_path))
     manager = RunManager(db)
     service = BountyWorkspaceService(db, manager, app_root, skills_dir=_ROOT / "skills" / "bounty")

@@ -1,25 +1,19 @@
-"""
-Security Agent - autonomous BOFA operator for bug bounty exploration.
-"""
+"""BOFA security copilot with policy-gated optional execution."""
 
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from core.engine import get_engine
-from flows.flow_runner import run_flow
-
-
 TOOLS_DESC = """
 BOFA TOOLS (respond with JSON only):
 
 1. execute_script: Execute a BOFA script.
-   {"action": "execute_script", "module": "web", "script": "param_finder", "parameters": {"url": "URL", "json": true, "insecure": true}}
+   {"action": "execute_script", "module": "web", "script": "param_finder", "parameters": {"url": "URL", "json": true}}
 
 2. run_flow: Execute a BOFA flow.
    {"action": "run_flow", "flow_id": "bug_bounty_full_chain", "target": "URL"}
@@ -35,16 +29,17 @@ BOFA TOOLS (respond with JSON only):
 """
 
 
-SYSTEM_PROMPT = """You are a BOFA security operator.
+SYSTEM_PROMPT = """You are a BOFA security planning copilot.
 
 Goal:
-- explore the target,
-- reason about what to test next,
-- use BOFA tools carefully,
+- propose the next evidence-rich step for an authorized target,
+- explain what the step is expected to prove,
+- never assume you have permission to execute,
 - prefer evidence-rich steps,
 - avoid blind loops.
 
 Use run_skill when a workspace_id is available and you need duplicate-aware prioritization.
+The host application, not you, decides whether an action may execute.
 Respond with valid JSON only.
 """
 
@@ -95,10 +90,14 @@ def _execute_action(
     target: str,
     context: Optional[List[Dict[str, Any]]] = None,
     workspace_id: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> Tuple[str, bool]:
     context = context or []
 
     if action == "run_flow":
+        from core.engine import get_engine
+        from flows.flow_runner import run_flow
+
         engine = get_engine()
         engine.initialize()
         flow_id = params.get("flow_id", "bug_bounty_full_chain")
@@ -163,6 +162,8 @@ def _execute_action(
             return json.dumps({"error": str(exc)}), True
 
     if action == "execute_script":
+        from core.engine import get_engine
+
         engine = get_engine()
         engine.initialize()
         module = params.get("module", "")
@@ -195,6 +196,8 @@ def _execute_action(
         skill_key = params.get("skill_key")
         if not selected_workspace_id or not skill_key:
             return json.dumps({"error": "workspace_id and skill_key are required"}), True
+        if user_id is None:
+            return json.dumps({"error": "A concrete BOFA user id is required for workspace skills"}), True
         try:
             from api.database import db as api_db
             from api.run_manager import RunManager as ApiRunManager
@@ -204,7 +207,7 @@ def _execute_action(
             result = service.run_skill(
                 workspace_id=selected_workspace_id,
                 skill_key=skill_key,
-                user_id=1,
+                user_id=user_id,
                 source="agent",
             )
             return json.dumps(result, indent=2, ensure_ascii=False), False
@@ -214,12 +217,55 @@ def _execute_action(
     return json.dumps({"error": f"Unknown action: {action}"}), True
 
 
+def _required_capabilities(action: str) -> List[str]:
+    if action in {"run_skill", "correlate"}:
+        return ["evidence_read"]
+    if action in {"execute_script", "run_flow"}:
+        return ["network_active"]
+    return []
+
+
+def _policy_preflight(
+    action: str,
+    target: str,
+    grant_payload: Mapping[str, Any],
+    profile_payload: Mapping[str, Any],
+    subject_id: str,
+) -> Dict[str, Any]:
+    from core.execution import AuthorizationGrant, ExecutionPolicyEngine, ExecutionProfile, ExecutionRequest
+
+    grant = AuthorizationGrant.from_dict(grant_payload)
+    profile = ExecutionProfile.from_dict(profile_payload)
+    capabilities = _required_capabilities(action)
+    request = ExecutionRequest.from_dict(
+        {
+            "subject_id": subject_id,
+            "action": f"ai:{action}",
+            "profile_id": profile.id,
+            "required_capabilities": capabilities,
+            "project_id": grant.project_id,
+            "environment_id": grant.environment_id,
+            "target": None if capabilities == ["evidence_read"] else target,
+            "approval_id": grant.approval_id,
+            "requested_steps": 1,
+            "metadata": {"initiator": "llm_copilot"},
+        }
+    )
+    decision = ExecutionPolicyEngine().evaluate(request, grant, profile)
+    return {"decision": decision.to_dict(), "request": request.to_dict()}
+
+
 def run_security_agent(
     target: str,
     provider: str = "auto",
     max_iterations: int = 15,
     verbose: bool = True,
     workspace_id: Optional[str] = None,
+    execute: bool = False,
+    grant_payload: Optional[Mapping[str, Any]] = None,
+    profile_payload: Optional[Mapping[str, Any]] = None,
+    subject_id: Optional[str] = None,
+    llm_provider=None,
 ) -> Dict[str, Any]:
     from .llm_providers import get_provider
 
@@ -227,14 +273,27 @@ def run_security_agent(
     if not target.startswith(("http://", "https://")):
         target = "https://" + target
 
-    llm = get_provider(provider)
+    llm = llm_provider or get_provider(provider)
+    provider_id = getattr(llm, "provider_id", provider)
+    provider_locality = getattr(llm, "locality", "unknown")
+    if execute and (not grant_payload or not profile_payload or not subject_id):
+        return {
+            "status": "policy_required",
+            "success": False,
+            "reason": "Execution requires subject_id, authorization grant and execution profile",
+            "provider": provider_id,
+            "executed": False,
+            "findings": [],
+            "iterations": 0,
+        }
     context: List[Dict[str, Any]] = []
     all_findings: List[str] = []
     iteration = 0
 
     if verbose:
         print(f"[Agent] Target: {target}")
-        print(f"[Agent] Provider: {provider}")
+        print(f"[Agent] Provider: {provider_id} ({provider_locality})")
+        print(f"[Agent] Mode: {'execute' if execute else 'plan'}")
         if workspace_id:
             print(f"[Agent] Workspace: {workspace_id}")
         print("[Agent] Starting Observe-Think-Act loop...")
@@ -275,13 +334,15 @@ What BOFA tool do you execute next? Respond with JSON only."""
         if action_data.get("error"):
             if verbose:
                 print(f"[Agent] LLM error: {action_data.get('error', '')[:120]}")
-            if iteration == 1:
-                if verbose:
-                    print("[Agent] Fallback: running bug_bounty_full_chain")
-                action_data = {"action": "run_flow", "flow_id": "bug_bounty_full_chain", "target": target}
-            else:
-                context.append({"action": "llm_error", "result": response[:500], "successes": []})
-                continue
+            return {
+                "status": "provider_error",
+                "success": False,
+                "reason": action_data.get("error", "LLM provider failed"),
+                "provider": provider_id,
+                "executed": False,
+                "findings": all_findings,
+                "iterations": iteration,
+            }
 
         action = action_data.get("action", "")
         if action == "done":
@@ -295,6 +356,8 @@ What BOFA tool do you execute next? Respond with JSON only."""
                 "reason": reason,
                 "findings": all_findings,
                 "iterations": iteration,
+                "provider": provider_id,
+                "executed": False,
             }
 
         params = {key: value for key, value in action_data.items() if key != "action"}
@@ -303,16 +366,57 @@ What BOFA tool do you execute next? Respond with JSON only."""
                 params["parameters"] = {
                     key: value
                     for key, value in params.items()
-                    if key in ("url", "json", "insecure", "params", "payload_set", "payload-set", "timeout", "limit", "method", "paths")
+                    if key in ("url", "json", "params", "payload_set", "payload-set", "timeout", "limit", "method", "paths")
                 }
             else:
                 script_params = params["parameters"]
                 if isinstance(script_params, dict) and "url" not in script_params:
                     script_params["url"] = target
-                    script_params.setdefault("insecure", True)
                     script_params.setdefault("json", True)
 
-        result_str, _had_error = _execute_action(action, params, target, context, workspace_id=workspace_id)
+        if not execute:
+            return {
+                "status": "plan_ready",
+                "success": True,
+                "reason": "A proposed action is ready for human and policy review",
+                "provider": provider_id,
+                "provider_locality": provider_locality,
+                "executed": False,
+                "proposed_action": {"action": action, **params},
+                "required_capabilities": _required_capabilities(action),
+                "findings": all_findings,
+                "iterations": iteration,
+            }
+
+        preflight = _policy_preflight(
+            action,
+            target,
+            grant_payload or {},
+            profile_payload or {},
+            subject_id or "",
+        )
+        if not preflight["decision"]["allowed"]:
+            return {
+                "status": "policy_denied",
+                "success": False,
+                "reason": "BOFA policy denied the LLM-proposed action",
+                "provider": provider_id,
+                "executed": False,
+                "proposed_action": {"action": action, **params},
+                "preflight": preflight,
+                "findings": all_findings,
+                "iterations": iteration,
+            }
+
+        resolved_user_id = int(subject_id) if subject_id and subject_id.isdigit() else None
+        result_str, _had_error = _execute_action(
+            action,
+            params,
+            target,
+            context,
+            workspace_id=workspace_id,
+            user_id=resolved_user_id,
+        )
         result_obj = json.loads(result_str) if result_str.startswith("{") else {}
         successes = result_obj.pop("_successes", [])
         all_findings.extend(successes)
@@ -330,26 +434,44 @@ What BOFA tool do you execute next? Respond with JSON only."""
         "reason": f"Iteration limit {max_iterations}",
         "findings": all_findings,
         "iterations": iteration,
+        "provider": provider_id,
+        "executed": execute,
     }
 
 
 def main() -> int:
     import argparse
 
-    parser = argparse.ArgumentParser(description="BOFA autonomous security agent")
+    parser = argparse.ArgumentParser(description="BOFA policy-gated security copilot")
     parser.add_argument("target", help="Target URL")
-    parser.add_argument("--provider", default="auto", choices=["auto", "ollama", "openai", "anthropic"])
+    parser.add_argument(
+        "--provider",
+        default="auto",
+        choices=["auto", "ollama", "openai_compatible", "openai", "anthropic"],
+    )
     parser.add_argument("--max-iterations", type=int, default=15)
     parser.add_argument("--workspace-id", default=None)
+    parser.add_argument("--execute", action="store_true", help="Allow policy-gated execution instead of plan-only mode")
+    parser.add_argument("--grant-file", default=None, help="Authorization grant JSON required with --execute")
+    parser.add_argument("--profile-file", default=None, help="Execution profile JSON required with --execute")
+    parser.add_argument("--subject-id", default=None, help="BOFA user id required with --execute")
     parser.add_argument("-q", "--quiet", action="store_true")
     args = parser.parse_args()
 
+    if args.execute and (not args.grant_file or not args.profile_file or not args.subject_id):
+        parser.error("--execute requires --grant-file, --profile-file and --subject-id")
+    grant_payload = json.loads(Path(args.grant_file).read_text(encoding="utf-8")) if args.grant_file else None
+    profile_payload = json.loads(Path(args.profile_file).read_text(encoding="utf-8")) if args.profile_file else None
     result = run_security_agent(
         target=args.target,
         provider=args.provider,
         max_iterations=args.max_iterations,
         verbose=not args.quiet,
         workspace_id=args.workspace_id,
+        execute=args.execute,
+        grant_payload=grant_payload,
+        profile_payload=profile_payload,
+        subject_id=args.subject_id,
     )
 
     print()
@@ -360,6 +482,9 @@ def main() -> int:
     print(f"Success: {result['success']}")
     print(f"Reason: {result['reason']}")
     print(f"Iterations: {result['iterations']}")
+    print(f"Executed: {result.get('executed', False)}")
+    if result.get("proposed_action"):
+        print(f"Proposed action: {json.dumps(result['proposed_action'], ensure_ascii=False)}")
     print(f"Findings: {len(result['findings'])}")
     for finding in result["findings"]:
         print(f"  - {finding}")

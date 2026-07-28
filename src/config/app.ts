@@ -1,14 +1,14 @@
 /**
- * BOFA v2.9.2
+ * BOFA v3.0.0-alpha.1
  * Central application configuration for the local-first runtime and UI.
  */
 
 export const APP_CONFIG = {
   name: "BOFA",
-  fullName: "Local-first security runtime",
-  version: "2.9.2",
-  codename: "Duplicate-aware web/API hunting",
-  releaseDate: "2026-07-27",
+  fullName: "Authorized security execution fabric",
+  version: "3.0.0-alpha.1",
+  codename: "Authorization travels with every run",
+  releaseDate: "2026-07-28",
 
   developer: {
     name: "@descambiado",
@@ -34,6 +34,8 @@ export const APP_CONFIG = {
     realTimeScriptExecution: true,
     runHistory: true,
     controlPlane: true,
+    executionFabric: true,
+    localFirstAI: true,
   },
 
   limits: {

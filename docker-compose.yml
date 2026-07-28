@@ -9,7 +9,7 @@ services:
       - "3000:3000"
     environment:
       - VITE_APP_NAME=BOFA
-      - VITE_APP_VERSION=2.9.2
+      - VITE_APP_VERSION=3.0.0-alpha.1
       - VITE_API_URL=http://localhost:8000
       - NODE_ENV=production
     volumes:
@@ -36,7 +36,7 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=sqlite:///./data/bofa.db
-      - API_VERSION=v2.9.2
+      - API_VERSION=v3.0.0-alpha.1
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO
     volumes:

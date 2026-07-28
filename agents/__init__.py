@@ -1,5 +1,5 @@
 """
-BOFA Agents - Agentes autónomos con LLM
+BOFA Agents - Policy-gated planning copilots with local or API LLMs.
 ========================================
 
 Agentes que razonan, exploran opciones y continúan hasta encontrar vulnerabilidades.
