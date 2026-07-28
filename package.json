@@ -1,8 +1,8 @@
 {
   "name": "bofa-web",
   "private": true,
-  "version": "2.9.2",
-  "description": "BOFA web workspace for duplicate-aware web/API hunting, evidence and AI copilots",
+  "version": "3.0.0-alpha.1",
+  "description": "BOFA execution fabric for authorized security workflows, evidence and policy-gated AI",
   "type": "module",
   "scripts": {
     "dev": "vite",

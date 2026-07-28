@@ -4,6 +4,7 @@ Executes YAML-defined flows and can optionally persist them via RunManager.
 """
 
 from datetime import datetime
+import math
 import json
 import mimetypes
 from pathlib import Path
@@ -347,6 +348,7 @@ def run_flow(
     cancel_file: Optional[str] = None,
     cancel_check_interval: float = 0.5,
     cancellation_hooks: Optional[Dict[str, Callable[..., Any]]] = None,
+    total_timeout_seconds: Optional[int] = None,
 ):
     flow = load_flow(flow_id)
     steps_spec = flow.get("steps", [])
@@ -370,6 +372,7 @@ def run_flow(
 
     steps_results = []
     any_error = False
+    flow_started = datetime.utcnow()
     for index, step in enumerate(steps_spec, start=1):
         should_cancel = cancellation_hooks.get("should_cancel") if cancellation_hooks else None
         if (should_cancel and should_cancel()) or (cancel_file and Path(cancel_file).exists()):
@@ -424,11 +427,29 @@ def run_flow(
         }
 
         try:
+            step_timeout = timeout_per_script or config.execution_timeout
+            if total_timeout_seconds is not None:
+                remaining = total_timeout_seconds - (datetime.utcnow() - flow_started).total_seconds()
+                if remaining <= 0:
+                    return _finalize_flow_result(
+                        flow_id,
+                        flow,
+                        target,
+                        report_dir,
+                        engine,
+                        config,
+                        steps_results,
+                        "failed",
+                        run_manager=run_manager,
+                        run_id=run_id,
+                        cause=f"Flow exceeded its {total_timeout_seconds}s execution limit",
+                    )
+                step_timeout = min(step_timeout, max(1, math.ceil(remaining)))
             result = engine.execute_script(
                 module_name=module,
                 script_name=script,
                 parameters=parameters,
-                timeout=timeout_per_script or config.execution_timeout,
+                timeout=step_timeout,
                 execution_id=step_id or None,
                 extra_env={
                     "BOFA_RUN_ID": run_id or "",

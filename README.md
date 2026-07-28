@@ -4,15 +4,15 @@
 
 ![CI](https://github.com/descambiado/BOFA/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Python](https://img.shields.io/badge/python-3.8%2B-green)
+![Python](https://img.shields.io/badge/python-3.11%2B-green)
 ![Scripts](https://img.shields.io/badge/scripts-96%2B-orange)
 ![Flows](https://img.shields.io/badge/flows-25-blue)
 
-BOFA is a local-first security runtime for **duplicate-aware web/API hunting, evidence and AI copilots**.
+BOFA is an open execution fabric for **authorized security workflows, evidence and policy-gated AI copilots**.
 
 Its current promise is simple:
 
-**BOFA helps you remember program context, detect what changed, and spend manual time where duplicate risk is lower.**
+**BOFA makes authorization travel with every run, from a local workstation to an ephemeral cloud worker.**
 
 ---
 
@@ -81,9 +81,27 @@ Walkthrough:
 
 BOFA is designed to support AI as a copilot over real evidence, not as a substitute for evidence.
 
-- local or API-backed model providers can sit on top of the same workspace context
+- Ollama, LM Studio and vLLM stay local; remote providers are explicit
 - the same runtime can drive CLI, API, web UI and MCP-friendly workflows
-- skills are meant to accelerate triage and manual focus, not hide what happened
+- the LLM proposes actions, but deterministic policy controls execution
+- remote model use requires per-request consent before workspace data leaves BOFA
+
+## Execution Fabric
+
+The v3 alpha adds a deny-by-default path for local, OCI and remote work:
+
+- persisted authorization grants with exact scope, expiry and quotas
+- human approval bound to the run
+- canonical JobSpecs signed with Ed25519
+- pinned worker images, restricted networking and mandatory teardown
+- replay protection and hashed worker receipts
+- local-only dispatch until a real remote provisioner is connected
+
+Architecture:
+
+- [Execution Fabric](docs/EXECUTION_FABRIC.md)
+- [BOFA and SotyHub](docs/SOTYHUB_INTEGRATION.md)
+- [AI Control Plane](docs/AI_CONTROL_PLANE.md)
 
 ---
 
@@ -113,6 +131,10 @@ python tools/verify_runtime_catalog.py
 python tools/verify_control_plane.py
 python tools/verify_bounty_system.py
 python tools/verify_auth_security.py
+python tools/verify_execution_fabric.py
+python tools/verify_worker_protocol.py
+python tools/verify_ai_control.py
+python tools/verify_execution_api.py
 python tools/demo_bounty_workspace.py --fresh
 npm run lint
 npx tsc --noEmit -p tsconfig.app.json
@@ -137,6 +159,9 @@ npm run build
 ### Runtime and evidence
 
 - unified runs, steps, labs, events and artifacts
+- scope and capability policy with signed execution manifests
+- local, OCI and remote execution profiles
+- portable worker protocol for ephemeral containers and VMs
 - timeline persistence
 - runtime cancellation and retry lineage
 - evidence export per run
@@ -149,6 +174,7 @@ npm run build
 - React web UI
 - MCP server
 - security agent with `run_skill` support
+- execution fabric status and AI locality UI
 
 ---
 
@@ -162,6 +188,8 @@ BOFA already has useful operational pieces, but this is the honest framing:
 - BOFA does **not** auto-report to HackerOne
 - BOFA does **not** yet rely on authenticated HackerOne API access
 - BOFA does **not** yet center browser-authenticated crawling in the bounty core
+- BOFA does **not** include a hosted cloud provisioner in this alpha
+- remote execution profiles remain disabled until a pinned image and dispatcher exist
 
 That honesty matters more than hype.
 
@@ -222,6 +250,9 @@ This project is for:
 ## Useful Links
 
 - [Bounty Workspaces](docs/BUG_BOUNTY_WORKSPACES.md)
+- [Execution Fabric](docs/EXECUTION_FABRIC.md)
+- [BOFA and SotyHub](docs/SOTYHUB_INTEGRATION.md)
+- [AI Control Plane](docs/AI_CONTROL_PLANE.md)
 - [Agent](docs/AGENT.md)
 - [MCP Integration](docs/MCP_CURSOR_INTEGRATION.md)
 - [Tools README](tools/README.md)

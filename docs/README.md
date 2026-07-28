@@ -10,6 +10,8 @@ going.
 | [BOFA_AT_A_GLANCE.md](BOFA_AT_A_GLANCE.md) | Fast orientation: what BOFA is, what it is not, and how to try it |
 | [STATUS.md](STATUS.md) | Honest current state of the product |
 | [BUG_BOUNTY_WORKSPACES.md](BUG_BOUNTY_WORKSPACES.md) | Flagship workflow for duplicate-aware web/API hunting |
+| [EXECUTION_FABRIC.md](EXECUTION_FABRIC.md) | Policy, signed jobs and local/OCI/VM worker contract |
+| [SOTYHUB_INTEGRATION.md](SOTYHUB_INTEGRATION.md) | Open-core boundary and hosted provisioning contract |
 | [NEXT_STEPS_AND_ROADMAP.md](NEXT_STEPS_AND_ROADMAP.md) | Current product direction and recommended next milestones |
 
 ## Core and usage
@@ -26,6 +28,7 @@ going.
 | Document | Why it matters |
 |----------|----------------|
 | [AGENT.md](AGENT.md) | Agent and run_skill context |
+| [AI_CONTROL_PLANE.md](AI_CONTROL_PLANE.md) | Local-first providers and plan-only authority |
 | [MCP_CURSOR_INTEGRATION.md](MCP_CURSOR_INTEGRATION.md) | MCP integration notes |
 | [LLM_CYBERSECURITY.md](LLM_CYBERSECURITY.md) | Historical and technical context for BOFA + LLM workflows |
 | [ORCHESTRATION_AND_CHAINING.md](ORCHESTRATION_AND_CHAINING.md) | Flows and chaining patterns |

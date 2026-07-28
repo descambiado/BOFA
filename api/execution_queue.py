@@ -31,6 +31,8 @@ class ExecutionQueue:
         module: str,
         script: str,
         parameters: Dict[str, Any],
+        timeout_seconds: Optional[int] = None,
+        max_output_bytes: Optional[int] = None,
     ):
         """Add an execution step to queue."""
         async with self.lock:
@@ -42,6 +44,8 @@ class ExecutionQueue:
                 "module": module,
                 "script": script,
                 "parameters": parameters,
+                "timeout_seconds": timeout_seconds,
+                "max_output_bytes": max_output_bytes,
                 "queued_at": datetime.utcnow().isoformat(),
                 "status": "queued",
                 "position": len(self.queue) + 1,

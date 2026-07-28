@@ -111,6 +111,23 @@ async def _check_queue_cancellation_after_process_start():
     return cancelled is not None and cancelled.get("status") == "running" and len(queue.running) == 1
 
 
+async def _check_queue_preserves_contract_limits():
+    queue = ExecutionQueue(max_concurrent=1)
+    await queue.add_to_queue(
+        "exec-limits",
+        "run-limits",
+        "step-limits",
+        1,
+        "demo",
+        "script",
+        {},
+        timeout_seconds=17,
+        max_output_bytes=4096,
+    )
+    item = await queue.get_next()
+    return item.get("timeout_seconds") == 17 and item.get("max_output_bytes") == 4096
+
+
 def _check_timeout_error_metadata():
     engine = get_engine()
     engine.initialize()
@@ -163,6 +180,7 @@ async def main():
         ("queue cancel before process start frees slot", await _check_queue_cancellation_before_process_start()),
         ("queue cancel while launching keeps tracked handle", await _check_queue_cancellation_while_launching()),
         ("queue cancel after process start keeps live handle", await _check_queue_cancellation_after_process_start()),
+        ("queue preserves policy timeout and output quota", await _check_queue_preserves_contract_limits()),
         ("timeout raises preserved ExecutionError metadata", _check_timeout_error_metadata()),
         ("flow cancel drain swallows task exception", await _check_flow_cancel_drain_handles_task_error()),
         ("legacy execution status maps failed to error", _check_legacy_execution_status_mapping()),

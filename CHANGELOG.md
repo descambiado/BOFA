@@ -2,6 +2,33 @@
 
 Por descambiado. Cambios notables por version.
 
+## v3.0.0-alpha.1 (2026-07-28) - Authorization Travels With Every Run
+
+### Execution fabric
+- **Grants persistidos**: sujeto, proyecto, entorno, scope exacto, capacidades, aprobacion humana, TTL y cuotas forman un unico contrato.
+- **Policy deny-by-default**: wildcard scope, imagen mutable, perfil remoto no configurado, privilegios y mutaciones cloud fallan cerrados.
+- **JobSpec firmado**: cada trabajo permitido produce un manifiesto canonico con SHA-256 y una envoltura Ed25519 verificable por workers.
+- **Workers portables**: protocolo para OCI, microVM o Kali con key pinning, target binding, caducidad, replay protection y recibos con hashes.
+- **Limites reales en el adaptador local**: la cola aplica timeout y cuota de salida; los flows consumen un TTL total y validan su numero real de pasos.
+
+### AI control plane
+- **Plan-first**: el agente no importa ni llama al executor en su modo por defecto.
+- **Local-first**: Ollama es el default y se incorpora un proveedor OpenAI-compatible para LM Studio o vLLM.
+- **Remoto explicito**: OpenAI y Anthropic informan salida de datos y `POST /ai/plan` exige consentimiento por request.
+- **Sin autoridad operativa**: cada accion propuesta vuelve a pasar por grant, scope, capacidades y approval.
+
+### BOFA and SotyHub
+- **Frontera abierta**: BOFA define policy, JobSpec, workers, runs y evidencia; SotyHub conserva identidad, tenancy, billing, approvals y provisioning.
+- **Ruta cloud honesta**: OCI y remote aparecen en API/UI, pero siguen desactivados hasta tener imagen por digest y dispatcher real.
+- **Kali con sentido**: documentada para sesiones interactivas humanas; la automatizacion corta prioriza OCI o microVM.
+
+### Product surface and verification
+- **Vista Fabric**: muestra runners, disponibilidad, limites, clave de confianza, invariantes y localidad de cada LLM.
+- **Cuatro smoke suites nuevas**: fabric, worker protocol, AI control y API forman parte de CI.
+- **Alpha explicita**: la version 3 no se presenta como estable ni promete un provisionador cloud que aun no existe.
+
+---
+
 ## v2.9.2 (2026-07-27) - Proof, Positioning and Snapshot Clarity
 
 ### Flagship workflow tightened

@@ -1,59 +1,64 @@
-# Agente de Seguridad Autónomo BOFA
+# BOFA policy-gated security copilot
 
-El agente razona, explora opciones y continúa hasta encontrar vulnerabilidades. Usa un loop **Observe-Think-Act** con un LLM (local o por API).
+The BOFA agent is plan-first. It can use a local or remote LLM to propose the
+next BOFA action, but it does not execute by default.
 
-## Requisitos
-
-- **Ollama** (local): `ollama serve` + `ollama pull llama3.2`
-- **OpenAI**: `export OPENAI_API_KEY=sk-...`
-- **Anthropic**: `export ANTHROPIC_API_KEY=sk-ant-...`
-
-## Uso
+## Local planning
 
 ```bash
-# Con Ollama (local)
 ollama pull llama3.2
-ollama serve &
-python3 tools/run_agent.py https://yungkuoo.com --provider ollama
-
-# Con OpenAI
-export OPENAI_API_KEY=sk-...
-python3 tools/run_agent.py https://yungkuoo.com --provider openai
-
-# Con Anthropic Claude
-export ANTHROPIC_API_KEY=sk-ant-...
-python3 tools/run_agent.py https://yungkuoo.com --provider anthropic
-
-# Auto (usa la primera disponible: OpenAI > Anthropic > Ollama)
-python3 tools/run_agent.py https://yungkuoo.com
+ollama serve
+python tools/run_agent.py https://authorized.example --provider ollama
 ```
 
-## Cómo funciona
+LM Studio, vLLM or another OpenAI-compatible local server:
 
-1. **Observe**: El agente recibe el contexto (hallazgos previos de param_finder, path_scanner, fuzzer, etc.).
-2. **Think**: El LLM razona qué herramienta ejecutar a continuación.
-3. **Act**: Ejecuta la herramienta BOFA (execute_script, run_flow, correlate).
-4. **Repeat**: Hasta encontrar vulnerabilidades o alcanzar el límite de iteraciones.
-
-## Acciones disponibles
-
-| Acción | Descripción |
-|--------|-------------|
-| `execute_script` | Ejecuta un script BOFA (param_finder, path_scanner, http_param_fuzzer, etc.) |
-| `run_flow` | Ejecuta un flujo completo (bug_bounty_full_chain) |
-| `correlate` | Correlaciona hallazgos previos con findings_correlator |
-| `done` | Termina (con success=true si encontró vulnerabilidades) |
-
-## Criterios de éxito
-
-- **param_finder**: Parámetros encontrados en formularios/enlaces
-- **path_scanner**: Rutas sensibles (admin, login, .git) con 200/301/302
-- **security_headers_analyzer**: Cabeceras faltantes (HSTS, CSP, etc.)
-- **http_param_fuzzer**: Anomalías en respuestas (longitud distinta)
-- **findings_correlator**: Hotspots priorizados
-
-## Opciones
-
+```bash
+export BOFA_OPENAI_COMPATIBLE_URL=http://127.0.0.1:1234/v1
+export BOFA_OPENAI_COMPATIBLE_MODEL=local-model
+python tools/run_agent.py https://authorized.example --provider openai_compatible
 ```
-python3 tools/run_agent.py TARGET [--provider auto|ollama|openai|anthropic] [--max-iterations 15] [-q]
+
+`auto` is local-first and resolves to `BOFA_LLM_PROVIDER`, or Ollama when the
+variable is absent.
+
+## Remote planning
+
+OpenAI and Anthropic are available as explicit providers. They transmit prompt
+context outside the local runtime and require their corresponding API key.
+BOFA never falls back to them automatically.
+
+## Execution
+
+Execution requires all three policy inputs:
+
+```bash
+python tools/run_agent.py https://authorized.example \
+  --provider ollama \
+  --execute \
+  --subject-id 42 \
+  --grant-file grant.json \
+  --profile-file profile.json
 ```
+
+For every proposed action BOFA checks:
+
+- subject, project and environment
+- grant issue and expiry times
+- exact target scope
+- required capabilities
+- matching approval
+- duration and step quotas
+- enabled execution profile
+- restricted network and pinned remote image
+
+If any check fails, the executor is not imported or called.
+
+## Why this changed
+
+An LLM can be useful for selecting and explaining tools, but model output is
+untrusted input. Scope, approval and evidence must remain deterministic and
+auditable.
+
+See [AI Control Plane](AI_CONTROL_PLANE.md) and
+[Execution Fabric](EXECUTION_FABRIC.md).

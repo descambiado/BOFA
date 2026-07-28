@@ -6,17 +6,18 @@ Autor: descambiado. Esta pagina intenta dejar claro que parte del proyecto es ho
 
 ## Resumen ejecutivo
 
-BOFA ya no es solo una coleccion de scripts. Hoy tiene tres capas distintas:
+BOFA ya no es solo una coleccion de scripts. Hoy tiene cuatro capas distintas:
 
 | Area | Estado | Lo importante |
 |------|--------|---------------|
 | **Core / Runtime / Evidence** | Operativo | Runs unificados, timeline, artifacts, export firmado, verificacion offline y smoke suites. |
+| **Execution Fabric v3** | Alpha verificable | Grants, scope, policy, JobSpecs firmados y protocolo de worker local/OCI/VM. |
 | **Labs y UI educativa** | Util / educativa | Sirven para aprender, practicar y explorar, pero no son el argumento principal del proyecto. |
 | **Duplicate-aware bounty** | Flagship activo | Workspaces, imports, snapshots, deltas, novelty findings, review queue y skills para priorizar tiempo manual y reducir duplicates. |
 
 La propuesta de valor que hoy queremos reforzar es esta:
 
-**BOFA ayuda a hunters web/API a ver que cambio, que es raro y que tiene menos riesgo de ser duplicate.**
+**BOFA hace que la autorizacion, los limites y la evidencia viajen con cada run, sin dar autoridad operativa a la IA.**
 
 ---
 
@@ -43,6 +44,14 @@ La propuesta de valor que hoy queremos reforzar es esta:
 - `tsc` y `build` pasan en frontend.
 - Hay CI visible en GitHub Actions.
 
+### 4. Execution fabric e IA
+
+- Grants persistidos por sujeto, proyecto, entorno, scope, capacidades y TTL.
+- JobSpecs canonicos firmados con Ed25519.
+- Workers con clave fijada, imagen por digest, replay protection y recibos con hashes.
+- Ollama y OpenAI-compatible locales; proveedores remotos explicitos.
+- La IA planifica por defecto y cada accion ejecutable vuelve a pasar por policy.
+
 ---
 
 ## Lo que NO estamos vendiendo como si ya estuviera cerrado
@@ -59,13 +68,19 @@ Todavia no se usa la API autenticada de HackerOne. En esta fase el modelo es `pu
 
 BOFA no envia reportes automaticamente. El modo correcto sigue siendo copilot: sugerir, priorizar y dejar el juicio final al hunter.
 
+### 4. Provisionador cloud
+
+El contrato OCI/VM existe, pero esta alpha no crea infraestructura en una cuenta
+cloud. Los perfiles remotos siguen desactivados hasta configurar imagen,
+digest y dispatcher reales.
+
 ---
 
 ## Posicionamiento recomendado
 
 Si alguien pregunta "que es BOFA hoy", la respuesta mas honesta y mas fuerte es:
 
-> BOFA es una plataforma local-first para hunting web/API con memoria operativa, evidencia defendible y una capa duplicate-aware para decidir mejor donde gastar tiempo manual.
+> BOFA es un execution fabric abierto para trabajo de ciberseguridad autorizado, con memoria operativa, policy, evidencia defendible e IA sin autoridad autonoma.
 
 Todo lo educativo sigue siendo valioso, pero no deberia eclipsar la historia principal.
 
@@ -86,6 +101,9 @@ Las lineas de trabajo mas valiosas ahora mismo son:
 - review queue mejor
 - skills honestas y utiles
 - mejor importacion de intelligence publica
+- primera imagen OCI reproducible y publicada por digest
+- dispatcher de un solo proveedor con teardown demostrado
+- un workflow defensivo completo visible desde SotyHub
 
 ---
 

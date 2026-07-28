@@ -5,7 +5,7 @@ BOFA API - operational control plane.
 
 import asyncio
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import logging
@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import uuid
 import zipfile
 from typing import Any, Dict, List, Optional
 
@@ -28,15 +29,27 @@ from pydantic import BaseModel, Field
 import uvicorn
 import yaml
 
+from agents.llm_providers import get_provider, list_provider_descriptors
+from agents.security_agent import run_security_agent
 from auth import AuthManager, Roles, check_permission
 from core.bounty_service import BountyWorkspaceService
+from core.execution import AuthorizationGrant, ExecutionCapability, ExecutionFabric
+from core.execution.policy import scope_matches
+from core.execution.signing import (
+    SIGNATURE_SCOPE as EXECUTION_SIGNATURE_SCOPE,
+    SIGNING_ALGORITHM as EXECUTION_SIGNING_ALGORITHM,
+    load_or_create_signing_key,
+    public_key_id,
+    public_key_pem,
+    sign_manifest,
+)
 from database import db
 from execution_queue import execution_queue
 from lab_manager import LabManager
 from run_manager import RunManager
 from script_executor import ScriptExecutor
 from websocket_manager import ws_manager
-from flows.flow_runner import list_flows, run_flow
+from flows.flow_runner import list_flows, load_flow, run_flow
 
 APP_ROOT = Path(os.getenv("BOFA_APP_ROOT", Path(__file__).resolve().parents[1]))
 SCRIPTS_DIR = Path(os.getenv("BOFA_SCRIPTS_DIR", APP_ROOT / "scripts"))
@@ -51,8 +64,20 @@ RUNTIME_REPORTS_DIR = APP_ROOT / "reports" / "runs"
 EVIDENCE_KEYS_DIR = DATA_DIR / "evidence_keys"
 EVIDENCE_PRIVATE_KEY_PATH = EVIDENCE_KEYS_DIR / "evidence_ed25519_private.pem"
 EVIDENCE_PUBLIC_KEY_PATH = EVIDENCE_KEYS_DIR / "evidence_ed25519_public.pem"
+EXECUTION_KEYS_DIR = DATA_DIR / "execution_keys"
+EXECUTION_PRIVATE_KEY_PATH = EXECUTION_KEYS_DIR / "jobs_ed25519_private.pem"
+EXECUTION_PUBLIC_KEY_PATH = EXECUTION_KEYS_DIR / "jobs_ed25519_public.pem"
 
-for directory in (LOGS_DIR, DATA_DIR, TEMP_DIR, UPLOADS_DIR, CANCEL_DIR, RUNTIME_REPORTS_DIR, EVIDENCE_KEYS_DIR):
+for directory in (
+    LOGS_DIR,
+    DATA_DIR,
+    TEMP_DIR,
+    UPLOADS_DIR,
+    CANCEL_DIR,
+    RUNTIME_REPORTS_DIR,
+    EVIDENCE_KEYS_DIR,
+    EXECUTION_KEYS_DIR,
+):
     directory.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -63,9 +88,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="BOFA Duplicate-Aware Hunter Workflows",
-    description="Cybersecurity platform API with unified runs, evidence, snapshots and duplicate-aware hunter workflows.",
-    version="2.9.2",
+    title="BOFA Execution Fabric",
+    description="Authorized security workflows with signed jobs, evidence and policy-gated AI.",
+    version="3.0.0-alpha.1",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -92,6 +117,12 @@ script_executor = ScriptExecutor(db, scripts_dir=str(SCRIPTS_DIR), temp_dir=str(
 lab_manager = LabManager(db)
 run_manager = RunManager(db)
 bounty_service = BountyWorkspaceService(db, run_manager, APP_ROOT)
+execution_fabric = ExecutionFabric()
+execution_signing_key = load_or_create_signing_key(
+    EXECUTION_PRIVATE_KEY_PATH,
+    EXECUTION_PUBLIC_KEY_PATH,
+)
+execution_public_key_pem = public_key_pem(execution_signing_key)
 
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
 ARTIFACT_PREVIEW_LIMIT = 4000
@@ -147,6 +178,56 @@ class RunCreateRequest(BaseModel):
     requested_action: str
     target: Optional[str] = None
     metadata: Dict[str, Any] = {}
+
+
+class ScopeRuleRequest(BaseModel):
+    kind: str = Field(pattern="^(host|url_prefix|cidr|path|opaque)$")
+    value: str = Field(min_length=1, max_length=2048)
+    include_subdomains: bool = False
+
+
+class ExecutionLimitsRequest(BaseModel):
+    max_duration_seconds: int = Field(default=300, ge=1, le=86400)
+    max_output_bytes: int = Field(default=10 * 1024 * 1024, ge=1024, le=1024 * 1024 * 1024)
+    max_steps: int = Field(default=20, ge=1, le=1000)
+    cpu_cores: float = Field(default=1.0, gt=0, le=64)
+    memory_mb: int = Field(default=512, ge=64, le=262144)
+
+
+class ExecutionGrantCreateRequest(BaseModel):
+    subject_user_id: int = Field(gt=0)
+    project_id: str = Field(min_length=1, max_length=128)
+    environment_id: str = Field(min_length=1, max_length=128)
+    expires_at: datetime
+    scopes: List[ScopeRuleRequest] = Field(default_factory=list)
+    capabilities: List[str] = Field(min_length=1)
+    limits: ExecutionLimitsRequest = Field(default_factory=ExecutionLimitsRequest)
+    require_human_approval: bool = True
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ExecutionJobCreateRequest(BaseModel):
+    grant_id: str = Field(min_length=1, max_length=128)
+    approval_id: Optional[str] = Field(default=None, max_length=128)
+    profile_id: str = Field(default="local-controlled", min_length=1, max_length=128)
+    run_type: str = Field(pattern="^(script|flow|lab_session)$")
+    requested_action: str = Field(min_length=1, max_length=128)
+    target: Optional[str] = Field(default=None, max_length=2048)
+    required_capabilities: List[str] = Field(min_length=1)
+    requested_duration_seconds: Optional[int] = Field(default=None, ge=1, le=86400)
+    requested_steps: Optional[int] = Field(default=None, ge=1, le=1000)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AIPlanRequest(BaseModel):
+    grant_id: str = Field(min_length=1, max_length=128)
+    target: str = Field(min_length=1, max_length=2048)
+    provider: str = Field(
+        default="auto",
+        pattern="^(auto|ollama|openai_compatible|openai|anthropic)$",
+    )
+    workspace_id: Optional[str] = Field(default=None, max_length=128)
+    allow_remote_data: bool = False
 
 
 class BountyWorkspaceCreateRequest(BaseModel):
@@ -414,6 +495,146 @@ def _require_workspace_access(workspace_id: str, current_user: Dict[str, Any]) -
     if current_user["role"] != "admin" and workspace.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Access denied")
     return workspace
+
+
+def _require_execution_grant_access(grant_id: str, current_user: Dict[str, Any]) -> Dict[str, Any]:
+    record = db.get_execution_grant(grant_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Execution grant not found")
+    if current_user["role"] != "admin" and record.get("subject_user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return record
+
+
+def _execution_request_payload(
+    request: ExecutionJobCreateRequest,
+    current_user: Dict[str, Any],
+    grant_payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "subject_id": str(current_user["user_id"]),
+        "action": request.requested_action,
+        "profile_id": request.profile_id,
+        "required_capabilities": request.required_capabilities,
+        "project_id": grant_payload.get("project_id"),
+        "environment_id": grant_payload.get("environment_id"),
+        "target": request.target,
+        "approval_id": request.approval_id,
+        "requested_duration_seconds": request.requested_duration_seconds,
+        "requested_steps": request.requested_steps,
+        "metadata": {"run_type": request.run_type, **request.metadata},
+    }
+
+
+def _preflight_execution_job(
+    request: ExecutionJobCreateRequest,
+    current_user: Dict[str, Any],
+) -> Dict[str, Any]:
+    record = _require_execution_grant_access(request.grant_id, current_user)
+    if record.get("status") != "active":
+        return {
+            "decision": {
+                "allowed": False,
+                "code": "grant_inactive",
+                "reasons": ["Execution grant is not active"],
+                "checks": {"grant_active": False},
+                "effective_limits": (record.get("payload") or {}).get("limits", {}),
+                "policy_version": execution_fabric.policy.version,
+            },
+            "manifest": None,
+            "envelope": None,
+        }
+    grant_payload = dict(record.get("payload") or {})
+    _validate_execution_adapter_request(request)
+    result = execution_fabric.preflight(
+        _execution_request_payload(request, current_user, grant_payload),
+        grant_payload,
+    )
+    result["envelope"] = (
+        sign_manifest(result["manifest"], execution_signing_key)
+        if result.get("manifest")
+        else None
+    )
+    return result
+
+
+def _validate_controlled_script_target(
+    target: Optional[str],
+    parameters: Dict[str, Any],
+    required_capabilities: List[str],
+) -> None:
+    network_requested = bool(
+        {ExecutionCapability.NETWORK_PASSIVE.value, ExecutionCapability.NETWORK_ACTIVE.value}
+        & set(required_capabilities)
+    )
+    target_keys = ("url", "target", "host", "domain", "ip")
+    network_target_keys = ("url", "host", "domain", "ip")
+    parameter_targets = [
+        str(parameters[key]).strip()
+        for key in target_keys
+        if parameters.get(key) is not None and not isinstance(parameters.get(key), (dict, list))
+    ]
+    network_parameter_targets = [
+        str(parameters[key]).strip()
+        for key in network_target_keys
+        if parameters.get(key) is not None and not isinstance(parameters.get(key), (dict, list))
+    ]
+    if network_parameter_targets and ExecutionCapability.NETWORK_ACTIVE.value not in required_capabilities:
+        raise HTTPException(
+            status_code=400,
+            detail="Controlled outbound network scripts must declare network_active",
+        )
+    if parameter_targets and (not target or any(value != target for value in parameter_targets)):
+        raise HTTPException(status_code=400, detail="Script target parameters must exactly match the authorized target")
+    if network_requested and not parameter_targets:
+        raise HTTPException(
+            status_code=400,
+            detail="Controlled network scripts must bind url, target, host, domain or ip to the authorized target",
+        )
+
+
+def _safe_execution_identifier(value: Any) -> bool:
+    return bool(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", value))
+
+
+def _validate_execution_adapter_request(request: ExecutionJobCreateRequest) -> None:
+    if request.run_type == "script":
+        module = request.metadata.get("module")
+        script = request.metadata.get("script")
+        parameters = dict(request.metadata.get("parameters") or {})
+        if not _safe_execution_identifier(module) or not _safe_execution_identifier(script):
+            raise HTTPException(status_code=400, detail="Script jobs require safe module and script identifiers")
+        if not (SCRIPTS_DIR / module / f"{script}.py").is_file():
+            raise HTTPException(status_code=404, detail="Controlled script is not present in the BOFA catalog")
+        if request.requested_steps not in {None, 1}:
+            raise HTTPException(status_code=400, detail="A script job has exactly one step")
+        _validate_controlled_script_target(request.target, parameters, request.required_capabilities)
+        return
+
+    if request.run_type == "flow":
+        flow_id = request.metadata.get("flow_id")
+        if not _safe_execution_identifier(flow_id) or not request.target:
+            raise HTTPException(status_code=400, detail="Flow jobs require a safe flow_id and target")
+        try:
+            actual_steps = len(load_flow(flow_id).get("steps", []))
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if not actual_steps or request.requested_steps != actual_steps:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Flow requested_steps must match the catalog ({actual_steps})",
+            )
+        if ExecutionCapability.NETWORK_ACTIVE.value not in request.required_capabilities:
+            raise HTTPException(status_code=400, detail="Controlled target flows require network_active")
+        return
+
+    lab_id = request.metadata.get("lab_id")
+    if not _safe_execution_identifier(lab_id):
+        raise HTTPException(status_code=400, detail="Lab jobs require a safe lab_id")
+    if ExecutionCapability.CONTAINER.value not in request.required_capabilities:
+        raise HTTPException(status_code=400, detail="Controlled lab sessions require the container capability")
+    if request.requested_steps not in {None, 1}:
+        raise HTTPException(status_code=400, detail="A lab session request has exactly one control step")
 
 
 def _artifact_role(artifact_type: Optional[str]) -> str:
@@ -1647,6 +1868,8 @@ async def _execute_script_step(item: Dict[str, Any]):
     module = item["module"]
     script = item["script"]
     parameters = item["parameters"]
+    timeout_seconds = max(1, int(item.get("timeout_seconds") or 300))
+    max_output_bytes = max(1024, int(item.get("max_output_bytes") or 25 * 1024 * 1024))
     script_file = SCRIPTS_DIR / module / f"{script}.py"
     control = _get_runtime_control(run_id, "script")
     control["execution_id"] = execution_id
@@ -1725,32 +1948,88 @@ async def _execute_script_step(item: Dict[str, Any]):
 
     stdout_chunks: List[str] = []
     stderr_chunks: List[str] = []
+    captured_output_bytes = 0
+    output_limit_exceeded = False
+    timed_out = False
     started = datetime.utcnow()
 
     async def _stream(stream, stream_name: str, collector: List[str]):
+        nonlocal captured_output_bytes, output_limit_exceeded
         while True:
-            line = await stream.readline()
-            if not line:
+            chunk = await stream.read(8192)
+            if not chunk:
                 break
-            text = line.decode(errors="replace").rstrip()
-            if text:
-                collector.append(text)
-                await _emit_and_persist(run_id, "step", step_id, stream_name, "running", text, {"stream": stream_name})
+            text = chunk.decode(errors="replace")
+            if output_limit_exceeded:
+                continue
+            remaining = max_output_bytes - captured_output_bytes
+            if len(chunk) > remaining:
+                if remaining > 0:
+                    collector.append(chunk[:remaining].decode("utf-8", errors="ignore"))
+                captured_output_bytes = max_output_bytes
+                output_limit_exceeded = True
+                try:
+                    process.terminate()
+                except ProcessLookupError:
+                    pass
+                continue
+            captured_output_bytes += len(chunk)
+            collector.append(text)
+            event_text = text.rstrip()
+            if event_text:
+                await _emit_and_persist(
+                    run_id,
+                    "step",
+                    step_id,
+                    stream_name,
+                    "running",
+                    event_text,
+                    {"stream": stream_name},
+                )
 
-    await asyncio.gather(_stream(process.stdout, "stdout", stdout_chunks), _stream(process.stderr, "stderr", stderr_chunks))
-    await process.wait()
+    stream_tasks = [
+        asyncio.create_task(_stream(process.stdout, "stdout", stdout_chunks)),
+        asyncio.create_task(_stream(process.stderr, "stderr", stderr_chunks)),
+    ]
+    try:
+        await asyncio.wait_for(process.wait(), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        timed_out = True
+        try:
+            process.terminate()
+            await asyncio.wait_for(process.wait(), timeout=CANCEL_GRACE_SECONDS)
+        except (ProcessLookupError, asyncio.TimeoutError):
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+            await process.wait()
+    finally:
+        await asyncio.gather(*stream_tasks, return_exceptions=True)
     execution_tasks.pop(execution_id, None)
 
     duration = (datetime.utcnow() - started).total_seconds()
-    stdout_preview = "\n".join(stdout_chunks)[-2000:]
-    stderr_preview = "\n".join(stderr_chunks)[-1000:]
-    output = "\n".join(stdout_chunks)
-    error_output = "\n".join(stderr_chunks) or output
+    stdout_preview = "".join(stdout_chunks)[-2000:]
+    stderr_preview = "".join(stderr_chunks)[-1000:]
+    output = "".join(stdout_chunks)
+    error_output = "".join(stderr_chunks) or output
+    if timed_out:
+        error_output = f"Execution timed out after {timeout_seconds} seconds"
+    elif output_limit_exceeded:
+        error_output = f"Execution output exceeded {max_output_bytes} bytes"
     cancelled = (control.get("cancel_requested") and process.returncode != 0) or process.returncode in {-15, -9, 130}
-    result_status = "cancelled" if cancelled else "success" if process.returncode == 0 else "failed"
+    result_status = (
+        "failed"
+        if timed_out or output_limit_exceeded
+        else "cancelled"
+        if cancelled
+        else "success"
+        if process.returncode == 0
+        else "failed"
+    )
 
     stdout_artifact = _write_runtime_artifact(run_id, step_id, "stdout", output)
-    stderr_artifact = _write_runtime_artifact(run_id, step_id, "stderr", "\n".join(stderr_chunks))
+    stderr_artifact = _write_runtime_artifact(run_id, step_id, "stderr", "".join(stderr_chunks))
     if stdout_artifact:
         run_manager.add_artifact(
             run_id,
@@ -1782,7 +2061,53 @@ async def _execute_script_step(item: Dict[str, Any]):
             ),
         )
 
-    if cancelled:
+    if timed_out or output_limit_exceeded:
+        await execution_queue.mark_failed(execution_id, error_output)
+        db.update_execution(execution_id, "error", error_message=error_output, execution_time=duration)
+        run_manager.update_step(
+            step_id,
+            run_id,
+            status="failed",
+            completed_at=datetime.utcnow().isoformat(),
+            exit_code=process.returncode,
+            duration=duration,
+            stdout_preview=stdout_preview,
+            stderr_preview=stderr_preview,
+            error_message=error_output,
+            message=f"Script step stopped by execution limits: {module}/{script}",
+        )
+        completion_payload = _build_run_completion_payload(
+            run_id,
+            "failed",
+            {
+                "execution_id": execution_id,
+                "step_id": step_id,
+                "module": module,
+                "script": script,
+                "exit_code": process.returncode,
+                "duration": duration,
+                "reason": error_output,
+            },
+        )
+        run_manager.mark_run_finished(run_id, "failed", error_output, metadata=completion_payload)
+        await _emit_and_persist(
+            run_id,
+            "run",
+            run_id,
+            "execution_limit_exceeded",
+            "failed",
+            error_output,
+            completion_payload,
+        )
+        await _emit_and_persist(
+            run_id,
+            "step",
+            step_id,
+            "execution_limit_exceeded",
+            "failed",
+            error_output,
+        )
+    elif cancelled:
         await execution_queue.mark_completed(execution_id, {"status": result_status, "run_id": run_id, "step_id": step_id})
         db.update_execution(execution_id, "cancelled", error_message="Execution cancelled", execution_time=duration)
         run_manager.update_step(
@@ -1940,6 +2265,8 @@ async def _start_script_run(
     source: str = "api",
     parent_run_id: Optional[str] = None,
     metadata_extra: Optional[Dict[str, Any]] = None,
+    timeout_seconds: Optional[int] = None,
+    max_output_bytes: Optional[int] = None,
 ) -> Dict[str, Any]:
     metadata = {"module": module, "script": script, "parameters": parameters}
     if metadata_extra:
@@ -1956,7 +2283,17 @@ async def _start_script_run(
     )
     step_id = run_manager.create_step(run_id, "script", 1, "script_1", module, script, parameters, {"source": source})
     execution_id = f"exec_{step_id}"
-    await execution_queue.add_to_queue(execution_id, run_id, step_id, current_user["user_id"], module, script, parameters)
+    await execution_queue.add_to_queue(
+        execution_id,
+        run_id,
+        step_id,
+        current_user["user_id"],
+        module,
+        script,
+        parameters,
+        timeout_seconds=timeout_seconds,
+        max_output_bytes=max_output_bytes,
+    )
     asyncio.create_task(process_execution_queue())
     return {"run_id": run_id, "step_id": step_id, "execution_id": execution_id, "status": "queued", "message": f"Script {script} queued"}
 
@@ -1968,6 +2305,7 @@ async def _start_flow_run(
     source: str = "api",
     parent_run_id: Optional[str] = None,
     metadata_extra: Optional[Dict[str, Any]] = None,
+    execution_timeout_seconds: Optional[int] = None,
 ) -> Dict[str, Any]:
     metadata = {"flow_id": flow_id}
     if metadata_extra:
@@ -2007,6 +2345,7 @@ async def _start_flow_run(
                     ),
                     "clear_active_step": lambda step_id=None: control.update({"active_step": None, "step_cancel_file": None}),
                 },
+                execution_timeout_seconds,
             )
             final_status = result.get("status", "failed")
             completion_payload = _build_run_completion_payload(
@@ -2205,11 +2544,192 @@ async def get_current_user_info(current_user: Dict[str, Any] = Depends(auth_mana
     return {"user": current_user, "permissions": Roles.get_permissions(current_user["role"])}
 
 
+@app.get("/execution/capabilities")
+async def get_execution_capabilities(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    return {
+        **execution_fabric.capabilities(),
+        "subject_id": str(current_user["user_id"]),
+        "grant_issuer": current_user["role"] == "admin",
+    }
+
+
+@app.get("/execution/trust")
+async def get_execution_trust(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    return {
+        "algorithm": EXECUTION_SIGNING_ALGORITHM,
+        "signature_scope": EXECUTION_SIGNATURE_SCOPE,
+        "key_id": public_key_id(execution_public_key_pem),
+        "public_key_pem": execution_public_key_pem.decode("ascii"),
+        "rotation": "Workers must pin an approved key id before accepting jobs",
+    }
+
+
+@app.post("/execution/grants")
+async def create_execution_grant(
+    request: ExecutionGrantCreateRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only administrators can issue execution grants")
+    if not db.get_user_by_id(request.subject_user_id):
+        raise HTTPException(status_code=404, detail="Grant subject user not found")
+
+    now = datetime.now(timezone.utc)
+    expires_at = request.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    else:
+        expires_at = expires_at.astimezone(timezone.utc)
+    if expires_at <= now:
+        raise HTTPException(status_code=400, detail="Grant expiry must be in the future")
+    if expires_at > now + timedelta(days=30):
+        raise HTTPException(status_code=400, detail="Execution grants cannot exceed 30 days")
+
+    try:
+        capabilities = {ExecutionCapability(value) for value in request.capabilities}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown execution capability: {exc}") from exc
+    blocked = capabilities & execution_fabric.policy.blocked_capabilities
+    if blocked:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Capabilities blocked by policy: {', '.join(sorted(item.value for item in blocked))}",
+        )
+    scoped_capabilities = {
+        ExecutionCapability.NETWORK_PASSIVE,
+        ExecutionCapability.NETWORK_ACTIVE,
+        ExecutionCapability.FILESYSTEM_READ,
+    }
+    if capabilities & scoped_capabilities and not request.scopes:
+        raise HTTPException(status_code=400, detail="Scoped capabilities require at least one explicit scope rule")
+    if not request.require_human_approval and capabilities != {ExecutionCapability.EVIDENCE_READ}:
+        raise HTTPException(
+            status_code=400,
+            detail="Only evidence-only grants may omit human approval",
+        )
+
+    grant_id = f"grant_{uuid.uuid4().hex}"
+    approval_id = f"approval_{uuid.uuid4().hex}" if request.require_human_approval else None
+    grant_payload = {
+        "id": grant_id,
+        "subject_id": str(request.subject_user_id),
+        "project_id": request.project_id,
+        "environment_id": request.environment_id,
+        "issued_at": now.isoformat(),
+        "expires_at": expires_at.isoformat(),
+        "scopes": [scope.model_dump(mode="json") for scope in request.scopes],
+        "capabilities": sorted(capability.value for capability in capabilities),
+        "limits": request.limits.model_dump(mode="json"),
+        "require_human_approval": request.require_human_approval,
+        "approval_id": approval_id,
+        "approved_by": current_user["username"] if request.require_human_approval else None,
+        "metadata": {"issued_via": "bofa_api", **request.metadata},
+    }
+    try:
+        grant = AuthorizationGrant.from_dict(grant_payload)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid execution grant: {exc}") from exc
+    db.create_execution_grant(
+        grant_id=grant.id,
+        subject_user_id=request.subject_user_id,
+        issued_by_user_id=current_user["user_id"],
+        project_id=grant.project_id,
+        environment_id=grant.environment_id,
+        issued_at=grant.issued_at.isoformat(),
+        expires_at=grant.expires_at.isoformat(),
+        payload=grant.to_dict(),
+    )
+    return {"status": "active", "grant": grant.to_dict()}
+
+
+@app.get("/execution/grants")
+async def list_execution_grants(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    subject_user_id = None if current_user["role"] == "admin" else current_user["user_id"]
+    return db.list_execution_grants(subject_user_id=subject_user_id)
+
+
+@app.post("/execution/grants/{grant_id}/revoke")
+async def revoke_execution_grant(
+    grant_id: str,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only administrators can revoke execution grants")
+    _require_execution_grant_access(grant_id, current_user)
+    if not db.revoke_execution_grant(grant_id):
+        raise HTTPException(status_code=409, detail="Execution grant is already inactive")
+    return {"grant_id": grant_id, "status": "revoked"}
+
+
+@app.post("/execution/preflight")
+async def preflight_execution_job(
+    request: ExecutionJobCreateRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    try:
+        return _preflight_execution_job(request, current_user)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid execution request: {exc}") from exc
+
+
+@app.get("/ai/providers")
+async def get_ai_providers(current_user: Dict[str, Any] = Depends(auth_manager.get_current_user)):
+    return {
+        "default": os.getenv("BOFA_LLM_PROVIDER", "ollama"),
+        "authority": "plan_only",
+        "subject_id": str(current_user["user_id"]),
+        "providers": list_provider_descriptors(),
+    }
+
+
+@app.post("/ai/plan")
+async def create_ai_plan(
+    request: AIPlanRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    record = _require_execution_grant_access(request.grant_id, current_user)
+    if record.get("status") != "active":
+        raise HTTPException(status_code=403, detail="Execution grant is not active")
+    try:
+        grant = AuthorizationGrant.from_dict(record.get("payload") or {})
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Stored execution grant is invalid: {exc}") from exc
+    now = datetime.now(timezone.utc)
+    if not (grant.issued_at <= now < grant.expires_at):
+        raise HTTPException(status_code=403, detail="Execution grant is not active")
+    if not scope_matches(request.target, grant.scopes):
+        raise HTTPException(status_code=403, detail="Planning target is outside the written authorization scope")
+
+    provider_instance = get_provider(request.provider)
+    if getattr(provider_instance, "transmits_workspace_data", False) and not request.allow_remote_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Remote LLM providers require allow_remote_data=true for this request",
+        )
+    result = await asyncio.to_thread(
+        run_security_agent,
+        target=request.target,
+        provider=request.provider,
+        max_iterations=1,
+        verbose=False,
+        workspace_id=request.workspace_id,
+        execute=False,
+        subject_id=str(current_user["user_id"]),
+        llm_provider=provider_instance,
+    )
+    return {
+        "grant_id": grant.id,
+        "authority": "plan_only",
+        "remote_data_approved": request.allow_remote_data,
+        **result,
+    }
+
+
 @app.get("/")
 async def root():
     return {
-        "name": "BOFA Duplicate-Aware Hunter Workflows",
-        "version": "2.9.2",
+        "name": "BOFA Execution Fabric",
+        "version": "3.0.0-alpha.1",
         "status": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "capabilities": {
@@ -2221,6 +2741,8 @@ async def root():
             "bounty": True,
             "skills": True,
             "duplicate_aware_analysis": True,
+            "execution_fabric": True,
+            "local_ai": True,
         },
     }
 
@@ -2386,6 +2908,111 @@ async def websocket_run(websocket: WebSocket, run_id: str):
 async def websocket_execution_alias(websocket: WebSocket, identifier: str):
     run_id = _resolve_run_identifier(identifier) or identifier
     await websocket_run(websocket, run_id)
+
+
+@app.post("/execution/jobs")
+async def create_controlled_execution_job(
+    request: ExecutionJobCreateRequest,
+    current_user: Dict[str, Any] = Depends(auth_manager.get_current_user),
+):
+    try:
+        preflight = _preflight_execution_job(request, current_user)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid execution request: {exc}") from exc
+    if not preflight["decision"]["allowed"]:
+        raise HTTPException(status_code=403, detail=preflight["decision"])
+
+    profile = execution_fabric.profiles[request.profile_id]
+    if profile.backend.value != "local":
+        raise HTTPException(
+            status_code=409,
+            detail="This profile requires a configured BOFA worker; direct API dispatch is local-only",
+        )
+
+    effective_limits = preflight["decision"]["effective_limits"]
+    timeout_seconds = min(
+        request.requested_duration_seconds or effective_limits["max_duration_seconds"],
+        effective_limits["max_duration_seconds"],
+    )
+    controlled_metadata = {
+        "execution_fabric": {
+            "grant_id": request.grant_id,
+            "approval_id": request.approval_id,
+            "profile_id": request.profile_id,
+            "manifest": preflight["manifest"],
+            "envelope": preflight["envelope"],
+            "decision": preflight["decision"],
+        },
+        "requested_action": request.requested_action,
+    }
+    if request.run_type == "script":
+        if not check_permission(current_user, "execute_scripts"):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        module = request.metadata.get("module")
+        script = request.metadata.get("script")
+        parameters = dict(request.metadata.get("parameters") or {})
+        if not module or not script:
+            raise HTTPException(status_code=400, detail="Script jobs require metadata.module and metadata.script")
+        if request.requested_steps not in {None, 1}:
+            raise HTTPException(status_code=400, detail="A script job has exactly one step")
+        _validate_controlled_script_target(request.target, parameters, request.required_capabilities)
+        result = await _start_script_run(
+            current_user,
+            module,
+            script,
+            parameters,
+            source="execution_fabric",
+            metadata_extra=controlled_metadata,
+            timeout_seconds=timeout_seconds,
+            max_output_bytes=effective_limits["max_output_bytes"],
+        )
+    elif request.run_type == "flow":
+        if not check_permission(current_user, "execute_scripts"):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        flow_id = request.metadata.get("flow_id")
+        if not flow_id or not request.target:
+            raise HTTPException(status_code=400, detail="Flow jobs require metadata.flow_id and target")
+        try:
+            actual_steps = len(load_flow(flow_id).get("steps", []))
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if not actual_steps or request.requested_steps != actual_steps:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Flow requested_steps must match the catalog ({actual_steps})",
+            )
+        if ExecutionCapability.NETWORK_ACTIVE.value not in request.required_capabilities:
+            raise HTTPException(status_code=400, detail="Controlled target flows require network_active")
+        result = await _start_flow_run(
+            current_user,
+            flow_id,
+            request.target,
+            source="execution_fabric",
+            metadata_extra=controlled_metadata,
+            execution_timeout_seconds=timeout_seconds,
+        )
+    else:
+        raise HTTPException(
+            status_code=409,
+            detail="Controlled lab sessions require a managed ephemeral worker and cannot run on the local profile",
+        )
+
+    run_id = result.get("run_id")
+    if run_id:
+        run_manager.add_event(
+            run_id,
+            "policy",
+            request.grant_id,
+            "preflight_allowed",
+            "success",
+            "Execution fabric policy allowed this run",
+            {
+                "manifest_sha256": preflight["manifest"]["sha256"],
+                "profile_id": request.profile_id,
+                "policy_version": preflight["decision"]["policy_version"],
+            },
+        )
+    return {**result, "preflight": preflight}
 
 
 @app.post("/runs")
