@@ -17,7 +17,8 @@ Every controlled run follows the same sequence:
 3. BOFA performs a deny-by-default preflight.
 4. An allowed request becomes a canonical manifest signed with Ed25519.
 5. The worker verifies the digest, signature, pinned key, target binding,
-   expiry, image digest, capabilities and network mode.
+   expiry, exact launched image identity, baked adapter catalog, capabilities
+   and runtime network mode.
 6. The worker atomically claims the job so the same envelope cannot execute
    twice.
 7. The BOFA adapter runs a catalogued script or flow. It never evaluates an
@@ -47,7 +48,27 @@ BOFA_REMOTE_WORKER_IMAGE=ghcr.io/descambiado/bofa-kali-worker
 BOFA_REMOTE_WORKER_IMAGE_DIGEST=sha256:<64-hex-digest>
 ```
 
-An image tag alone is insufficient. BOFA requires an immutable digest.
+An image tag alone is insufficient. BOFA requires an immutable digest and the
+worker compares the signed profile with the image reference and digest supplied
+by the dispatcher. The current OCI image also observes that only the loopback
+interface exists before accepting `network_mode=none`.
+
+## First OCI image
+
+`worker/Dockerfile` is the first concrete implementation of the worker
+contract. It runs as UID/GID `65532`, contains one offline evidence adapter and
+uses an immutable catalog. It intentionally has no network capability and is
+not a Kali image.
+
+Run the complete harmless proof locally:
+
+```bash
+python tools/demo_worker_oci.py --build
+```
+
+The dedicated image workflow builds and executes the proof on pull requests.
+After merge to `main`, it publishes the image to GHCR with an SBOM, provenance,
+fixable high/critical vulnerability gate and a keyless Cosign signature.
 
 ## Kali, containers and virtual machines
 
@@ -83,8 +104,9 @@ Inspect an envelope without executing:
 python tools/run_worker_job.py job.json \
   --trusted-key control-plane-public.pem \
   --worker-id worker-01 \
-  --capability network_active \
-  --capability container
+  --image-reference ghcr.io/descambiado/bofa-worker \
+  --image-digest sha256:<64-hex-digest> \
+  --runtime-network-mode none
 ```
 
 Execute after verification:
@@ -94,8 +116,9 @@ python tools/run_worker_job.py job.json \
   --trusted-key control-plane-public.pem \
   --worker-id worker-01 \
   --replay-store /var/lib/bofa-worker/claims \
-  --capability network_active \
-  --capability container \
+  --image-reference ghcr.io/descambiado/bofa-worker \
+  --image-digest sha256:<64-hex-digest> \
+  --runtime-network-mode none \
   --execute
 ```
 
@@ -123,8 +146,10 @@ Docker lab does not satisfy the ephemeral teardown contract.
 ```bash
 python tools/verify_execution_fabric.py
 python tools/verify_worker_protocol.py
+python tools/verify_worker_oci.py
 python tools/verify_execution_api.py
 ```
 
 These checks cover scope, approval, quotas, pinned images, blocked capabilities,
-signature tampering, wrong keys, target rebinding, expiry and replay.
+signature tampering, wrong keys, target rebinding, image identity, immutable
+adapter catalogs, network mode, expiry and replay.
