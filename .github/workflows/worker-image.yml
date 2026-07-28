@@ -118,6 +118,10 @@ jobs:
             --env BOFA_IMAGE_DIGEST="${FIXTURE_IMAGE_DIGEST}" \
             bofa-worker:ci
 
+      - name: Hand receipt back to the runner
+        shell: bash
+        run: sudo chown -R "$(id -u):$(id -g)" .worker-ci/receipt
+
       - name: Verify execution receipt
         run: >-
           python tools/verify_worker_oci.py

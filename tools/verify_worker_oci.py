@@ -235,6 +235,7 @@ def _verify_supply_chain_workflow() -> None:
         "sbom: true",
         "cosign sign --yes",
         "cosign verify",
+        'sudo chown -R "$(id -u):$(id -g)" .worker-ci/receipt',
         "severity: CRITICAL,HIGH",
         "exit-code: 1",
     )
