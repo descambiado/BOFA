@@ -9,6 +9,9 @@ runtime:
 - events
 - artifacts
 - bounty workspaces
+- authorization grants and execution policy
+- signed local/OCI/remote JobSpecs
+- local-first AI planning
 
 It is not just a generic wrapper around scripts.
 
@@ -47,6 +50,21 @@ It is not just a generic wrapper around scripts.
 - `GET /bounty/skills`
 - `POST /bounty/workspaces/{workspace_id}/skills/{skill_key}/run`
 
+## Execution and AI endpoints
+
+- `GET /execution/capabilities`
+- `GET /execution/trust`
+- `POST /execution/grants`
+- `GET /execution/grants`
+- `POST /execution/grants/{grant_id}/revoke`
+- `POST /execution/preflight`
+- `POST /execution/jobs`
+- `GET /ai/providers`
+- `POST /ai/plan`
+
+Remote profiles are visible but fail closed until their image digest and
+dispatcher are configured. The API dispatches controlled jobs locally only.
+
 ## Verification
 
 If you touch API behavior that affects the flagship workflow, run:
@@ -55,6 +73,10 @@ If you touch API behavior that affects the flagship workflow, run:
 python tools/verify_runtime_hardening.py
 python tools/verify_control_plane.py
 python tools/verify_bounty_system.py
+python tools/verify_execution_fabric.py
+python tools/verify_worker_protocol.py
+python tools/verify_ai_control.py
+python tools/verify_execution_api.py
 python tools/demo_bounty_workspace.py --fresh
 ```
 

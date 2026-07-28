@@ -1,4 +1,4 @@
-# BOFA v2.9.2 - Python project configuration
+# BOFA v3.0.0 alpha 1 - Python project configuration
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bofa-runtime"
-version = "2.9.2"
-description = "Local-first security runtime for duplicate-aware web/API hunting, evidence and AI copilots"
+version = "3.0.0a1"
+description = "Execution fabric for authorized security workflows, evidence and policy-gated AI"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
@@ -32,7 +32,7 @@ keywords = [
     "react"
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",

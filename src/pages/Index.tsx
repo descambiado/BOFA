@@ -20,8 +20,8 @@ import {
 
 const capabilityCards = [
   {
-    title: "Runtime real",
-    description: "Scripts, flows, labs y evidencia viven bajo el mismo control plane local-first.",
+    title: "Policy antes que proceso",
+    description: "Scope, identidad, approval y cuotas se validan antes de crear un JobSpec ejecutable.",
     icon: <Terminal className="h-8 w-8" />,
   },
   {
@@ -30,26 +30,26 @@ const capabilityCards = [
     icon: <Crosshair className="h-8 w-8" />,
   },
   {
-    title: "IA con contexto",
-    description: "Copilotos local/API para trabajar sobre evidencia y memoria operativa, no sobre humo.",
+    title: "IA sin autoridad",
+    description: "Ollama, LM Studio, vLLM o APIs remotas proponen; la policy determinista decide.",
     icon: <Brain className="h-8 w-8" />,
   },
 ];
 
 const workflowSteps = [
   {
-    title: "1. Importa contexto",
-    description: "Scope, disclosed reports, URLs, JS endpoints o notas de programa.",
+    title: "1. Autoriza",
+    description: "Fija sujeto, proyecto, entorno, scope, capacidades, approval, TTL y cuotas.",
     icon: <FolderSearch className="h-6 w-6" />,
   },
   {
-    title: "2. Mira que cambio",
-    description: "BOFA conserva snapshots y resalta deltas utiles para no empezar de cero.",
+    title: "2. Ejecuta lo firmado",
+    description: "Un runner local, OCI o VM verifica el JobSpec y no acepta un shell arbitrario.",
     icon: <GitCompareArrows className="h-6 w-6" />,
   },
   {
-    title: "3. Decide mejor",
-    description: "Review queue, report candidates, evidencia y exportes para el siguiente paso manual.",
+    title: "3. Prueba y destruye",
+    description: "Recibo, hashes, artifacts y timeline vuelven antes del teardown obligatorio.",
     icon: <FileSearch className="h-6 w-6" />,
   },
 ];
@@ -85,20 +85,20 @@ const Index = () => {
 
             <div className="space-y-5">
               <h1 className="max-w-4xl text-5xl font-bold tracking-tight text-white md:text-7xl">
-                Duplicate-aware web/API hunting with evidence, deltas and AI copilots.
+                Authorized security work. One scope. One evidence trail.
               </h1>
               <p className="max-w-3xl text-lg text-slate-300 md:text-xl">
-                BOFA no intenta reemplazar todas las herramientas. Intenta darte un cockpit local-first donde la
-                ejecucion, la memoria del programa y la evidencia pertenezcan a la misma historia.
+                BOFA convierte scripts, flows, IA local y workers efimeros en trabajo trazable. La autorizacion
+                viaja con cada run y ningun modelo puede ampliarla.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3 text-sm text-slate-200">
-              <Badge className="border border-slate-700 bg-slate-900/70">Snapshots and deltas</Badge>
-              <Badge className="border border-slate-700 bg-slate-900/70">Review queue</Badge>
-              <Badge className="border border-slate-700 bg-slate-900/70">Evidence exports</Badge>
-              <Badge className="border border-slate-700 bg-slate-900/70">Local/API AI</Badge>
-              <Badge className="border border-slate-700 bg-slate-900/70">Control plane</Badge>
+              <Badge className="border border-slate-700 bg-slate-900/70">Signed JobSpecs</Badge>
+              <Badge className="border border-slate-700 bg-slate-900/70">Ephemeral workers</Badge>
+              <Badge className="border border-slate-700 bg-slate-900/70">Verifiable evidence</Badge>
+              <Badge className="border border-slate-700 bg-slate-900/70">Local-first AI</Badge>
+              <Badge className="border border-slate-700 bg-slate-900/70">Deny by default</Badge>
             </div>
 
             {isAuthenticated ? (
@@ -114,10 +114,10 @@ const Index = () => {
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={() => navigate("/bounty")}
+                  onClick={() => navigate("/fabric")}
                   className="border-cyan-400 text-cyan-200 hover:bg-cyan-400 hover:text-slate-950"
                 >
-                  Ir a bounty
+                  Ver execution fabric
                 </Button>
                 <Button
                   size="lg"
@@ -159,8 +159,8 @@ const Index = () => {
         <div className="mb-10 max-w-3xl">
           <h2 className="text-3xl font-bold text-cyan-200">Donde BOFA tiene sentido</h2>
           <p className="mt-3 text-slate-300">
-            El proyecto gana cuando conecta herramientas, estado y decisiones. No cuando intenta ser un catalogo
-            infinito.
+            BOFA gana cuando conecta herramientas, autorizacion, estado y decisiones. No cuando intenta ser un
+            catalogo infinito.
           </p>
         </div>
 
@@ -182,10 +182,10 @@ const Index = () => {
       <section className="border-y border-cyan-500/10 bg-slate-950/60">
         <div className="container mx-auto px-6 py-16">
           <div className="mb-10 max-w-3xl">
-            <h2 className="text-3xl font-bold text-cyan-200">Flujo flagship</h2>
+            <h2 className="text-3xl font-bold text-cyan-200">Contrato operativo</h2>
             <p className="mt-3 text-slate-300">
-              El mejor BOFA no es un slideshow. Es el que te ayuda a conservar contexto, detectar novedad y exportar
-              evidencia sin desmontar el workspace.
+              El mejor BOFA no es un slideshow ni una Kali sin limites. Es un run autorizado que se puede revisar,
+              repetir y detener.
             </p>
           </div>
 
@@ -228,8 +228,8 @@ const Index = () => {
                 <p className="mt-2 text-sm text-slate-400">Catalogo cargado desde el runtime, no desde mocks del cliente.</p>
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                <p className="font-medium text-white">Library</p>
-                <p className="mt-2 text-sm text-slate-400">Codigo fuente y metadata expuestos por la misma verdad del backend.</p>
+                <p className="font-medium text-white">Execution Fabric</p>
+                <p className="mt-2 text-sm text-slate-400">Runners, limites, trust key, policy e IA local/remota sin estados fingidos.</p>
               </div>
             </CardContent>
           </Card>
@@ -243,17 +243,18 @@ const Index = () => {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-slate-300">
               <p>
-                Un runtime local-first para trabajo de seguridad web/API con memoria operativa, evidencia y copilotos
-                de IA.
+                Un execution fabric abierto para trabajo de ciberseguridad autorizado, evidencia verificable e IA
+                sin autoridad autonoma.
               </p>
               <div className="rounded-2xl border border-cyan-500/10 bg-slate-950/60 p-4">
                 <p className="font-medium text-white">Construido por {APP_CONFIG.developer.name}</p>
                 <p className="mt-2 text-slate-400">
-                  Menos claims grandilocuentes. Mas workflow reproducible y señal real.
+                  Menos claims grandilocuentes. Mas workflow reproducible y senal real.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Badge className="border border-cyan-500/10 bg-slate-950/70 text-cyan-200">local-first</Badge>
+                <Badge className="border border-cyan-500/10 bg-slate-950/70 text-cyan-200">policy-gated</Badge>
                 <Badge className="border border-cyan-500/10 bg-slate-950/70 text-cyan-200">duplicate-aware</Badge>
                 <Badge className="border border-cyan-500/10 bg-slate-950/70 text-cyan-200">evidence</Badge>
                 <Badge className="border border-cyan-500/10 bg-slate-950/70 text-cyan-200">AI copilots</Badge>
@@ -268,7 +269,7 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-cyan-200" />
             <span>
-              {APP_CONFIG.name} v{APP_CONFIG.version} · {APP_CONFIG.fullName}
+              {APP_CONFIG.name} v{APP_CONFIG.version} - {APP_CONFIG.fullName}
             </span>
           </div>
           <div>Built by {APP_CONFIG.developer.name} for real workflows, not synthetic hype.</div>

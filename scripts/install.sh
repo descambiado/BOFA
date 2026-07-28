@@ -244,7 +244,7 @@ main() {
     docker compose up --build -d
     
     echo ""
-    echo -e "${GREEN}🎉 BOFA v2.9.2 installation complete!${NC}"
+    echo -e "${GREEN}🎉 BOFA v3.0.0-alpha.1 installation complete!${NC}"
     echo "========================================================="
     echo ""
     echo -e "${BLUE}🌐 Access BOFA:${NC}"
@@ -524,7 +524,7 @@ main() {
     docker compose up --build -d
     
     echo ""
-    echo -e "${GREEN}🎉 BOFA v2.9.2 installation complete!${NC}"
+    echo -e "${GREEN}🎉 BOFA v3.0.0-alpha.1 installation complete!${NC}"
     echo "========================================================="
     echo ""
     echo -e "${BLUE}🌐 Access BOFA:${NC}"

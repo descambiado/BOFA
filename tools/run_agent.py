@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Run Security Agent - Agente autónomo BOFA
-==========================================
+Run Security Copilot - BOFA plan-first assistant
+=================================================
 
-Ejecuta el agente que razona, explora opciones y continúa hasta vulnerar.
+Plans an evidence-rich next step. Execution is disabled unless an explicit
+authorization grant and execution profile pass BOFA policy.
 
 LLM local (Ollama):
     ollama pull llama3.2

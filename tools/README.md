@@ -28,6 +28,10 @@ python3 tools/verify_bofa.py
 - **Comprobar el control plane**: `python3 tools/verify_control_plane.py`
 - **Comprobar el sistema bounty anti-duplicados**: `python3 tools/verify_bounty_system.py`
 - **Comprobar bootstrap, passwords, JWT y portabilidad local**: `python3 tools/verify_auth_security.py`
+- **Comprobar grants, scope, policy, perfiles y cuotas**: `python3 tools/verify_execution_fabric.py`
+- **Comprobar firmas, workers, target binding y replay**: `python3 tools/verify_worker_protocol.py`
+- **Comprobar IA plan-first y local-first**: `python3 tools/verify_ai_control.py`
+- **Comprobar persistencia y rutas API del fabric**: `python3 tools/verify_execution_api.py`
 - **Verificar un bundle offline**: `python3 tools/verify_evidence_bundle.py reports/runs/<run_id>/exports/bofa_evidence_<run_id>_<timestamp>.zip --json`
 
 Codigo de salida: `0` = todo OK, `1` = hay fallos.
@@ -41,13 +45,17 @@ python3 tools/verify_runtime_catalog.py
 python3 tools/verify_control_plane.py
 python3 tools/verify_bounty_system.py
 python3 tools/verify_auth_security.py
+python3 tools/verify_execution_fabric.py
+python3 tools/verify_worker_protocol.py
+python3 tools/verify_ai_control.py
+python3 tools/verify_execution_api.py
 python3 tools/demo_bounty_workspace.py --fresh
 python3 tools/verify_evidence_bundle.py <bundle.zip> --json
 ```
 
 Si estas verificaciones pasan, BOFA queda validado a nivel basico antes de mergear o taggear una release.
 
-## Agente autonomo
+## Copiloto plan-first
 
 ```bash
 python3 tools/run_agent.py https://target.com --provider ollama
@@ -57,6 +65,9 @@ python3 tools/run_agent.py https://target.com --provider auto --workspace-id wor
 ```
 
 Ver [docs/AGENT.md](../docs/AGENT.md).
+
+La ejecucion requiere `--execute`, un subject, un grant y un perfil. El modo
+por defecto solo devuelve una propuesta.
 
 ## Self-hack runner
 

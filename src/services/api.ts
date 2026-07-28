@@ -40,6 +40,67 @@ export interface ExecutionResult {
   error?: string;
 }
 
+export interface ExecutionProfile {
+  id: string;
+  backend: "local" | "oci" | "remote";
+  capabilities: string[];
+  limits: {
+    max_duration_seconds: number;
+    max_output_bytes: number;
+    max_steps: number;
+    cpu_cores: number;
+    memory_mb: number;
+  };
+  network_mode: "none" | "restricted";
+  image?: string | null;
+  image_digest?: string | null;
+  ephemeral: boolean;
+  enabled: boolean;
+  availability_reason?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ExecutionCapabilities {
+  policy_version: string;
+  profiles: ExecutionProfile[];
+  blocked_capabilities: string[];
+  invariants: {
+    scope_required: boolean;
+    human_approval_supported: boolean;
+    remote_execution_requires_pinned_image: boolean;
+    oci_and_remote_are_ephemeral: boolean;
+    network_modes: string[];
+    llm_has_operational_authority: boolean;
+  };
+  subject_id: string;
+  grant_issuer: boolean;
+}
+
+export interface ExecutionTrust {
+  algorithm: string;
+  signature_scope: string;
+  key_id: string;
+  public_key_pem: string;
+  rotation: string;
+}
+
+export interface AIProviderDescriptor {
+  id: string;
+  model: string;
+  locality: "local" | "remote";
+  configured: boolean;
+  transmits_workspace_data: boolean;
+  endpoint: string;
+  reason?: string | null;
+}
+
+export interface AIProviders {
+  default: string;
+  authority: "plan_only";
+  subject_id: string;
+  providers: AIProviderDescriptor[];
+}
+
 export interface RunEvent {
   id: string;
   run_id: string;
@@ -685,6 +746,42 @@ authService.initializeAuth();
 
 // API Functions with comprehensive error handling and offline support
 export const apiService = {
+  getExecutionCapabilities: async (): Promise<ExecutionCapabilities> => {
+    const response = await fetch(`${API_BASE}/execution/capabilities`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.detail || "No se pudo consultar el execution fabric");
+    }
+    return data;
+  },
+
+  getExecutionTrust: async (): Promise<ExecutionTrust> => {
+    const response = await fetch(`${API_BASE}/execution/trust`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.detail || "No se pudo consultar la raiz de confianza");
+    }
+    return data;
+  },
+
+  getAIProviders: async (): Promise<AIProviders> => {
+    const response = await fetch(`${API_BASE}/ai/providers`, {
+      headers: getAuthHeaders(),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.detail || "No se pudieron consultar los proveedores de IA");
+    }
+    return data;
+  },
+
   // Scripts and Modules
   getModules: async (): Promise<Module[]> => {
     try {
