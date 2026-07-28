@@ -68,7 +68,7 @@ python tools/demo_worker_oci.py --build
 
 The dedicated image workflow builds and executes the proof on pull requests.
 After merge to `main`, it publishes the image to GHCR with an SBOM, provenance,
-high/critical vulnerability gate and a keyless Cosign signature.
+fixable high/critical vulnerability gate and a keyless Cosign signature.
 
 ## Kali, containers and virtual machines
 

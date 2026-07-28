@@ -60,8 +60,10 @@ claimed until a provisioner can prove its firewall policy.
 `.github/workflows/worker-image.yml` builds and executes the image on pull
 requests. On `main`, it publishes `linux/amd64` and `linux/arm64` images to
 `ghcr.io/descambiado/bofa-worker`, attaches BuildKit SBOM/provenance, scans
-high and critical vulnerabilities and signs the immutable digest with Cosign
-keyless identity.
+for high and critical vulnerabilities, blocks findings with an available fix
+and signs the immutable digest with Cosign keyless identity. Unfixed upstream
+findings remain visible in the scan output without making a release impossible
+before the base distribution ships a remediation.
 
 All third-party actions in that workflow are pinned to full commit SHAs. The
 base Python image is pinned to a multi-platform digest.
