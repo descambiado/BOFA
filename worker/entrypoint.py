@@ -10,6 +10,10 @@ import re
 import sys
 from typing import Any, Dict, Mapping
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+from core.execution.receipt_signing import sign_receipt
 from worker.adapter_executor import OCIAdapterExecutor
 from worker.catalog import load_worker_catalog
 from worker.runtime import WorkerRuntime
@@ -79,6 +83,12 @@ def _configuration() -> Dict[str, Any]:
         "key_path": Path(
             os.getenv("BOFA_TRUSTED_PUBLIC_KEY", "/run/secrets/bofa-control-plane.pem")
         ),
+        "receipt_signing_key_path": Path(
+            os.getenv(
+                "BOFA_RECEIPT_SIGNING_KEY",
+                "/run/secrets/bofa-receipt-signing-key.pem",
+            )
+        ),
         "receipt_path": Path(os.getenv("BOFA_RECEIPT_PATH", "/run/bofa-out/receipt.json")),
         "replay_store": Path(
             os.getenv("BOFA_REPLAY_STORE", "/var/lib/bofa-worker/claims")
@@ -97,7 +107,22 @@ def main() -> int:
                 f"Observed network mode '{observed_network_mode}' is not allowed by this image"
             )
         job_path = _required_file(config["job_path"], "job envelope", _MAX_JOB_BYTES)
-        key_path = _required_file(config["key_path"], "trusted public key", _MAX_KEY_BYTES)
+        key_path = _required_file(
+            config["key_path"],
+            "trusted public key",
+            _MAX_KEY_BYTES,
+        )
+        receipt_signing_key_path = _required_file(
+            config["receipt_signing_key_path"],
+            "receipt signing key",
+            _MAX_KEY_BYTES,
+        )
+        receipt_signing_key = load_pem_private_key(
+            receipt_signing_key_path.read_bytes(),
+            password=None,
+        )
+        if not isinstance(receipt_signing_key, Ed25519PrivateKey):
+            raise ValueError("Receipt signing key must be Ed25519")
         envelope = json.loads(job_path.read_text(encoding="utf-8"))
         if not isinstance(envelope, Mapping):
             raise ValueError("Job envelope must be a JSON object")
@@ -119,16 +144,19 @@ def main() -> int:
             if config["mode"] == "execute"
             else runtime.inspect(envelope)
         )
-        receipt = {
-            **result,
-            "receipt_schema": RECEIPT_SCHEMA,
-            "worker_id": config["worker_id"],
-            "worker_image": config["image_reference"],
-            "worker_image_digest": config["image_digest"],
-            "runtime_network_mode": observed_network_mode,
-            "mode": config["mode"],
-            "receipt_created_at": _utc_timestamp(),
-        }
+        receipt = sign_receipt(
+            {
+                **result,
+                "receipt_schema": RECEIPT_SCHEMA,
+                "worker_id": config["worker_id"],
+                "worker_image": config["image_reference"],
+                "worker_image_digest": config["image_digest"],
+                "runtime_network_mode": observed_network_mode,
+                "mode": config["mode"],
+                "receipt_created_at": _utc_timestamp(),
+            },
+            receipt_signing_key,
+        )
         _write_receipt(config["receipt_path"], receipt)
         print(json.dumps(receipt, ensure_ascii=False))
         accepted = result.get("accepted", result.get("status") not in {"denied", "failed"})
