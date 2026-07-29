@@ -22,10 +22,19 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
-from fastapi import Depends, FastAPI, Form, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    Form,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, ConfigDict, Field
 import uvicorn
 import yaml
 
@@ -42,6 +51,17 @@ from core.execution.signing import (
     public_key_id,
     public_key_pem,
     sign_manifest,
+)
+from core.execution.service_identity import (
+    DISPATCH_SCHEMA,
+    GoogleOidcServiceIdentityVerifier,
+    ManifestClaimStore,
+    ServiceDispatchError,
+    ServiceIdentityError,
+    ServiceIdentityPolicy,
+    SotyHubOfflineCanaryRequest,
+    VerifiedServiceIdentity,
+    build_sotyhub_offline_canary_envelope,
 )
 from database import db
 from execution_queue import execution_queue
@@ -123,6 +143,10 @@ execution_signing_key = load_or_create_signing_key(
     EXECUTION_PUBLIC_KEY_PATH,
 )
 execution_public_key_pem = public_key_pem(execution_signing_key)
+service_identity_policy = ServiceIdentityPolicy.from_env()
+service_identity_verifier = GoogleOidcServiceIdentityVerifier(service_identity_policy)
+service_manifest_claim_store = ManifestClaimStore(DATA_DIR / "service_job_claims")
+service_bearer = HTTPBearer(auto_error=False)
 
 RUN_STATUSES_FINAL = {"success", "failed", "error", "partial", "cancelled"}
 ARTIFACT_PREVIEW_LIMIT = 4000
@@ -217,6 +241,24 @@ class ExecutionJobCreateRequest(BaseModel):
     requested_duration_seconds: Optional[int] = Field(default=None, ge=1, le=86400)
     requested_steps: Optional[int] = Field(default=None, ge=1, le=1000)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SotyHubServiceDispatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = Field(pattern=r"^sotyhub_bofa_dispatch/v1$")
+    request_id: str = Field(min_length=1, max_length=128)
+    operation_id: str = Field(min_length=1, max_length=128)
+    authorization_id: str = Field(min_length=1, max_length=128)
+    usage_scope_id: str = Field(min_length=1, max_length=128)
+    manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    key_id: str = Field(pattern=r"^ed25519:[0-9a-f]{24}$")
+    profile_id: str = Field(pattern=r"^oci-ephemeral$")
+    worker_image_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    action: str = Field(pattern=r"^run_script:forensics/hash_calculator$")
+    network_mode: str = Field(pattern=r"^none$")
+    required_capabilities: List[str] = Field(min_length=1, max_length=1)
+    parameters: Dict[str, Any]
 
 
 class AIPlanRequest(BaseModel):
@@ -556,6 +598,57 @@ def _preflight_execution_job(
         else None
     )
     return result
+
+
+async def _get_sotyhub_service_identity(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(service_bearer),
+) -> VerifiedServiceIdentity:
+    if (
+        credentials is None
+        or credentials.scheme.lower() != "bearer"
+        or not credentials.credentials
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="service_identity_required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        return service_identity_verifier.verify(
+            credentials.credentials,
+            path=request.url.path,
+        )
+    except ServiceIdentityError as exc:
+        status_code = 503 if exc.code == "service_identity_not_configured" else 401
+        raise HTTPException(
+            status_code=status_code,
+            detail=exc.code,
+            headers={"WWW-Authenticate": "Bearer"} if status_code == 401 else None,
+        ) from None
+
+
+def _preflight_sotyhub_service_dispatch(
+    request: SotyHubServiceDispatchRequest,
+    identity: VerifiedServiceIdentity,
+) -> tuple[SotyHubOfflineCanaryRequest, Dict[str, Any]]:
+    try:
+        dispatch = SotyHubOfflineCanaryRequest.from_mapping(
+            request.model_dump(mode="json")
+        )
+        profile = execution_fabric.profiles.get(dispatch.profile_id)
+        if profile is None:
+            raise ServiceDispatchError("dispatch_profile_missing")
+        result = build_sotyhub_offline_canary_envelope(
+            dispatch=dispatch,
+            identity=identity,
+            profile=profile,
+            signing_key=execution_signing_key,
+            sender_project_id=service_identity_policy.sender_project_id,
+        )
+        return dispatch, result
+    except ServiceDispatchError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from None
 
 
 def _validate_controlled_script_target(
@@ -2561,6 +2654,58 @@ async def get_execution_trust(current_user: Dict[str, Any] = Depends(auth_manage
         "key_id": public_key_id(execution_public_key_pem),
         "public_key_pem": execution_public_key_pem.decode("ascii"),
         "rotation": "Workers must pin an approved key id before accepting jobs",
+    }
+
+
+@app.get("/execution/service/trust")
+async def get_sotyhub_execution_trust(
+    identity: VerifiedServiceIdentity = Depends(_get_sotyhub_service_identity),
+):
+    return {
+        "algorithm": EXECUTION_SIGNING_ALGORITHM,
+        "signature_scope": EXECUTION_SIGNATURE_SCOPE,
+        "key_id": public_key_id(execution_public_key_pem),
+        "public_key_pem": execution_public_key_pem.decode("ascii"),
+        "accepted_dispatch_schema": DISPATCH_SCHEMA,
+        "allowed_profile": "oci-ephemeral",
+        "allowed_action": "run_script:forensics/hash_calculator",
+        "network_mode": "none",
+        "service_identity": identity.to_audit_dict(),
+        "rotation": "SotyHub must pin an approved key id before requesting a job",
+    }
+
+
+@app.post("/execution/service/preflight")
+async def preflight_sotyhub_execution_job(
+    request: SotyHubServiceDispatchRequest,
+    identity: VerifiedServiceIdentity = Depends(_get_sotyhub_service_identity),
+):
+    _, result = _preflight_sotyhub_service_dispatch(request, identity)
+    return {
+        "status": "preflight_allowed",
+        "dispatch_performed": False,
+        **result,
+    }
+
+
+@app.post("/execution/service/jobs")
+async def create_sotyhub_execution_job(
+    request: SotyHubServiceDispatchRequest,
+    identity: VerifiedServiceIdentity = Depends(_get_sotyhub_service_identity),
+):
+    dispatch, result = _preflight_sotyhub_service_dispatch(request, identity)
+    if not service_manifest_claim_store.claim(dispatch):
+        raise HTTPException(status_code=409, detail="dispatch_replay_detected")
+    return {
+        "status": "job_spec_issued",
+        "dispatch_performed": False,
+        "claim": {
+            "schema_version": "bofa.service-job-claim/v1",
+            "source_manifest_sha256": dispatch.manifest_sha256,
+            "claimed": True,
+            "raw_token_persisted": False,
+        },
+        **result,
     }
 
 

@@ -201,6 +201,9 @@ def _check_routes() -> None:
         "/execution/grants",
         "/execution/preflight",
         "/execution/jobs",
+        "/execution/service/trust",
+        "/execution/service/preflight",
+        "/execution/service/jobs",
         "/ai/providers",
         "/ai/plan",
     }

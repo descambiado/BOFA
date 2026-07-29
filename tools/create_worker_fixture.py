@@ -44,10 +44,17 @@ def main() -> int:
         parser.error("--image-digest must be an exact lowercase sha256 digest")
 
     output_dir = args.output_dir.resolve()
+    job_path = output_dir / "job.json"
+    control_private_path = output_dir / "control-plane-private.pem"
+    control_public_path = output_dir / "control-plane-public.pem"
+    receipt_private_path = output_dir / "worker-receipt-private.pem"
+    receipt_public_path = output_dir / "worker-receipt-public.pem"
     generated_paths = (
-        output_dir / "job.json",
-        output_dir / "control-plane-private.pem",
-        output_dir / "control-plane-public.pem",
+        job_path,
+        control_private_path,
+        control_public_path,
+        receipt_private_path,
+        receipt_public_path,
     )
     if not args.force and any(path.exists() for path in generated_paths):
         parser.error("output files already exist; choose a fresh directory or pass --force")
@@ -120,19 +127,25 @@ def main() -> int:
         decision.policy_version,
         now=now,
     )
-    private_key = load_or_create_signing_key(generated_paths[1], generated_paths[2])
+    private_key = load_or_create_signing_key(
+        control_private_path,
+        control_public_path,
+    )
+    load_or_create_signing_key(receipt_private_path, receipt_public_path)
     envelope = sign_manifest(manifest.to_dict(), private_key)
-    generated_paths[0].write_text(
+    job_path.write_text(
         json.dumps(envelope, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     print(
         json.dumps(
             {
-                "job": str(generated_paths[0]),
-                "trusted_public_key": str(generated_paths[2]),
+                "job": str(job_path),
+                "trusted_public_key": str(control_public_path),
                 "manifest_sha256": envelope["manifest"]["sha256"],
-                "private_key_for_fixture_only": str(generated_paths[1]),
+                "private_key_for_fixture_only": str(control_private_path),
+                "receipt_verification_key": str(receipt_public_path),
+                "receipt_private_key_for_fixture_only": str(receipt_private_path),
             },
             indent=2,
         )

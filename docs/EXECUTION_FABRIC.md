@@ -23,7 +23,8 @@ Every controlled run follows the same sequence:
    twice.
 7. The BOFA adapter runs a catalogued script or flow. It never evaluates an
    arbitrary shell command from the envelope.
-8. The worker returns a receipt with timestamps and hashes of captured output.
+8. The worker returns an Ed25519-signed receipt with timestamps and hashes of
+   captured output. The receipt key is separate from the JobSpec signing key.
 9. The surrounding OCI or VM runtime uploads evidence and destroys the worker.
 
 `privileged` and `cloud_mutation` are blocked by the default policy. Wildcard
@@ -135,11 +136,20 @@ ephemeral disk because the VM is destroyed immediately afterwards.
 - `POST /execution/grants/{grant_id}/revoke`
 - `POST /execution/preflight`
 - `POST /execution/jobs`
+- `GET /execution/service/trust`
+- `POST /execution/service/preflight`
+- `POST /execution/service/jobs`
 
 The current API dispatches only `local-controlled`. OCI and remote profiles
 produce valid preflight contracts but deliberately return `409` until a managed
 dispatcher is configured. Controlled labs are remote-only because a local
 Docker lab does not satisfy the ephemeral teardown contract.
+
+The `/execution/service/*` routes are a separate SotyHub workload-identity
+boundary. They require an exactly pinned Google OIDC service account and accept
+only the offline evidence canary. The service job endpoint creates a durable
+one-use claim and signed JobSpec but reports `dispatch_performed=false`; it does
+not provision or mutate cloud infrastructure.
 
 ## Verification
 
@@ -148,6 +158,7 @@ python tools/verify_execution_fabric.py
 python tools/verify_worker_protocol.py
 python tools/verify_worker_oci.py
 python tools/verify_execution_api.py
+python tools/verify_sotyhub_service_identity.py
 ```
 
 These checks cover scope, approval, quotas, pinned images, blocked capabilities,
