@@ -9,6 +9,7 @@ on:
       - "scripts/forensics/hash_calculator.yaml"
       - "tools/create_worker_fixture.py"
       - "tools/demo_worker_oci.py"
+      - "tools/verify_sotyhub_service_identity.py"
       - "tools/verify_worker_oci.py"
       - "worker/**"
   push:
@@ -21,6 +22,7 @@ on:
       - "scripts/forensics/hash_calculator.yaml"
       - "tools/create_worker_fixture.py"
       - "tools/demo_worker_oci.py"
+      - "tools/verify_sotyhub_service_identity.py"
       - "tools/verify_worker_oci.py"
       - "worker/**"
   workflow_dispatch:
@@ -91,6 +93,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p .worker-ci/claims .worker-ci/receipt
+          sudo chown 65532:65532 .worker-ci/worker-receipt-private.pem
+          sudo chmod 0400 .worker-ci/worker-receipt-private.pem
           sudo chown -R 65532:65532 .worker-ci/claims .worker-ci/receipt
 
       - name: Execute signed job in locked-down container
@@ -110,6 +114,7 @@ jobs:
             --tmpfs /opt/bofa/reports:rw,noexec,nosuid,nodev,size=8m \
             --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/job.json",dst=/run/bofa/job.json,readonly \
             --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/control-plane-public.pem",dst=/run/secrets/bofa-control-plane.pem,readonly \
+            --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/worker-receipt-private.pem",dst=/run/secrets/bofa-receipt-signing-key.pem,readonly \
             --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/claims",dst=/var/lib/bofa-worker/claims \
             --mount type=bind,src="$GITHUB_WORKSPACE/.worker-ci/receipt",dst=/run/bofa-out \
             --env BOFA_WORKER_MODE=execute \
@@ -127,6 +132,7 @@ jobs:
           python tools/verify_worker_oci.py
           --receipt .worker-ci/receipt/receipt.json
           --job .worker-ci/job.json
+          --receipt-public-key .worker-ci/worker-receipt-public.pem
 
   publish:
     name: Publish, attest and sign

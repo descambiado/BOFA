@@ -82,11 +82,15 @@ def main() -> int:
                 image_digest,
             ]
         )
+        container_identity = (
+            [] if os.name == "nt" else ["--user", f"{os.getuid()}:{os.getgid()}"]
+        )
         _run(
             [
                 "docker",
                 "run",
                 "--rm",
+                *container_identity,
                 "--read-only",
                 "--network",
                 "none",
@@ -116,6 +120,11 @@ def main() -> int:
                     "dst=/run/secrets/bofa-control-plane.pem,readonly"
                 ),
                 "--mount",
+                (
+                    f"type=bind,src={run_dir / 'worker-receipt-private.pem'},"
+                    "dst=/run/secrets/bofa-receipt-signing-key.pem,readonly"
+                ),
+                "--mount",
                 f"type=bind,src={claims_dir},dst=/var/lib/bofa-worker/claims",
                 "--mount",
                 f"type=bind,src={receipt_dir},dst=/run/bofa-out",
@@ -139,6 +148,8 @@ def main() -> int:
                 str(receipt_path),
                 "--job",
                 str(run_dir / "job.json"),
+                "--receipt-public-key",
+                str(run_dir / "worker-receipt-public.pem"),
                 "--expected-image-reference",
                 args.image,
                 "--expected-image-digest",
