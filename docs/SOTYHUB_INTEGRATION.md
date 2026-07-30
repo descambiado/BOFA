@@ -37,6 +37,32 @@ SotyHub should consume BOFA contracts, not fork their meaning. A deployment may
 replace the policy implementation, but it must not weaken the signed manifest
 or worker verification rules.
 
+## Workload identity boundary
+
+SotyHub calls BOFA through a separate machine-to-machine surface:
+
+- `GET /execution/service/trust`
+- `POST /execution/service/preflight`
+- `POST /execution/service/jobs`
+
+These routes accept only a Google-signed OIDC ID token whose issuer, audience,
+service-account email and immutable numeric subject match the configured pins.
+Firebase user tokens, decoded-but-unverified claims and tokens presented to a
+different path are rejected. Tokens are bounded to one hour, are never written
+to a receipt or claim marker, and do not replace the SotyHub authorization
+record.
+
+The initial job contract is intentionally limited to the offline
+`forensics/hash_calculator` canary on the digest-pinned `oci-ephemeral` profile
+with `network_mode=none` and `evidence_read` only. BOFA atomically claims the
+approved SotyHub source-manifest hash before issuing a signed JobSpec.
+`dispatch_performed=false` remains explicit until a managed ephemeral
+dispatcher exists.
+
+Safe configuration names are documented in `.env.template`. The receiver stays
+closed unless `BOFA_SOTYHUB_OIDC_ENABLED=true` and every identity pin is
+present. No credential, token or private key belongs in that file.
+
 ## Managed run lifecycle
 
 ```text
@@ -46,7 +72,8 @@ User -> SotyHub identity and entitlement
      -> cloud provisioner creates one ephemeral worker
      -> worker pins SotyHub/BOFA control-plane public key
      -> worker claims and executes one BOFA job
-     -> receipt and evidence upload
+     -> worker signs its receipt with a one-job Ed25519 key
+     -> receipt signature verification and evidence upload
      -> human review and adoption decision
      -> teardown confirmation
 ```

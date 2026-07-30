@@ -71,7 +71,7 @@ class ExecutionFabric:
                     cpu_cores=2.0,
                     memory_mb=2048,
                 ),
-                network_mode="restricted",
+                network_mode="none",
                 image=oci_image,
                 image_digest=oci_digest,
                 ephemeral=True,

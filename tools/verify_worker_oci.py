@@ -27,6 +27,7 @@ from core.execution import (
     ExecutionRequest,
 )
 from core.execution.signing import load_or_create_signing_key, public_key_pem, sign_manifest
+from core.execution.receipt_signing import sign_receipt, verify_receipt
 from worker import WorkerRuntime
 from worker.adapter_executor import OCIAdapterExecutor
 from worker.catalog import CATALOG_SCHEMA, load_worker_catalog
@@ -236,6 +237,10 @@ def _verify_supply_chain_workflow() -> None:
         "cosign sign --yes",
         "cosign verify",
         'sudo chown -R "$(id -u):$(id -g)" .worker-ci/receipt',
+        "sudo chown 65532:65532 .worker-ci/worker-receipt-private.pem",
+        "sudo chmod 0400 .worker-ci/worker-receipt-private.pem",
+        "worker-receipt-private.pem",
+        "--receipt-public-key .worker-ci/worker-receipt-public.pem",
         "severity: CRITICAL,HIGH",
         "exit-code: 1",
     )
@@ -263,9 +268,34 @@ def _verify_receipt_creation_is_exclusive() -> None:
     assert receipt_path.read_bytes() == original
 
 
+def _verify_receipt_signature_rejects_tampering() -> None:
+    directory = _fixture_directory()
+    private_key = load_or_create_signing_key(
+        directory / "receipt-private.pem",
+        directory / "receipt-public.pem",
+    )
+    signed = sign_receipt(
+        {
+            "receipt_schema": RECEIPT_SCHEMA,
+            "status": "success",
+            "executed": True,
+            "stdout_sha256": EXPECTED_HASH,
+        },
+        private_key,
+    )
+    verified, reason = verify_receipt(signed, public_key_pem(private_key))
+    assert verified, reason
+
+    tampered = {**signed, "status": "failed"}
+    verified, reason = verify_receipt(tampered, public_key_pem(private_key))
+    assert not verified
+    assert reason == "receipt_digest_invalid"
+
+
 def _verify_container_receipt(
     receipt_path: Path,
     job_path: Path,
+    receipt_public_key_path: Path,
     expected_image_reference: str,
     expected_image_digest: str,
 ) -> None:
@@ -280,17 +310,26 @@ def _verify_container_receipt(
     assert receipt["runtime_network_mode"] == "none"
     assert EXPECTED_HASH in receipt["stdout_preview"]
     assert re.fullmatch(r"[0-9a-f]{64}", receipt["stdout_sha256"])
+    verified, reason = verify_receipt(
+        receipt,
+        receipt_public_key_path.read_bytes(),
+    )
+    assert verified, reason
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify the BOFA OCI worker contract")
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--job", type=Path)
+    parser.add_argument("--receipt-public-key", type=Path)
     parser.add_argument("--expected-image-reference", default=IMAGE_REFERENCE)
     parser.add_argument("--expected-image-digest", default=IMAGE_DIGEST)
     args = parser.parse_args()
-    if bool(args.receipt) != bool(args.job):
-        parser.error("--receipt and --job must be supplied together")
+    receipt_inputs = (args.receipt, args.job, args.receipt_public_key)
+    if any(receipt_inputs) and not all(receipt_inputs):
+        parser.error(
+            "--receipt, --job and --receipt-public-key must be supplied together"
+        )
 
     checks = [
         ("runtime binds the signed job to image identity and catalog", _verify_runtime_identity_and_catalog),
@@ -298,6 +337,7 @@ def main() -> int:
         ("OCI adapter kills excessive output and expired execution", _verify_bounded_adapter_executor),
         ("supply-chain workflow scans, attests and signs", _verify_supply_chain_workflow),
         ("receipt creation is one-use and non-overwriting", _verify_receipt_creation_is_exclusive),
+        ("receipt signature rejects modified evidence", _verify_receipt_signature_rejects_tampering),
     ]
     if args.receipt and args.job:
         checks.append(
@@ -306,6 +346,7 @@ def main() -> int:
                 lambda: _verify_container_receipt(
                     args.receipt,
                     args.job,
+                    args.receipt_public_key,
                     args.expected_image_reference,
                     args.expected_image_digest,
                 ),
