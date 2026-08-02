@@ -2670,6 +2670,7 @@ async def get_sotyhub_execution_trust(
         "allowed_profile": "oci-ephemeral",
         "allowed_action": "run_script:forensics/hash_calculator",
         "network_mode": "none",
+        "job_spec_issuance_enabled": service_identity_policy.job_issuance_enabled,
         "service_identity": identity.to_audit_dict(),
         "rotation": "SotyHub must pin an approved key id before requesting a job",
     }
