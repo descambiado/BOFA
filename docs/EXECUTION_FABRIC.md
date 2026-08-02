@@ -149,7 +149,9 @@ The `/execution/service/*` routes are a separate SotyHub workload-identity
 boundary. They require an exactly pinned Google OIDC service account and accept
 only the offline evidence canary. The service job endpoint creates a durable
 one-use claim and signed JobSpec but reports `dispatch_performed=false`; it does
-not provision or mutate cloud infrastructure.
+not provision or mutate cloud infrastructure. OIDC activation exposes only
+`trust` and `preflight` by default. `/execution/service/jobs` remains forbidden
+until `BOFA_SOTYHUB_JOB_ISSUANCE_ENABLED=true` is approved separately.
 
 ## Verification
 

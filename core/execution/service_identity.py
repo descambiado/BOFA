@@ -37,6 +37,7 @@ SERVICE_PATHS = (
     "/execution/service/preflight",
     "/execution/service/jobs",
 )
+SERVICE_PREFLIGHT_PATHS = SERVICE_PATHS[:2]
 OFFLINE_PROFILE_ID = "oci-ephemeral"
 OFFLINE_ACTION = "run_script:forensics/hash_calculator"
 OFFLINE_CAPABILITIES = (ExecutionCapability.EVIDENCE_READ,)
@@ -80,13 +81,17 @@ class ServiceIdentityPolicy:
     service_account_subject: str
     sender_project_id: str = "sotyhub-staging"
     accepted_issuers: Tuple[str, ...] = GOOGLE_ISSUERS
-    allowed_paths: Tuple[str, ...] = SERVICE_PATHS
+    job_issuance_enabled: bool = False
+    allowed_paths: Tuple[str, ...] = SERVICE_PREFLIGHT_PATHS
     max_token_lifetime_seconds: int = 3600
     max_clock_skew_seconds: int = 60
     jwks_url: str = GOOGLE_JWKS_URL
 
     @classmethod
     def from_env(cls) -> "ServiceIdentityPolicy":
+        job_issuance_enabled = os.getenv(
+            "BOFA_SOTYHUB_JOB_ISSUANCE_ENABLED", "false"
+        ).strip().lower() == "true"
         return cls(
             enabled=os.getenv("BOFA_SOTYHUB_OIDC_ENABLED", "false").strip().lower()
             == "true",
@@ -100,6 +105,10 @@ class ServiceIdentityPolicy:
             sender_project_id=os.getenv(
                 "BOFA_SOTYHUB_SENDER_PROJECT_ID", "sotyhub-staging"
             ).strip(),
+            job_issuance_enabled=job_issuance_enabled,
+            allowed_paths=(
+                SERVICE_PATHS if job_issuance_enabled else SERVICE_PREFLIGHT_PATHS
+            ),
             max_token_lifetime_seconds=_env_int(
                 "BOFA_SOTYHUB_OIDC_MAX_LIFETIME_SECONDS",
                 3600,
@@ -112,6 +121,9 @@ class ServiceIdentityPolicy:
         )
 
     def configured(self) -> bool:
+        expected_paths = (
+            SERVICE_PATHS if self.job_issuance_enabled else SERVICE_PREFLIGHT_PATHS
+        )
         return bool(
             self.enabled
             and self.audience
@@ -122,6 +134,7 @@ class ServiceIdentityPolicy:
             and self.max_token_lifetime_seconds > 0
             and 0 <= self.max_clock_skew_seconds <= 300
             and self.jwks_url.startswith("https://")
+            and self.allowed_paths == expected_paths
         )
 
 
