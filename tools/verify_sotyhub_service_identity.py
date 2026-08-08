@@ -6,9 +6,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
+from unittest.mock import patch
 
 import jwt
 from cryptography.hazmat.primitives import serialization
@@ -31,6 +33,7 @@ from core.execution.service_identity import (
     OFFLINE_ACTION,
     OFFLINE_NETWORK_MODE,
     OFFLINE_PROFILE_ID,
+    SERVICE_PREFLIGHT_PATHS,
     SERVICE_PATHS,
     GoogleOidcServiceIdentityVerifier,
     ManifestClaimStore,
@@ -39,6 +42,7 @@ from core.execution.service_identity import (
     ServiceIdentityPolicy,
     SotyHubOfflineCanaryRequest,
     build_sotyhub_offline_canary_envelope,
+    evaluate_service_identity_claims,
 )
 from core.execution.signing import (
     public_key_id,
@@ -79,6 +83,8 @@ def _identity_fixture():
         service_account_email=SERVICE_EMAIL,
         service_account_subject=SERVICE_SUBJECT,
         sender_project_id="sotyhub-staging",
+        job_issuance_enabled=True,
+        allowed_paths=SERVICE_PATHS,
     )
     verifier = GoogleOidcServiceIdentityVerifier(
         policy,
@@ -244,6 +250,65 @@ def _verify_identity_boundary() -> None:
         "service_identity_not_configured",
         lambda: disabled.verify(valid_token, SERVICE_PATHS[2], now=now),
     )
+
+    preflight_policy = ServiceIdentityPolicy(
+        enabled=True,
+        audience=policy.audience,
+        service_account_email=policy.service_account_email,
+        service_account_subject=policy.service_account_subject,
+        allowed_paths=SERVICE_PREFLIGHT_PATHS,
+    )
+    claims = jwt.decode(valid_token, options={"verify_signature": False})
+    _expect_error(
+        "identity_path_forbidden",
+        lambda: evaluate_service_identity_claims(
+            claims,
+            signature_verified=True,
+            policy=preflight_policy,
+            path=SERVICE_PATHS[2],
+            now=now,
+        ),
+    )
+
+
+def _verify_receiver_phase_configuration() -> None:
+    base_env = {
+        "BOFA_SOTYHUB_OIDC_ENABLED": "true",
+        "BOFA_SOTYHUB_OIDC_AUDIENCE": AUDIENCE,
+        "BOFA_SOTYHUB_SERVICE_ACCOUNT_EMAIL": SERVICE_EMAIL,
+        "BOFA_SOTYHUB_SERVICE_ACCOUNT_SUBJECT": SERVICE_SUBJECT,
+        "BOFA_SOTYHUB_SENDER_PROJECT_ID": "sotyhub-staging",
+    }
+    with patch.dict(os.environ, base_env, clear=True):
+        policy = ServiceIdentityPolicy.from_env()
+        assert policy.configured()
+        assert policy.job_issuance_enabled is False
+        assert policy.allowed_paths == SERVICE_PREFLIGHT_PATHS
+
+    with patch.dict(
+        os.environ,
+        {**base_env, "BOFA_SOTYHUB_JOB_ISSUANCE_ENABLED": "true"},
+        clear=True,
+    ):
+        policy = ServiceIdentityPolicy.from_env()
+        assert policy.configured()
+        assert policy.job_issuance_enabled is True
+        assert policy.allowed_paths == SERVICE_PATHS
+
+    compose = (_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    template = (_ROOT / ".env.template").read_text(encoding="utf-8")
+    for name in (
+        "BOFA_SOTYHUB_OIDC_ENABLED",
+        "BOFA_SOTYHUB_JOB_ISSUANCE_ENABLED",
+        "BOFA_SOTYHUB_OIDC_AUDIENCE",
+        "BOFA_SOTYHUB_SERVICE_ACCOUNT_EMAIL",
+        "BOFA_SOTYHUB_SERVICE_ACCOUNT_SUBJECT",
+        "BOFA_SOTYHUB_SENDER_PROJECT_ID",
+        "BOFA_SOTYHUB_OIDC_MAX_LIFETIME_SECONDS",
+        "BOFA_SOTYHUB_OIDC_MAX_CLOCK_SKEW_SECONDS",
+    ):
+        assert name in compose, f"docker-compose.yml does not pass {name}"
+        assert name in template, f".env.template does not document {name}"
 
 
 def _dispatch_payload(key_id: str) -> dict:
@@ -415,6 +480,10 @@ def main() -> int:
         (
             "Google OIDC identity is signature-first and exactly pinned",
             _verify_identity_boundary,
+        ),
+        (
+            "SotyHub receiver phases keep JobSpec issuance disabled by default",
+            _verify_receiver_phase_configuration,
         ),
         (
             "SotyHub offline canary is bound, one-use and receipt-signed",
