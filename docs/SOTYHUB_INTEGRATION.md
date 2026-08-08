@@ -63,6 +63,12 @@ Safe configuration names are documented in `.env.template`. The receiver stays
 closed unless `BOFA_SOTYHUB_OIDC_ENABLED=true` and every identity pin is
 present. No credential, token or private key belongs in that file.
 
+The first live activation must also keep
+`BOFA_SOTYHUB_JOB_ISSUANCE_ENABLED=false`. This permits only `trust` and
+`preflight`; `/execution/service/jobs` rejects the same otherwise-valid token.
+JobSpec issuance is a later, separate approval and still does not dispatch a
+worker.
+
 ## Managed run lifecycle
 
 ```text
