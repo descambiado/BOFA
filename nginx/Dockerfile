@@ -7,11 +7,13 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 # Copiar archivos de autenticación
 COPY .htpasswd /etc/nginx/.htpasswd
 
-# Copiar certificados SSL
+# Copy locally generated TLS material. The repository intentionally contains
+# only ssl/.gitkeep; generate certificates locally before building this image.
 COPY ssl/ /etc/nginx/ssl/
 
-# Crear directorio SSL y configurar permisos
-RUN chmod 600 /etc/nginx/ssl/bofa.local.key && \
+RUN test -s /etc/nginx/ssl/bofa.local.key && \
+    test -s /etc/nginx/ssl/bofa.local.crt && \
+    chmod 600 /etc/nginx/ssl/bofa.local.key && \
     chmod 644 /etc/nginx/ssl/bofa.local.crt
 
 EXPOSE 80 443

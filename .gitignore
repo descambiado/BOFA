@@ -39,6 +39,8 @@ reports/
 data/
 scripts/*/output/
 scripts/**/*_202*.json
+nginx/ssl/*
+!nginx/ssl/.gitkeep
 
 # Local / IDE (no subir)
 .cursor/
