@@ -8,11 +8,12 @@ import logging
 import os
 from pathlib import Path
 import secrets
+import hmac
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 import jwt
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 try:
@@ -45,6 +46,9 @@ def _load_jwt_secret() -> str:
 JWT_SECRET = _load_jwt_secret()
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
+SOTYHUB_PROXY_JWT_SECRET = os.getenv("SOTYHUB_PROXY_JWT_SECRET", "").strip()
+SOTYHUB_PROXY_ISSUER = "sotyhub-proxy"
+SOTYHUB_PROXY_AUDIENCE = "bofa-api"
 
 security = HTTPBearer()
 
@@ -70,14 +74,55 @@ class AuthManager:
         return encoded_jwt
     
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Verify JWT token"""
+        """Verify either a local BOFA token or a bounded SotyHub proxy token."""
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            payload["_auth_source"] = "bofa_local"
             return payload
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token has expired")
         except jwt.PyJWTError:
+            pass
+
+        if not SOTYHUB_PROXY_JWT_SECRET:
             raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+        try:
+            payload = jwt.decode(
+                token,
+                SOTYHUB_PROXY_JWT_SECRET,
+                algorithms=[JWT_ALGORITHM],
+                audience=SOTYHUB_PROXY_AUDIENCE,
+                issuer=SOTYHUB_PROXY_ISSUER,
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token has expired")
+        except jwt.PyJWTError:
+            raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+        uid = payload.get("sub")
+        allowed_path = payload.get("bofa_path")
+        allowed_method = payload.get("bofa_method")
+        if (
+            payload.get("token_use") != "sotyhub_proxy"
+            or not isinstance(uid, str)
+            or not uid
+            or not isinstance(allowed_path, str)
+            or not allowed_path.startswith("/")
+            or not isinstance(allowed_method, str)
+            or allowed_method.upper() not in {"GET", "POST"}
+        ):
+            raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+        return {
+            "user_id": uid,
+            "username": f"sotyhub:{uid}",
+            "email": None,
+            "role": "user",
+            "_auth_source": "sotyhub_proxy",
+            "_allowed_path": allowed_path,
+            "_allowed_method": allowed_method.upper(),
+        }
     
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """Authenticate user credentials"""
@@ -120,10 +165,27 @@ class AuthManager:
         
         return user_id
     
-    def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    def get_current_user(
+        self,
+        request: Request,
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+    ) -> Dict[str, Any]:
         """Get current authenticated user"""
         token = credentials.credentials
         payload = self.verify_token(token)
+
+        if payload.get("_auth_source") == "sotyhub_proxy":
+            if (
+                not hmac.compare_digest(payload["_allowed_path"], request.url.path)
+                or not hmac.compare_digest(payload["_allowed_method"], request.method.upper())
+            ):
+                raise HTTPException(status_code=403, detail="BOFA proxy token scope mismatch")
+            return {
+                "user_id": payload["user_id"],
+                "username": payload["username"],
+                "email": payload["email"],
+                "role": payload["role"],
+            }
         
         # Verify user still exists and is active
         user = self.db.get_user_by_username(payload['username'])
@@ -148,13 +210,17 @@ class AuthManager:
             return current_user
         return role_checker
     
-    def get_optional_user(self, credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    def get_optional_user(
+        self,
+        request: Request,
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    ):
         """Get user if authenticated, else return None"""
         if not credentials:
             return None
         
         try:
-            return self.get_current_user(credentials)
+            return self.get_current_user(request, credentials)
         except HTTPException:
             return None
 
