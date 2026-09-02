@@ -4,20 +4,27 @@ BOFA Extended Systems v2.8.0 - Authentication and Authorization
 JWT-based authentication system
 """
 
-import jwt
+import os
 import hashlib
+import hmac
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import ExpiredSignatureError, JWTError, jwt
 import logging
 
 logger = logging.getLogger(__name__)
 
-# JWT Configuration
-JWT_SECRET = "BOFA_SECRET_KEY_2025_NEURAL_SECURITY_EDGE"
+# JWT Configuration. The legacy BOFA token and the SotyHub gateway token use
+# separate secrets. A gateway token is short lived and constrained to one HTTP
+# method and path, so it cannot be replayed against a different BOFA route.
+JWT_SECRET = os.getenv("JWT_SECRET", "").strip()
+SOTYHUB_PROXY_JWT_SECRET = os.getenv("SOTYHUB_PROXY_JWT_SECRET", "").strip()
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
+SOTYHUB_PROXY_ISSUER = "sotyhub-proxy"
+SOTYHUB_PROXY_AUDIENCE = "bofa-api"
 
 security = HTTPBearer()
 
@@ -35,6 +42,8 @@ class AuthManager:
     
     def create_access_token(self, user_data: Dict[str, Any]) -> str:
         """Create JWT access token"""
+        if not JWT_SECRET:
+            raise RuntimeError("JWT_SECRET must be configured")
         to_encode = user_data.copy()
         expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
         to_encode.update({"exp": expire, "iat": datetime.utcnow()})
@@ -43,14 +52,59 @@ class AuthManager:
         return encoded_jwt
     
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Verify JWT token"""
+        """Verify either a legacy BOFA token or a bounded SotyHub proxy token."""
+        if not JWT_SECRET:
+            logger.error("JWT_SECRET is not configured")
+            raise HTTPException(status_code=503, detail="Authentication is not configured")
+
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            payload["_auth_source"] = "bofa_local"
             return payload
-        except jwt.ExpiredSignatureError:
+        except ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token has expired")
-        except jwt.JWTError:
+        except JWTError:
+            pass
+
+        if not SOTYHUB_PROXY_JWT_SECRET:
             raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+        try:
+            payload = jwt.decode(
+                token,
+                SOTYHUB_PROXY_JWT_SECRET,
+                algorithms=[JWT_ALGORITHM],
+                audience=SOTYHUB_PROXY_AUDIENCE,
+                issuer=SOTYHUB_PROXY_ISSUER,
+            )
+        except ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token has expired")
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+        uid = payload.get("sub")
+        allowed_path = payload.get("bofa_path")
+        allowed_method = payload.get("bofa_method")
+        if (
+            payload.get("token_use") != "sotyhub_proxy"
+            or not isinstance(uid, str)
+            or not uid
+            or not isinstance(allowed_path, str)
+            or not allowed_path.startswith("/")
+            or not isinstance(allowed_method, str)
+            or allowed_method.upper() not in {"GET", "POST"}
+        ):
+            raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+        return {
+            "user_id": uid,
+            "username": f"sotyhub:{uid}",
+            "email": payload.get("email") if isinstance(payload.get("email"), str) else None,
+            "role": "user",
+            "_auth_source": "sotyhub_proxy",
+            "_allowed_path": allowed_path,
+            "_allowed_method": allowed_method.upper(),
+        }
     
     def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """Authenticate user credentials"""
@@ -84,10 +138,27 @@ class AuthManager:
         
         return user_id
     
-    def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    def get_current_user(
+        self,
+        request: Request,
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+    ) -> Dict[str, Any]:
         """Get current authenticated user"""
         token = credentials.credentials
         payload = self.verify_token(token)
+
+        if payload.get("_auth_source") == "sotyhub_proxy":
+            if (
+                not hmac.compare_digest(payload["_allowed_path"], request.url.path)
+                or not hmac.compare_digest(payload["_allowed_method"], request.method.upper())
+            ):
+                raise HTTPException(status_code=403, detail="BOFA proxy token scope mismatch")
+            return {
+                "user_id": payload["user_id"],
+                "username": payload["username"],
+                "email": payload.get("email"),
+                "role": payload["role"],
+            }
         
         # Verify user still exists and is active
         user = self.db.get_user_by_username(payload['username'])

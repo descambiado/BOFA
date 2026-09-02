@@ -38,7 +38,8 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=sqlite:///./data/bofa.db
-      - JWT_SECRET=${JWT_SECRET:-bofa_jwt_secret_change_in_production_2025}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set}
+      - SOTYHUB_PROXY_JWT_SECRET=${SOTYHUB_PROXY_JWT_SECRET:?SOTYHUB_PROXY_JWT_SECRET must be set}
       - API_VERSION=v2.8.0
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO

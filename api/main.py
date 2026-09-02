@@ -21,7 +21,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
-from fastapi import Depends, FastAPI, Form, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Form, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -2203,15 +2203,10 @@ async def get_flows(current_user: Dict[str, Any] = Depends(auth_manager.get_curr
 
 @app.websocket("/ws/runs/{run_id}")
 async def websocket_run(websocket: WebSocket, run_id: str):
-    await ws_manager.connect(websocket, run_id)
-    try:
-        while True:
-            await websocket.receive_text()
-            await websocket.send_text(json.dumps({"type": "pong"}))
-    except WebSocketDisconnect:
-        await ws_manager.disconnect(websocket, run_id)
-    except Exception:
-        await ws_manager.disconnect(websocket, run_id)
+    # Browser WebSocket handshakes cannot carry the bounded Authorization header
+    # used by SotyHub. Keep execution output behind the authenticated HTTPS proxy
+    # instead of exposing a bearer-less stream to anyone who knows a run id.
+    await websocket.close(code=1008, reason="Use authenticated HTTPS polling")
 
 
 @app.websocket("/ws/execute/{identifier}")
