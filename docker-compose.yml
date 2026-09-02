@@ -36,6 +36,9 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=sqlite:///./data/bofa.db
+      # Empty by default for standalone BOFA. SotyHub proxy tokens remain
+      # rejected until this is set from managed runtime configuration.
+      - SOTYHUB_PROXY_JWT_SECRET=${SOTYHUB_PROXY_JWT_SECRET:-}
       - API_VERSION=v3.0.0-alpha.1
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO
