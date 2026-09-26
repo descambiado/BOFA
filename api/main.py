@@ -2578,15 +2578,33 @@ async def _wait_for_flow_task_drain(run_id: str, task: Optional[asyncio.Task]) -
     try:
         await asyncio.wait_for(asyncio.shield(task), timeout=CANCEL_GRACE_SECONDS)
     except asyncio.TimeoutError:
-        await _emit_and_persist(
-            run_id,
-            "run",
-            run_id,
-            "force_kill",
-            "cancelling",
-            "Flow cancellation still draining after grace period",
-            {"forced": False, "signal_sent": "cancel_marker"},
-        )
+        # asyncio.wait_for(asyncio.shield(...)) can raise TimeoutError even when the
+        # shielded task finished (with or without an exception) in the same loop
+        # iteration as the timeout. Re-check the task's real state before treating
+        # this as "still draining", otherwise a task that failed gets misreported
+        # as a forced kill instead of a task error.
+        if task.done() and not task.cancelled() and task.exception() is not None:
+            exc = task.exception()
+            logger.warning("Flow task raised while draining during cancellation", extra={"run_id": run_id, "error": str(exc)})
+            await _emit_and_persist(
+                run_id,
+                "run",
+                run_id,
+                "task_error",
+                "failed",
+                "Flow task raised while cancellation was in progress",
+                {"error": str(exc)},
+            )
+        else:
+            await _emit_and_persist(
+                run_id,
+                "run",
+                run_id,
+                "force_kill",
+                "cancelling",
+                "Flow cancellation still draining after grace period",
+                {"forced": False, "signal_sent": "cancel_marker"},
+            )
     except asyncio.CancelledError:
         pass
     except Exception as exc:
