@@ -41,7 +41,7 @@ function App() {
       <TooltipProvider>
         <div className="min-h-screen bg-gradient-dark text-foreground">
           <Toaster />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <BrowserRouter>
             <AppHeader />
             <main className="relative overflow-hidden">
               <div className="pointer-events-none fixed inset-0 bg-gradient-dark opacity-90" />
