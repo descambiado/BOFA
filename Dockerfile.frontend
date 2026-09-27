@@ -1,9 +1,9 @@
 
-# BOFA Extended Systems v2.5.0 - Frontend Dockerfile
+# BOFA Frontend Dockerfile
 # Multi-stage build for optimized production image
 
 # Stage 1: Build
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -20,7 +20,7 @@ RUN apk add --no-cache \
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production --silent
+RUN npm ci --silent
 
 # Copy source code
 COPY src ./src
@@ -28,7 +28,7 @@ COPY public ./public
 COPY index.html .
 COPY vite.config.ts .
 COPY tsconfig*.json ./
-COPY tailwind.config.js .
+COPY tailwind.config.ts .
 COPY postcss.config.js .
 
 # Build application
@@ -75,11 +75,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Labels for metadata
 LABEL maintainer="@descambiado <david@descambiado.com>"
-LABEL version="2.5.0"
-LABEL description="BOFA Extended Systems v2.5.0 - Frontend Application"
+LABEL version="3.0.0-alpha.1"
+LABEL description="BOFA Frontend Application"
 LABEL org.opencontainers.image.title="BOFA Frontend"
 LABEL org.opencontainers.image.description="Cybersecurity Platform Frontend"
-LABEL org.opencontainers.image.version="2.5.0"
+LABEL org.opencontainers.image.version="3.0.0-alpha.1"
 LABEL org.opencontainers.image.source="https://github.com/descambiado/BOFA"
 LABEL org.opencontainers.image.licenses="MIT"
 

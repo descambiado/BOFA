@@ -1,5 +1,5 @@
 
-# BOFA Extended Systems v2.5.0 - API Dockerfile
+# BOFA API Dockerfile
 # Multi-stage build for optimized production image
 
 # Stage 1: Build
@@ -67,6 +67,10 @@ RUN mkdir -p /app/logs /app/uploads /app/temp && \
 
 # Copy application files
 COPY api ./api
+COPY agents ./agents
+COPY core ./core
+COPY flows ./flows
+COPY database ./database
 COPY scripts ./scripts
 COPY requirements.txt .
 
@@ -86,11 +90,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Labels for metadata
 LABEL maintainer="@descambiado <david@descambiado.com>"
-LABEL version="2.5.0"
-LABEL description="BOFA Extended Systems v2.5.0 - API Backend"
+LABEL version="3.0.0-alpha.1"
+LABEL description="BOFA API Backend"
 LABEL org.opencontainers.image.title="BOFA API"
 LABEL org.opencontainers.image.description="Cybersecurity Platform API"
-LABEL org.opencontainers.image.version="2.5.0"
+LABEL org.opencontainers.image.version="3.0.0-alpha.1"
 LABEL org.opencontainers.image.source="https://github.com/descambiado/BOFA"
 LABEL org.opencontainers.image.licenses="MIT"
 
