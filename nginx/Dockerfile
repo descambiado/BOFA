@@ -4,7 +4,9 @@ FROM nginx:alpine
 # Copiar configuración personalizada
 COPY default.conf /etc/nginx/conf.d/default.conf
 
-# Copiar archivos de autenticación
+# Copiar archivos de autenticación. The repository intentionally does not
+# contain .htpasswd: generate it locally before building this image, e.g.
+#   htpasswd -c nginx/.htpasswd admin
 COPY .htpasswd /etc/nginx/.htpasswd
 
 # Copy locally generated TLS material. The repository intentionally contains

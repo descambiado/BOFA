@@ -41,6 +41,7 @@ scripts/*/output/
 scripts/**/*_202*.json
 nginx/ssl/*
 !nginx/ssl/.gitkeep
+nginx/.htpasswd
 
 # Local / IDE (no subir)
 .cursor/
