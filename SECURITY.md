@@ -13,7 +13,9 @@ Older releases may not receive backports.
 Do not open a public issue with exploit details, credentials or sensitive
 evidence.
 
-Send the report to `david@descambiado.com` with:
+Use [GitHub's private vulnerability reporting](https://github.com/descambiado/BOFA/security/advisories/new)
+for this repository, or reach the maintainer privately (`@descambiado`).
+Include:
 
 - Affected version or commit.
 - Impact and realistic attack scenario.

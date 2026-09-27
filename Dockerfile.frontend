@@ -74,7 +74,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000 || exit 1
 
 # Labels for metadata
-LABEL maintainer="@descambiado <david@descambiado.com>"
+LABEL maintainer="@descambiado"
 LABEL version="3.0.0-alpha.1"
 LABEL description="BOFA Frontend Application"
 LABEL org.opencontainers.image.title="BOFA Frontend"
