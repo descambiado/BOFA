@@ -14,6 +14,8 @@ def build_report(
     scope: AgentScope,
     input_data: Mapping[str, Any],
     events: Iterable[EvidenceEvent],
+    run_status: str = "completed",
+    evidence_verified: bool = False,
 ) -> Dict[str, Any]:
     event_list = list(events)
     tool_results = [
@@ -22,6 +24,7 @@ def build_report(
     blocked_tools = [
         event.data for event in event_list if event.event_type == "tool.blocked"
     ]
+    failed_tools = [event.data for event in event_list if event.event_type == "tool.failed"]
 
     risk_score = _risk_score(tool_results)
     severity = _severity_from_score(risk_score)
@@ -34,6 +37,7 @@ def build_report(
         "title": scope.title,
         "run_id": str(input_data["run_id"]),
         "generated_at": str(input_data["observed_at"]),
+        "run_status": run_status,
         "subject": {
             "application_id": app["application_id"],
             "display_name": app["display_name"],
@@ -53,7 +57,15 @@ def build_report(
         },
         "findings": _findings(tool_results),
         "blocked_tools": blocked_tools,
+        "failed_tools": failed_tools,
         "evidence_summary": summarize_evidence(event_list),
+        "evidence_integrity": {
+            "algorithm": "sha256-chain",
+            "event_count": len(event_list),
+            "chain_head": event_list[-1].event_hash if event_list else None,
+            "verified_on_read": evidence_verified,
+            "signature": "not_signed",
+        },
         "limitations": [
             "The application record is synthetic and intentionally small.",
             "No live OAuth tenant, Graph API, identity provider, or user directory was queried.",
@@ -113,11 +125,32 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     for constraint in report["scope"]["constraints"]:
         lines.append(f"- `{constraint}`")
 
-    lines.extend(["", "## Actions Executed", ""])
+    lines.extend(
+        [
+            "",
+            "## Actions Executed",
+            "",
+            f"Run status: `{report.get('run_status', 'completed')}`",
+            "",
+        ]
+    )
     for action in report["actions_executed"]:
         lines.append(f"- `{action['tool']}`: {action['status']}")
 
-    lines.extend(["", "## Evidence", ""])
+    integrity = report.get("evidence_integrity", {})
+    lines.extend(
+        [
+            "",
+            "## Evidence",
+            "",
+            f"Integrity: `{integrity.get('algorithm', 'not_available')}`",
+            f"Events: `{integrity.get('event_count', 0)}`",
+            f"Chain head: `{integrity.get('chain_head') or 'not_available'}`",
+            f"Chain verified on read: `{integrity.get('verified_on_read', False)}`",
+            "Signature: `not_signed`",
+            "",
+        ]
+    )
     for event_type, count in sorted(report["evidence_summary"].items()):
         lines.append(f"- `{event_type}`: {count}")
 
@@ -152,6 +185,11 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     lines.extend(["## Blocked Tool Calls", ""])
     for blocked in report["blocked_tools"]:
         lines.append(f"- `{blocked['tool']}`: {blocked['reason']}")
+
+    if report.get("failed_tools"):
+        lines.extend(["", "## Failed Tool Calls", ""])
+        for failed in report["failed_tools"]:
+            lines.append(f"- `{failed['tool']}`: {failed['error_type']}")
 
     lines.extend(["", "## Limitations", ""])
     for limitation in report["limitations"]:
@@ -201,4 +239,6 @@ def _actions(events: Iterable[EvidenceEvent]) -> List[Dict[str, str]]:
             actions.append({"tool": str(event.data["tool"]), "status": "executed"})
         if event.event_type == "tool.blocked":
             actions.append({"tool": str(event.data["tool"]), "status": "blocked"})
+        if event.event_type == "tool.failed":
+            actions.append({"tool": str(event.data["tool"]), "status": "failed"})
     return actions

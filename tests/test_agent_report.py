@@ -42,6 +42,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(
             report["sotyhub"]["ingestion_type"], "passive_oauth_triage_report"
         )
+        self.assertFalse(report["evidence_integrity"]["verified_on_read"])
 
 
 if __name__ == "__main__":

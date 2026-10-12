@@ -99,17 +99,17 @@ Ejemplos de uso:
     # Validación adicional de parámetros
     # argparse valida tipos básicos, pero podemos añadir validación de negocio
     if args.timeout < 1:
-        print("❌ Error: timeout debe ser mayor que 0", file=sys.stderr)
+        print("ERROR: timeout debe ser mayor que 0", file=sys.stderr)
         print(f"   Valor recibido: {args.timeout}", file=sys.stderr)
         return 1
     
     if args.timeout > 3600:
-        print("⚠️  Advertencia: timeout muy alto (>3600s)", file=sys.stderr)
+        print("WARNING: timeout muy alto (>3600s)", file=sys.stderr)
         print(f"   Valor recibido: {args.timeout}", file=sys.stderr)
         # No fallamos, solo advertimos
     
     if not args.target or not args.target.strip():
-        print("❌ Error: target no puede estar vacío", file=sys.stderr)
+        print("ERROR: target no puede estar vacio", file=sys.stderr)
         return 1
     
     # Procesar con los parámetros recibidos
@@ -117,27 +117,27 @@ Ejemplos de uso:
     print("BOFA Example Params - Módulo con Parámetros")
     print("=" * 60)
     print()
-    print(f"📅 Fecha/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Fecha/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
-    print("📋 Parámetros Recibidos:")
-    print(f"   • Target: {args.target}")
-    print(f"   • Timeout: {args.timeout} segundos")
-    print(f"   • Verbose: {'Sí' if args.verbose else 'No'}")
+    print("Parametros recibidos:")
+    print(f"   - Target: {args.target}")
+    print(f"   - Timeout: {args.timeout} segundos")
+    print(f"   - Verbose: {'Si' if args.verbose else 'No'}")
     print()
     
     # Simular procesamiento
-    print(f"🔄 Procesando target: {args.target}")
-    print(f"⏱️  Timeout configurado: {args.timeout}s")
+    print(f"Procesando target: {args.target}")
+    print(f"Timeout configurado: {args.timeout}s")
     
     if args.verbose:
         print()
-        print("📊 Información Detallada (modo verbose):")
-        print(f"   • Tipo de target: {type(args.target).__name__}")
-        print(f"   • Tipo de timeout: {type(args.timeout).__name__}")
-        print(f"   • Longitud del target: {len(args.target)} caracteres")
+        print("Informacion detallada (modo verbose):")
+        print(f"   - Tipo de target: {type(args.target).__name__}")
+        print(f"   - Tipo de timeout: {type(args.timeout).__name__}")
+        print(f"   - Longitud del target: {len(args.target)} caracteres")
     
     print()
-    print("✅ Procesamiento completado exitosamente")
+    print("[OK] Procesamiento completado exitosamente")
     print("=" * 60)
     
     # Retornar código de éxito
